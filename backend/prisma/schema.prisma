@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  sessions  Session[]
+  createdAt DateTime  @default(now())
+}
+
+model Session {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  title     String?
+  files     File[]
+  messages  Message[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model File {
+  id         String   @id @default(uuid())
+  userId     String
+  sessionId  String
+  session    Session  @relation(fields: [sessionId], references: [id])
+  filename   String
+  fileType   String
+  filePath   String
+  fileSize   Int
+  metadata   Json?
+  createdAt  DateTime @default(now())
+}
+
+model Message {
+  id               String   @id @default(uuid())
+  sessionId        String
+  session          Session  @relation(fields: [sessionId], references: [id])
+  role             String   // 'user' or 'assistant'
+  content          String   @db.Text
+  code             String?  @db.Text
+  result           Json?
+  visualizationUrl String?
+  createdAt        DateTime @default(now())
+}

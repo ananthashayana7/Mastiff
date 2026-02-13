@@ -1,0 +1,75 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Beagle AI | Pro Data Synthesis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --beagle-red: #E50914;
+        --beagle-dark: #0f0f0f;
+        --beagle-card: #181818;
+      }
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: var(--beagle-dark);
+        color: #ffffff;
+        background-image: 
+          radial-gradient(circle at 2px 2px, rgba(255,255,255,0.02) 1px, transparent 0);
+        background-size: 40px 40px;
+        overflow: hidden;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 5px;
+        height: 5px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 10px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: var(--beagle-red);
+      }
+      @keyframes glass-shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+      .shimmer-mask {
+        mask-image: linear-gradient(60deg, black 30%, rgba(0,0,0,0.5) 50%, black 70%);
+        mask-size: 200% 100%;
+        animation: glass-shimmer 3s infinite;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "recharts": "https://esm.sh/recharts@^3.7.0",
+    "html2canvas": "https://esm.sh/html2canvas@^1.4.1",
+    "qrcode": "https://esm.sh/qrcode@^1.5.3",
+    "xlsx": "https://esm.sh/xlsx@0.18.5",
+    "mammoth": "https://esm.sh/mammoth@1.6.0",
+    "pdfjs-dist": "https://esm.sh/pdfjs-dist@4.4.168",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="index.tsx"></script>
+  </body>
+</html>

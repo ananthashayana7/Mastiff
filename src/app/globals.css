@@ -1,0 +1,392 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 229, 229, 229;
+  --background-start-rgb: 10, 10, 10;
+  --background-end-rgb: 10, 10, 10;
+  --accent: #E50914;
+  --accent-glow: rgba(229, 9, 20, 0.15);
+  --surface: #141414;
+  --surface-hover: #1a1a1a;
+  --border: #1f1f1f;
+  --border-hover: #2a2a2a;
+  --text-primary: #f5f5f5;
+  --text-secondary: #a1a1a1;
+  --text-muted: #555;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-start-rgb));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* === Premium Scrollbar === */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #222;
+  border-radius: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #333;
+}
+
+/* === Glassmorphism === */
+.glass {
+  background: rgba(20, 20, 20, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.glass-hover:hover {
+  background: rgba(30, 30, 30, 0.8);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* === Glow Effects === */
+.glow-accent {
+  box-shadow: 0 0 20px rgba(229, 9, 20, 0.15), 0 0 60px rgba(229, 9, 20, 0.05);
+}
+
+.glow-accent-strong {
+  box-shadow: 0 0 30px rgba(229, 9, 20, 0.3), 0 0 80px rgba(229, 9, 20, 0.1);
+}
+
+/* === Animations === */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+@keyframes neural-scan {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pulse-accent {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes typing-dot {
+
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite linear;
+}
+
+.animate-neural-scan {
+  animation: neural-scan 1.5s infinite ease-in-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out forwards;
+}
+
+.animate-slide-right {
+  animation: slide-in-right 0.3s ease-out forwards;
+}
+
+.animate-slide-left {
+  animation: slide-in-left 0.3s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out forwards;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+/* Typing indicator dots */
+.typing-dot {
+  animation: typing-dot 1.4s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* === Markdown Rendering in Chat === */
+.markdown-body h1 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin: 1rem 0 0.5rem;
+  color: #fff;
+}
+
+.markdown-body h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0.8rem 0 0.4rem;
+  color: #fff;
+}
+
+.markdown-body h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0.6rem 0 0.3rem;
+  color: #f5f5f5;
+}
+
+.markdown-body p {
+  margin: 0.3rem 0;
+  line-height: 1.65;
+}
+
+.markdown-body strong {
+  color: #fff;
+  font-weight: 700;
+}
+
+.markdown-body em {
+  color: #ccc;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 1.2rem;
+  margin: 0.3rem 0;
+}
+
+.markdown-body li {
+  margin: 0.15rem 0;
+  line-height: 1.6;
+}
+
+.markdown-body li::marker {
+  color: #E50914;
+}
+
+.markdown-body code {
+  background: rgba(229, 9, 20, 0.08);
+  color: #ff6b6b;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.markdown-body pre {
+  background: #0a0a0a;
+  border: 1px solid #1f1f1f;
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+.markdown-body pre code {
+  background: none;
+  color: #a8e6a3;
+  padding: 0;
+  font-size: 0.78em;
+  line-height: 1.6;
+}
+
+.markdown-body blockquote {
+  border-left: 3px solid #E50914;
+  padding-left: 0.8rem;
+  margin: 0.5rem 0;
+  color: #888;
+}
+
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 0.85em;
+}
+
+.markdown-body th {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #333;
+  color: #aaa;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.75em;
+  letter-spacing: 0.05em;
+}
+
+.markdown-body td {
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid #1a1a1a;
+  color: #ccc;
+}
+
+.markdown-body a {
+  color: #E50914;
+  text-decoration: none;
+}
+
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid #222;
+  margin: 0.8rem 0;
+}
+
+/* === Drag & Drop Zone === */
+.drop-zone {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.drop-zone.drop-active {
+  background: rgba(229, 9, 20, 0.03);
+}
+
+.drop-zone.drop-active::after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border: 2px dashed rgba(229, 9, 20, 0.4);
+  border-radius: 16px;
+  pointer-events: none;
+  z-index: 100;
+  animation: pulse-accent 1.5s ease-in-out infinite;
+}
+
+/* === Focus Styles === */
+textarea:focus,
+input:focus {
+  outline: none;
+}

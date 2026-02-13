@@ -1,0 +1,7 @@
+{
+  "name": "Beagle",
+  "description": "A conversational AI data analysis platform that helps you visualize, clean, and extract insights from your data using natural language.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
