@@ -11,9 +11,11 @@ import { sessionManager } from '@/src/services/sessionManager';
 import { TemplateService } from '@/src/services/templateService';
 import { NotebookService } from '@/src/services/notebookService';
 import { ConnectorService } from '@/src/services/connectorService';
+import websocketService, { WebSocketMessageType } from '@/src/services/websocketService';
 import { rateLimiter } from '@/src/lib/rateLimiting';
 import { validateInput } from '@/src/lib/validation';
 import { z } from 'zod';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Execute template schema
@@ -84,15 +86,28 @@ export async function POST(
         }
 
         const startTime = Date.now();
+        const executionId = uuidv4();
         let outputs: any = {};
         let error: string | null = null;
 
+        // Notify execution start
+        websocketService.notifyExecutionStart(executionId, 'template', {
+            templateId: params.id,
+            userId: session.userId,
+        });
+
         try {
-            // Execute template steps
-            outputs = await executeTemplateSteps(template, inputs, session.userId);
+            // Execute template steps with real-time updates
+            outputs = await executeTemplateStepsWithRealtime(
+                template,
+                inputs,
+                session.userId,
+                executionId
+            );
         } catch (err: any) {
             error = err.message || 'Execution failed';
             console.error('Template execution error:', err);
+            websocketService.notifyExecutionError(executionId, error, Date.now() - startTime);
         }
 
         const executionTimeMs = Date.now() - startTime;
@@ -107,11 +122,17 @@ export async function POST(
             executionTimeMs
         );
 
+        // Notify completion
+        if (!error) {
+            websocketService.notifyExecutionComplete(executionId, executionTimeMs, outputs);
+        }
+
         if (error) {
             return NextResponse.json({
                 success: false,
                 error,
                 inputs,
+                executionId,
                 executionTimeMs,
             }, { status: 400 });
         }
@@ -120,6 +141,7 @@ export async function POST(
             success: true,
             outputs,
             inputs,
+            executionId,
             executionTimeMs,
         });
     } catch (error: any) {
@@ -194,6 +216,145 @@ export async function GET(
             { status: 500 }
         );
     }
+}
+
+/**
+ * Helper function to execute template steps with real-time updates
+ */
+async function executeTemplateStepsWithRealtime(
+    template: any,
+    inputs: any,
+    userId: string,
+    executionId: string
+): Promise<any> {
+    const outputs: any = {};
+    const executionContext = { ...inputs };
+
+    for (const step of template.steps || []) {
+        const stepStartTime = Date.now();
+        
+        try {
+            websocketService.notifyStepStart(executionId, step.id, step.description || step.id);
+
+            switch (step.type) {
+                case 'query': {
+                    // Execute connector query
+                    const connector = await ConnectorService.getConnector(step.connectorId, userId);
+                    if (!connector) {
+                        throw new Error(`Connector not found: ${step.connectorId}`);
+                    }
+
+                    const query = interpolateQuery(step.query, executionContext);
+                    const result = await connector.executeQuery(query);
+                    
+                    const stepOutputs = step.outputs || [`output_${step.id}`];
+                    outputs[stepOutputs[0]] = result;
+                    Object.assign(executionContext, { [stepOutputs[0]]: result });
+
+                    websocketService.notifyStepComplete(
+                        executionId,
+                        step.id,
+                        Date.now() - stepStartTime,
+                        { rowsAffected: Array.isArray(result) ? result.length : 0 }
+                    );
+                    break;
+                }
+
+                case 'notebook': {
+                    // Execute notebook cells
+                    if (step.code) {
+                        const notebook = await NotebookService.createNotebookFromCode(
+                            userId,
+                            {
+                                name: `template_${template.id}_${step.id}`,
+                                description: step.description,
+                            },
+                            step.code
+                        );
+
+                        const result = await NotebookService.executeCell(
+                            notebook.id,
+                            0,
+                            step.code,
+                            executionContext
+                        );
+
+                        const stepOutputs = step.outputs || [`output_${step.id}`];
+                        outputs[stepOutputs[0]] = result;
+                        Object.assign(executionContext, { [stepOutputs[0]]: result });
+
+                        websocketService.notifyStepComplete(
+                            executionId,
+                            step.id,
+                            Date.now() - stepStartTime,
+                            { cellsExecuted: 1 }
+                        );
+                    }
+                    break;
+                }
+
+                case 'transformation': {
+                    // Data transformation (in Python)
+                    if (step.code) {
+                        const notebook = await NotebookService.createNotebookFromCode(
+                            userId,
+                            {
+                                name: `transform_${template.id}_${step.id}`,
+                                description: step.description,
+                            },
+                            step.code
+                        );
+
+                        const result = await NotebookService.executeCell(
+                            notebook.id,
+                            0,
+                            step.code,
+                            executionContext
+                        );
+
+                        const stepOutputs = step.outputs || [`output_${step.id}`];
+                        outputs[stepOutputs[0]] = result;
+                        Object.assign(executionContext, { [stepOutputs[0]]: result });
+
+                        websocketService.notifyStepComplete(
+                            executionId,
+                            step.id,
+                            Date.now() - stepStartTime,
+                            { recordsTransformed: Array.isArray(result) ? result.length : 0 }
+                        );
+                    }
+                    break;
+                }
+
+                case 'visualization': {
+                    // Visualization step (returns chart config)
+                    if (step.code) {
+                        const chart = JSON.parse(interpolateQuery(step.code, executionContext));
+                        const stepOutputs = step.outputs || [`visualization_${step.id}`];
+                        outputs[stepOutputs[0]] = chart;
+                        Object.assign(executionContext, { [stepOutputs[0]]: chart });
+
+                        websocketService.notifyStepComplete(
+                            executionId,
+                            step.id,
+                            Date.now() - stepStartTime,
+                            { chartType: chart.type }
+                        );
+                    }
+                    break;
+                }
+            }
+        } catch (stepError: any) {
+            websocketService.notifyStepError(
+                executionId,
+                step.id,
+                stepError.message || 'Step failed'
+            );
+            throw stepError;
+        }
+    }
+
+    return outputs;
 }
 
 /**
