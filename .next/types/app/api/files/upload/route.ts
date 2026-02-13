@@ -1,4 +1,4 @@
-// File: C:\Netflix\Mastiff\src\app\api\files\upload\route.ts
+// File: /workspaces/Mastiff/src/app/api/files/upload/route.ts
 import * as entry from '../../../../../../src/app/api/files/upload/route.js'
 import type { NextRequest } from 'next/server.js'
 

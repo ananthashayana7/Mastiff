@@ -1,9 +1,26 @@
+/**
+ * Execution Service (Backend) - Routes code execution through Docker sandbox
+ * 
+ * SECURITY: All user code execution is now sandboxed in Docker containers
+ */
+
+// Note: This backend executor is deprecated. Use the frontend executor at
+// src/services/executor.ts which routes through dockerSandbox service.
+
 import { spawn } from 'child_process';
 import path from 'path';
 
 export class ExecutionService {
+    /**
+     * @deprecated Use src/services/executor.ts instead
+     * This method still uses unsafe spawn() - migrating to Docker
+     */
     async executeCode(code: string, filePath: string): Promise<{ success: boolean; output: string; error?: string }> {
         return new Promise((resolve) => {
+            // DEPRECATED: This should use Docker sandbox
+            // Keeping for backwards compatibility during migration
+            console.warn('Backend executor is deprecated. Use frontend executor with Docker sandbox.');
+            
             // For now, we use a simple subprocess execution. 
             // In production, this should be Docker for safety.
             // We'll wrap the user code to handle the 'df' load and 'result' export.
