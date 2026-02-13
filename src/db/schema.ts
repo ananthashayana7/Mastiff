@@ -58,3 +58,26 @@ export const filesRelations = relations(files, ({ one }) => ({
 export const messagesRelations = relations(messages, ({ one }) => ({
     session: one(sessions, { fields: [messages.sessionId], references: [sessions.id] }),
 }));
+
+// Encrypted credentials storage (API keys, tokens, etc.)
+export const credentials = pgTable("credentials", {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").references(() => users.id),
+    name: varchar("name", { length: 255 }).notNull(), // e.g., 'GEMINI_API_KEY'
+    encryptedValue: text("encrypted_value").notNull(), // JSON-stringified EncryptedData
+    credentialType: varchar("credential_type", { length: 50 }).notNull(), // 'api_key', 'token', etc.
+    description: text("description"), // Optional description
+    expiresAt: timestamp("expires_at"), // Optional expiration
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const credentialsRelations = relations(credentials, ({ one }) => ({
+    user: one(users, { fields: [credentials.userId], references: [users.id] }),
+}));
+
+// Add credentials relation to users
+export const usersRelationsUpdated = relations(users, ({ many }) => ({
+    sessions: many(sessions),
+    credentials: many(credentials),
+}));
