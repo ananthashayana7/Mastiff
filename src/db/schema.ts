@@ -6,6 +6,13 @@ export const users = pgTable("users", {
     email: varchar("email", { length: 255 }).unique().notNull(),
     name: varchar("name", { length: 255 }),
     passwordHash: text("password_hash"),
+    
+    // 2FA fields
+    totpEnabled: boolean("totp_enabled").default(false),
+    totpSecret: text("totp_secret"), // Encrypted TOTP secret
+    backupCodes: text("backup_codes"), // JSON array of hashed backup codes
+    totpVerifiedAt: timestamp("totp_verified_at"), // When 2FA was last verified
+    
     createdAt: timestamp("created_at").defaultNow(),
 });
 

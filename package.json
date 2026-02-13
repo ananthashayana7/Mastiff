@@ -15,7 +15,6 @@
     "@google/genai": "^1.40.0",
     "@types/uuid": "^10.0.0",
     "bcryptjs": "^3.0.3",
-    "dockerode": "^4.0.2",
     "dockerode": "^4.0.9",
     "drizzle-orm": "^0.33.0",
     "html2canvas": "^1.4.1",
@@ -26,9 +25,11 @@
     "next": "15.1.0",
     "pdfjs-dist": "4.4.168",
     "pg": "^8.18.0",
+    "qrcode": "^1.5.4",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "recharts": "^3.7.0",
+    "speakeasy": "^2.0.0",
     "xlsx": "0.18.5"
   },
   "devDependencies": {
