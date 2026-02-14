@@ -1,0 +1,87 @@
+name: CI — Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Run unit & integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --silent
+
+      - name: Type-check (tsc)
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Run tests (vitest)
+        env:
+          CI: true
+        run: npm test --if-present
+
+  e2e:
+    name: E2E — Postgres + tests
+    runs-on: ubuntu-latest
+    needs: test
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm ci --silent
+
+      - name: Wait for Postgres
+        run: |
+          for i in $(seq 1 30); do
+            pg_isready -h localhost -p 5432 -U postgres && break
+            sleep 1
+          done
+
+      - name: Push DB schema
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: npm run db:push
+
+      - name: Seed test DB
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: |
+          ID=$(node scripts/seed_test_db.js)
+          echo "SYSTEM_USER_ID=$ID" >> $GITHUB_ENV
+
+      - name: Run e2e tests
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+          SYSTEM_USER_ID: ${{ env.SYSTEM_USER_ID }}
+        run: npm test -- test/execute.integration.test.ts --if-present

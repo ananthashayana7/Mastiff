@@ -174,3 +174,69 @@ export async function POST(request: NextRequest) {
         );
     }
 }
+
+/**
+ * PUT /api/templates - Update template
+ */
+export async function PUT(request: NextRequest) {
+    try {
+        const clientId = request.ip || 'unknown';
+        await rateLimiter.checkLimit('template:update', clientId, 100, 3600);
+
+        const sessionToken = request.cookies.get('session')?.value;
+        if (!sessionToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+        const session = await sessionManager.getSession(sessionToken);
+        if (!session || !session.userId) return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+
+        const body = await request.json();
+        const templateId = body.id;
+        const updates = body.updates;
+        if (!templateId || !updates) return NextResponse.json({ error: 'Missing id or updates' }, { status: 400 });
+
+        const existing = await TemplateService.getTemplate(templateId);
+        if (!existing) return NextResponse.json({ error: 'Template not found' }, { status: 404 });
+        if (existing.userId !== session.userId && !session.isAdmin) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        const updated = await TemplateService.updateTemplate(templateId, updates);
+
+        return NextResponse.json({ success: true, template: updated });
+    } catch (error: any) {
+        console.error('Error updating template:', error);
+        return NextResponse.json({ error: error.message || 'Failed to update template' }, { status: 500 });
+    }
+}
+
+/**
+ * DELETE /api/templates - Delete template
+ */
+export async function DELETE(request: NextRequest) {
+    try {
+        const clientId = request.ip || 'unknown';
+        await rateLimiter.checkLimit('template:delete', clientId, 50, 3600);
+
+        const sessionToken = request.cookies.get('session')?.value;
+        if (!sessionToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+        const session = await sessionManager.getSession(sessionToken);
+        if (!session || !session.userId) return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+
+        const templateId = request.nextUrl.searchParams.get('id') || (await request.json()).id;
+        if (!templateId) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+
+        const existing = await TemplateService.getTemplate(templateId);
+        if (!existing) return NextResponse.json({ error: 'Template not found' }, { status: 404 });
+        if (existing.userId !== session.userId && !session.isAdmin) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        await TemplateService.deleteTemplate(templateId);
+
+        return NextResponse.json({ success: true });
+    } catch (error: any) {
+        console.error('Error deleting template:', error);
+        return NextResponse.json({ error: error.message || 'Failed to delete template' }, { status: 500 });
+    }
+}

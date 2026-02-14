@@ -451,6 +451,129 @@ export class TemplateService {
             return 0;
         }
     }
+
+    /**
+     * Get scheduled report counts for a list of template IDs
+     */
+    static async getScheduledReportCounts(templateIds: string[]): Promise<Record<string, number>> {
+        const map: Record<string, number> = {};
+        try {
+            for (const id of templateIds) {
+                try {
+                    const cnt = await db.$count('scheduled_reports', `template_id = '${id}'` as any);
+                    map[id] = cnt || 0;
+                } catch (e) {
+                    map[id] = 0;
+                }
+            }
+        } catch (err) {
+            // ignore
+        }
+        return map;
+    }
+
+    /**
+     * Seed a set of system templates for a given system user.
+     * Requires `SYSTEM_USER_ID` env variable to be set or a valid userId passed.
+     */
+    static async seedSystemTemplates(systemUserId: string): Promise<void> {
+        try {
+            const systemTemplates = [
+                {
+                    name: 'Quick Data Summary',
+                    description: 'Automatically generate a short summary and basic stats for a dataset.',
+                    category: 'summary',
+                    inputs: [
+                        { name: 'table', type: 'string', required: true, description: 'Table name or dataset identifier' },
+                        { name: 'limit', type: 'number', required: false, description: 'Rows to sample', default: 100 },
+                    ],
+                    steps: [
+                        { id: 'q_sample', type: 'query', connectorId: null, query: 'SELECT * FROM ${table} LIMIT ${limit}', outputs: ['sample_rows'] },
+                        { id: 'describe', type: 'notebook', code: '# python\n# compute descriptive stats', outputs: ['summary'] },
+                        { id: 'top_columns', type: 'transformation', code: '# identify top columns', outputs: ['top_columns'] },
+                    ],
+                    outputs: ['sample_rows', 'summary', 'top_columns'],
+                    tags: 'summary,overview',
+                    isPublic: true,
+                },
+                {
+                    name: 'Time Series Forecast (Simple)',
+                    description: 'Run a basic time series forecast using available numeric series.',
+                    category: 'forecasting',
+                    inputs: [
+                        { name: 'table', type: 'string', required: true },
+                        { name: 'date_column', type: 'string', required: true },
+                        { name: 'value_column', type: 'string', required: true },
+                        { name: 'horizon', type: 'number', required: false, default: 14 },
+                    ],
+                    steps: [
+                        { id: 'q_ts', type: 'query', connectorId: null, query: 'SELECT ${date_column} as dt, ${value_column} as val FROM ${table} ORDER BY ${date_column}', outputs: ['series'] },
+                        { id: 'prep', type: 'notebook', code: '# prepare series', outputs: ['prepared'] },
+                        { id: 'forecast', type: 'notebook', code: '# simple forecast using ARIMA/Prophet', outputs: ['forecast'] },
+                        { id: 'plot', type: 'visualization', code: '{"type":"line","data":"${forecast}"}', outputs: ['chart'] },
+                    ],
+                    outputs: ['series', 'forecast', 'chart'],
+                    tags: 'forecasting,time-series',
+                    isPublic: true,
+                },
+                {
+                    name: 'Customer Segmentation (KMeans)',
+                    description: 'Run KMeans clustering on customer features and produce segment summaries.',
+                    category: 'segmentation',
+                    inputs: [
+                        { name: 'table', type: 'string', required: true },
+                        { name: 'feature_columns', type: 'multiselect', required: true },
+                        { name: 'k', type: 'number', required: false, default: 4 },
+                    ],
+                    steps: [
+                        { id: 'q_features', type: 'query', connectorId: null, query: 'SELECT ${feature_columns} FROM ${table}', outputs: ['features'] },
+                        { id: 'cluster', type: 'notebook', code: '# run kmeans clustering', outputs: ['clusters'] },
+                        { id: 'summary', type: 'transformation', code: '# aggregate cluster summaries', outputs: ['cluster_summary'] },
+                    ],
+                    outputs: ['clusters', 'cluster_summary'],
+                    tags: 'clustering,segmentation',
+                    isPublic: true,
+                },
+                {
+                    name: 'Anomaly Detection (Z-Score)',
+                    description: 'Detect anomalies in numeric series using z-score thresholds.',
+                    category: 'anomaly',
+                    inputs: [
+                        { name: 'table', type: 'string', required: true },
+                        { name: 'value_column', type: 'string', required: true },
+                        { name: 'threshold', type: 'number', required: false, default: 3 },
+                    ],
+                    steps: [
+                        { id: 'q_series', type: 'query', connectorId: null, query: 'SELECT * FROM ${table}', outputs: ['series'] },
+                        { id: 'anomaly', type: 'notebook', code: '# z-score detection', outputs: ['anomalies'] },
+                    ],
+                    outputs: ['anomalies'],
+                    tags: 'anomaly,monitoring',
+                    isPublic: true,
+                },
+            ];
+
+            for (const t of systemTemplates) {
+                const existing = await db.query.templates.findFirst({ where: and(eq(templates.name, t.name), eq(templates.userId, systemUserId)) });
+                if (!existing) {
+                    await this.createTemplate(systemUserId, {
+                        userId: systemUserId,
+                        name: t.name,
+                        description: t.description,
+                        category: t.category,
+                        inputs: t.inputs || [],
+                        steps: t.steps,
+                        outputs: t.outputs || [],
+                        tags: t.tags || '',
+                        isPublic: true,
+                    });
+                    console.log(`[TemplateService] Seeded system template: ${t.name}`);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to seed system templates:', err);
+        }
+    }
 }
 
 export default TemplateService;

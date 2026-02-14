@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import startServerInit from '@/src/lib/serverInit';
+
+// Start background server initialization (schedules, seeds)
+startServerInit();
 
 const inter = Inter({
     subsets: ["latin"],
