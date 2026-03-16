@@ -183,7 +183,7 @@ export const performanceRecommendations = pgTable(
   "performance_recommendations",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    organization_id: uuid("organization_id),
+    organization_id: uuid("organization_id"),
     workspace_id: uuid("workspace_id"),
     
     // Recommendation Details

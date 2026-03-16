@@ -274,7 +274,7 @@ export const permissionAuditTable = pgTable(
         reason: text('reason'),
 
         // Impact
-        affectedUsers: text('affected_users') // CSV or JSON of affected users
+        affectedUsers: text('affected_users'), // CSV or JSON of affected users
 
         // Audit
         createdAt: timestamp('created_at').notNull().defaultNow(),
