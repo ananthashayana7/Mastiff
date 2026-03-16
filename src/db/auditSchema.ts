@@ -72,7 +72,7 @@ export const auditLog = {
 
             await db.insert(auditLogs).values({
                 ...data,
-                details: data.details ? jsonb${data.details}` : null,
+                details: data.details ?? null,
             });
         } catch (err) {
             console.error('Failed to log audit entry:', err);
