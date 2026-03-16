@@ -1,10 +1,11 @@
 /**
  * Session Management Service
- * 
+ *
  * Handles user session lifecycle, token management, and validation
  */
 
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 
 export interface Session {
     id: string;
@@ -17,34 +18,33 @@ export interface Session {
     userAgent?: string;
 }
 
+export interface SessionRecord extends Session {
+    isAdmin?: boolean;
+}
+
 const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
-const INACTIVITY_TIMEOUT = 1 * 60 * 60 * 1000; // 1 hour
+const INACTIVITY_TIMEOUT = 60 * 60 * 1000; // 1 hour
 
 export class SessionManager {
     /**
-     * Create a new session
+     * Create a new random session token.
      */
     static generateSessionToken(): string {
         return crypto.randomBytes(32).toString('hex');
     }
 
     /**
-     * Create session in database
+     * Create session metadata.
      */
     static async createSession(
         userId: string,
         ipAddress?: string,
         userAgent?: string
-    ): Promise<Session> {
-        const { db } = await import('@/db/index');
-
+    ): Promise<SessionRecord> {
         const token = this.generateSessionToken();
         const now = new Date();
         const expiresAt = new Date(now.getTime() + SESSION_DURATION);
 
-        // Note: You'd need to add sessions table to schema
-        // For now, this is a placeholder implementation
-        
         return {
             id: crypto.randomUUID(),
             userId,
@@ -54,44 +54,83 @@ export class SessionManager {
             lastActivityAt: now,
             ipAddress,
             userAgent,
+            isAdmin: false,
         };
     }
 
     /**
-     * Validate and refresh session
+     * Validate session token and return normalized session info.
      */
-    static async validateSession(token: string): Promise<Session | null> {
+    static async validateSession(token: string): Promise<SessionRecord | null> {
         try {
-            // Get from database/cache
-            // Check expiration
-            // Check inactivity timeout
-            // Refresh lastActivityAt
-            return null;
+            if (!token) return null;
+
+            const secret = process.env.JWT_SECRET || 'mastiff-ai-secret-key-change-in-production';
+            const payload = jwt.verify(token, secret) as {
+                userId?: string;
+                id?: string;
+                sub?: string;
+                exp?: number;
+                iat?: number;
+                isAdmin?: boolean;
+            };
+
+            const userId = payload.userId || payload.id || payload.sub;
+            if (!userId) return null;
+
+            const now = new Date();
+            const createdAt = payload.iat ? new Date(payload.iat * 1000) : now;
+            const expiresAt = payload.exp
+                ? new Date(payload.exp * 1000)
+                : new Date(createdAt.getTime() + SESSION_DURATION);
+
+            if (expiresAt.getTime() <= now.getTime()) {
+                return null;
+            }
+
+            if (now.getTime() - createdAt.getTime() > INACTIVITY_TIMEOUT && payload.exp === undefined) {
+                return null;
+            }
+
+            return {
+                id: `${userId}:${Math.floor(createdAt.getTime() / 1000)}`,
+                userId,
+                token,
+                expiresAt,
+                createdAt,
+                lastActivityAt: now,
+                isAdmin: Boolean(payload.isAdmin),
+            };
         } catch (err) {
-            console.error('Session validation error:', err);
             return null;
         }
     }
 
-    /**
-     * Invalidate session (logout)
-     */
-    static async invalidateSession(sessionId: string): Promise<void> {
-        // Delete from database
+    static async getSession(token: string): Promise<SessionRecord | null> {
+        return this.validateSession(token);
     }
 
-    /**
-     * Invalidate all sessions for user (logout all devices)
-     */
-    static async invalidateAllSessions(userId: string): Promise<void> {
-        // Delete all sessions for user
+    static async invalidateSession(_sessionId: string): Promise<void> {
+        // Placeholder for persistent store invalidation.
     }
 
-    /**
-     * Cleanup expired sessions
-     */
+    static async invalidateAllSessions(_userId: string): Promise<void> {
+        // Placeholder for persistent store invalidation.
+    }
+
     static async cleanupExpiredSessions(): Promise<number> {
-        // Delete expired sessions
         return 0;
     }
 }
+
+// Compatibility singleton used by route handlers that import `sessionManager`.
+export const sessionManager = {
+    getSession: (token: string) => SessionManager.getSession(token),
+    createSession: (userId: string, ipAddress?: string, userAgent?: string) =>
+        SessionManager.createSession(userId, ipAddress, userAgent),
+    invalidateSession: (sessionId: string) => SessionManager.invalidateSession(sessionId),
+    invalidateAllSessions: (userId: string) => SessionManager.invalidateAllSessions(userId),
+    cleanupExpiredSessions: () => SessionManager.cleanupExpiredSessions(),
+};
+
+export default SessionManager;

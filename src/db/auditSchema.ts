@@ -4,7 +4,7 @@
  * Tables and functions for comprehensive audit logging
  */
 
-import { pgTable, uuid, text, varchar, timestamp, integer, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, varchar, timestamp, integer, jsonb, boolean } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 /**
@@ -72,7 +72,7 @@ export const auditLog = {
 
             await db.insert(auditLogs).values({
                 ...data,
-                details: data.details ? jsonb${data.details}` : null,
+                details: data.details ?? null,
             });
         } catch (err) {
             console.error('Failed to log audit entry:', err);
@@ -107,7 +107,7 @@ export const auditLog = {
     async getUserLogs(userId: string, limit = 100): Promise<any[]> {
         try {
             const { db } = await import('@/db/index');
-            const { eq } = await import('drizzle-orm');
+            const { eq, desc } = await import('drizzle-orm');
 
             const logs = await db
                 .select()

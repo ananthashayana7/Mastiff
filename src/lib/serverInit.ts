@@ -40,35 +40,3 @@ export function startServerInit() {
 }
 
 export default startServerInit;
-import ScheduledReportService from '@/src/services/scheduledReportService';
-import { seedPreBuiltTemplates } from '@/src/services/preBuiltTemplates';
-import db from '@/src/db';
-
-// Run server initialization tasks once when module is imported
-(async function serverInit() {
-    try {
-        console.log('[serverInit] Starting server initialization tasks...');
-
-        // Initialize scheduled reports
-        try {
-            await ScheduledReportService.initializeScheduledReports();
-            console.log('[serverInit] Scheduled reports initialized');
-        } catch (err) {
-            console.error('[serverInit] Failed to initialize scheduled reports:', err);
-        }
-
-        // Seed pre-built templates (idempotent)
-        try {
-            await seedPreBuiltTemplates(db);
-            console.log('[serverInit] Pre-built templates seeded');
-        } catch (err) {
-            console.error('[serverInit] Failed to seed pre-built templates:', err);
-        }
-
-        console.log('[serverInit] Initialization complete');
-    } catch (err) {
-        console.error('[serverInit] Unexpected initialization error:', err);
-    }
-})();
-
-export {};

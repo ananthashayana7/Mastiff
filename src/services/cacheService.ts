@@ -251,4 +251,27 @@ class RedisCacheService {
 // Export singleton instance
 export const cacheService = new RedisCacheService();
 
+/**
+ * Legacy service-style API expected by health and route handlers.
+ */
+export const CacheService = {
+    async healthCheck(): Promise<boolean> {
+        try {
+            const key = '__cache_health_check__';
+            await cacheService.set(key, { ok: true }, { ttl: 10 });
+            await cacheService.get(key);
+            return true;
+        } catch {
+            return false;
+        }
+    },
+
+    get: <T = any>(key: string) => cacheService.get<T>(key),
+    set: <T = any>(key: string, value: T, options?: { ttl?: number; tags?: string[] }) =>
+        cacheService.set(key, value, options),
+    delete: (key: string) => cacheService.delete(key),
+    flush: () => cacheService.flush(),
+    getStats: () => cacheService.getStats(),
+};
+
 export default RedisCacheService;

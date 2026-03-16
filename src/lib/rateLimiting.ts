@@ -7,61 +7,95 @@
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 
-const redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL || '',
-    token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
-});
+const hasUpstashConfig = Boolean(
+    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+);
+
+const redis = hasUpstashConfig
+    ? new Redis({
+          url: process.env.UPSTASH_REDIS_REST_URL as string,
+          token: process.env.UPSTASH_REDIS_REST_TOKEN as string,
+      })
+    : null;
+
+const memoryCounters = new Map<string, { count: number; resetAt: number }>();
+
+function checkMemoryLimit(
+    key: string,
+    maxRequests: number,
+    windowMs: number
+): { success: boolean; remaining: number; reset: number } {
+    const now = Date.now();
+    const current = memoryCounters.get(key);
+
+    if (!current || now > current.resetAt) {
+        const reset = now + windowMs;
+        memoryCounters.set(key, { count: 1, resetAt: reset });
+        return {
+            success: true,
+            remaining: Math.max(maxRequests - 1, 0),
+            reset,
+        };
+    }
+
+    current.count += 1;
+    memoryCounters.set(key, current);
+
+    return {
+        success: current.count <= maxRequests,
+        remaining: Math.max(maxRequests - current.count, 0),
+        reset: current.resetAt,
+    };
+}
+
+function createLimiter(maxRequests: number, window: string, prefix: string): Ratelimit | null {
+    if (!redis) return null;
+
+    return new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(maxRequests, window),
+        analytics: true,
+        prefix,
+    });
+}
 
 // Rate limit configurations
 export const rateLimits = {
     // Authentication endpoints
-    login: new Ratelimit({
-        redis,
-        limiter: Ratelimit.slidingWindow(5, '15 m'), // 5 attempts per 15 minutes
-        analytics: true,
-        prefix: 'ratelimit:login',
-    }),
+    login: createLimiter(5, '15 m', 'ratelimit:login'),
 
-    signup: new Ratelimit({
-        redis,
-        limiter: Ratelimit.slidingWindow(3, '1 h'), // 3 signups per hour per IP
-        analytics: true,
-        prefix: 'ratelimit:signup',
-    }),
+    signup: createLimiter(3, '1 h', 'ratelimit:signup'),
 
     // API endpoints
-    apiCall: new Ratelimit({
-        redis,
-        limiter: Ratelimit.slidingWindow(100, '1 m'), // 100 requests per minute
-        analytics: true,
-        prefix: 'ratelimit:api',
-    }),
+    apiCall: createLimiter(100, '1 m', 'ratelimit:api'),
 
     // Code execution
-    codeExecution: new Ratelimit({
-        redis,
-        limiter: Ratelimit.slidingWindow(10, '1 m'), // 10 executions per minute
-        analytics: true,
-        prefix: 'ratelimit:code',
-    }),
+    codeExecution: createLimiter(10, '1 m', 'ratelimit:code'),
 
     // File upload
-    fileUpload: new Ratelimit({
-        redis,
-        limiter: Ratelimit.slidingWindow(5, '1 m'), // 5 uploads per minute
-        analytics: true,
-        prefix: 'ratelimit:upload',
-    }),
+    fileUpload: createLimiter(5, '1 m', 'ratelimit:upload'),
 };
 
 /**
  * Check rate limit
  */
 export async function checkRateLimit(
-    limiter: Ratelimit,
-    key: string
+    limiter: Ratelimit | null,
+    key: string,
+    maxRequests = 100,
+    windowMs = 60 * 1000
 ): Promise<{ success: boolean; remaining: number; resetTime?: Date }> {
     try {
+        if (!limiter) {
+            const result = checkMemoryLimit(key, maxRequests, windowMs);
+
+            return {
+                success: result.success,
+                remaining: result.remaining,
+                resetTime: new Date(result.reset),
+            };
+        }
+
         const result = await limiter.limit(key);
 
         return {
@@ -82,7 +116,7 @@ export async function checkRateLimit(
 export async function checkLoginRateLimit(
     email: string
 ): Promise<{ allowed: boolean; message?: string }> {
-    const result = await checkRateLimit(rateLimits.login, `login:${email}`);
+    const result = await checkRateLimit(rateLimits.login, `login:${email}`, 5, 15 * 60 * 1000);
 
     if (!result.success) {
         const minutesRemaining = Math.ceil(
@@ -103,7 +137,7 @@ export async function checkLoginRateLimit(
 export async function checkSignupRateLimit(
     ipAddress: string
 ): Promise<{ allowed: boolean; message?: string }> {
-    const result = await checkRateLimit(rateLimits.signup, `signup:${ipAddress}`);
+    const result = await checkRateLimit(rateLimits.signup, `signup:${ipAddress}`, 3, 60 * 60 * 1000);
 
     if (!result.success) {
         return {
@@ -121,7 +155,7 @@ export async function checkSignupRateLimit(
 export async function checkAPIRateLimit(
     userId: string
 ): Promise<{ allowed: boolean; message?: string }> {
-    const result = await checkRateLimit(rateLimits.apiCall, `api:${userId}`);
+    const result = await checkRateLimit(rateLimits.apiCall, `api:${userId}`, 100, 60 * 1000);
 
     if (!result.success) {
         return {
@@ -139,7 +173,7 @@ export async function checkAPIRateLimit(
 export async function checkCodeExecutionRateLimit(
     userId: string
 ): Promise<{ allowed: boolean; message?: string }> {
-    const result = await checkRateLimit(rateLimits.codeExecution, `code:${userId}`);
+    const result = await checkRateLimit(rateLimits.codeExecution, `code:${userId}`, 10, 60 * 1000);
 
     if (!result.success) {
         return {
@@ -150,3 +184,27 @@ export async function checkCodeExecutionRateLimit(
 
     return { allowed: true };
 }
+
+/**
+ * Legacy route helper expected by multiple API modules.
+ */
+export const rateLimiter = {
+    async checkLimit(
+        namespace: string,
+        clientId: string,
+        maxRequests: number,
+        windowSeconds: number
+    ): Promise<void> {
+        const key = `${namespace}:${clientId}`;
+        const result = await checkRateLimit(
+            rateLimits.apiCall,
+            key,
+            maxRequests,
+            windowSeconds * 1000
+        );
+
+        if (!result.success) {
+            throw new Error('Rate limit exceeded');
+        }
+    },
+};

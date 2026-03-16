@@ -255,10 +255,10 @@ This document tracks the alignment of the Mastiff codebase against the comprehen
 
 | Document | Status | Location | Gap | Priority |
 |--|--|--|--|--|
-| **README** | ✅ Partial | `/README.md` | Expand with setup instructions | P2 |
+| **README** | ✅ Partial | `/docs/readmes/README.md` | Expand with setup instructions | P2 |
 | **API Documentation** | ❌ No | Not found | Create Swagger/OpenAPI spec | P2 |
 | **Architecture Guide** | ❌ No | Not found | Document design decisions | P2 |
-| **Setup Guide** | ⚠️ Minimal | `/README.md` | Comprehensive setup steps | P1 |
+| **Setup Guide** | ⚠️ Minimal | `/docs/readmes/README.md` | Comprehensive setup steps | P1 |
 | **Deployment Guide** | ❌ No | Not found | Add prod deployment steps | P1 |
 | **Security Policy** | ❌ No | Not found | Add SECURITY.md | P1 |
 | **Contributing Guide** | ❌ No | Not found | Add CONTRIBUTING.md | P2 |

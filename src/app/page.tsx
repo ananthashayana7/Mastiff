@@ -7,7 +7,7 @@ import {
   Info, ChevronDown, Lock, Settings, TrendingUp, Trash2, Menu, Copy, Check, Zap, Loader2,
   FileText, FileSpreadsheet, File, Search, Globe, ExternalLink, LogOut
 } from 'lucide-react';
-import { DataFile, ChatMessage, AnalysisMode, User as UserType, AnalystPersona, Session } from '../types';
+import { DataFile, ChatMessage, AnalysisMode, User as UserType, AnalystPersona, Session, ConnectorSummary } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { ChatWindow } from '../components/ChatWindow';
 
@@ -25,6 +25,8 @@ const App: React.FC = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [files, setFiles] = useState<DataFile[]>([]);
   const [activeFileIds, setActiveFileIds] = useState<string[]>([]);
+  const [connectors, setConnectors] = useState<ConnectorSummary[]>([]);
+  const [isLoadingConnectors, setIsLoadingConnectors] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -57,6 +59,32 @@ const App: React.FC = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadConnectors = useCallback(async (userId: string) => {
+    setIsLoadingConnectors(true);
+    try {
+      const token = localStorage.getItem('mastiff_token');
+      const response = await fetch(`/api/connectors?userId=${encodeURIComponent(userId)}&limit=100`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          'x-user-id': userId,
+        },
+      });
+
+      if (!response.ok) {
+        setConnectors([]);
+        return;
+      }
+
+      const payload = await response.json();
+      setConnectors(Array.isArray(payload?.connectors) ? payload.connectors : []);
+    } catch (error) {
+      console.error('Failed to load connectors:', error);
+      setConnectors([]);
+    } finally {
+      setIsLoadingConnectors(false);
+    }
+  }, []);
 
   // ===== AUTH CHECK =====
   useEffect(() => {
@@ -133,9 +161,11 @@ const App: React.FC = () => {
         const session = allSessions.find((s: any) => s.id === sId);
         if (session) loadSessionData(session);
       }
+
+      await loadConnectors(currentUser.id);
     };
     initSession();
-  }, [currentUser]);
+  }, [currentUser, loadConnectors]);
 
   const loadSessionData = (session: any) => {
     if (session.messages?.length > 0) {
@@ -449,6 +479,7 @@ MANDATORY: Generate exactly ONE high-fidelity interactive chart (Plotly) with pr
     localStorage.removeItem('mastiff_token');
     localStorage.removeItem('mastiff_user');
     localStorage.removeItem('mastiff_session_id');
+    setConnectors([]);
     window.location.href = '/login';
   };
 
@@ -490,6 +521,9 @@ MANDATORY: Generate exactly ONE high-fidelity interactive chart (Plotly) with pr
       <Sidebar
         files={files}
         activeFileIds={activeFileIds}
+        connectors={connectors}
+        isLoadingConnectors={isLoadingConnectors}
+        onRefreshConnectors={() => currentUser && loadConnectors(currentUser.id)}
         isSidebarOpen={isSidebarOpen}
         currentUser={currentUser}
         onClose={() => setIsSidebarOpen(false)}

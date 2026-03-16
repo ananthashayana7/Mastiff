@@ -7,26 +7,29 @@ const MODE_CONFIGS: Record<AnalysisMode, {
     maxHistorySlice: number;
 }> = {
     chat: {
-        temperature: 0.5,
+        temperature: 0.35,
         promptPrefix: `MODE: CHAT
 - Answer clearly and directly.
 - For conceptual questions, give a pure theory answer.
-- If the user asks for analysis without data, provide an explicit assumption or a Python template.`,
+- If the user asks for analysis without data, provide an explicit assumption or a Python template.
+- Never invent data, percentages, or trends.`,
         maxHistorySlice: 10,
     },
     analysis: {
-        temperature: 0.2,
+        temperature: 0.15,
         promptPrefix: `MODE: ANALYSIS
 - Use deterministic, evidence-driven reasoning.
 - Never fabricate metrics or trends.
-- If visualization is requested, generate suitable plotting code.`,
+- If visualization is requested, generate suitable plotting code.
+- Validate data quality before producing executive insights.
+- Add uncertainty caveats when sample size or data quality is weak.`,
         maxHistorySlice: 8,
     },
 };
 
 const VISUALIZATION_HINTS = /(chart|plot|graph|visuali[sz]e|histogram|pie|bar|line|scatter|heatmap|dashboard)/i;
 
-const ANALYSIS_MODEL_CANDIDATES = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.0-flash-lite'];
+const ANALYSIS_MODEL_CANDIDATES = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 const SUMMARY_MODEL_CANDIDATES = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 const CHAT_MODEL_CANDIDATES = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 
@@ -136,6 +139,8 @@ INSTRUCTIONS:
 - Convert data types safely before analysis.
 - Handle missing values and invalid dates robustly.
 - Do all calculations in Python.
+- Perform a quick data quality check (nulls, outliers, malformed dates) when relevant.
+- Keep explanations grounded in what the code will compute, not assumptions.
 - If visualization is requested (${wantsVisualization ? 'YES' : 'NO'}), produce the most suitable chart.
 - If visualization is not requested, do not force a chart.
 - Keep explanation factual and procedural; do not claim computed numbers before execution.

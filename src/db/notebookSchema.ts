@@ -4,7 +4,7 @@
  * Database schema for notebook cells, execution history, and state
  */
 
-import { pgTable, uuid, text, integer, timestamp, jsonb, index, varchar } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, timestamp, jsonb, index, varchar, boolean } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { users, sessions } from './schema';
 

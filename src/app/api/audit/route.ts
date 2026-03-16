@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuditService } from '@/services/auditService';
 import { authenticateRequest } from '@/lib/auth';
+import { auditLog } from '@/db/auditSchema';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Get audit logs for resource
- * GET /api/audit?resourceType=notebook&resourceId=123&limit=50
+ * GET /api/audit
+ * Query params:
+ * - view=logs|stats (default: logs)
+ * - limit, offset, resourceType, resourceId
  */
 export async function GET(req: NextRequest) {
   try {
@@ -16,99 +18,61 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const resourceType = searchParams.get('resourceType') || 'all';
-    const resourceId = searchParams.get('resourceId');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 500);
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const view = searchParams.get('view') || 'logs';
 
-    // Get audit logs
-    let query = db.selectFrom('audit_logs').selectAll().where('userId', '=', user.id);
+    if (view === 'stats') {
+      const logs = await auditLog.getUserLogs(user.id, 500);
+      const errors = logs.filter((log: any) => log.status === 'error' || log.status === 'failure').length;
 
-    if (resourceType !== 'all' && resourceId) {
-      query = query
-        .where('resourceType', '=', resourceType)
-        .where('resourceId', '=', resourceId);
+      const counts = new Map<string, number>();
+      logs.forEach((log: any) => {
+        const key = log.action || 'unknown';
+        counts.set(key, (counts.get(key) || 0) + 1);
+      });
+
+      const actionBreakdown = Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([action, count]) => ({ action, count }));
+
+      const recentActivity = logs
+        .slice(0, 24)
+        .map((log: any) => ({ action: log.action, createdAt: log.createdAt }));
+
+      return NextResponse.json({
+        errorRate: {
+          errors,
+          percentage: logs.length ? Math.round((errors / logs.length) * 10000) / 100 : 0,
+        },
+        actionBreakdown,
+        recentActivity,
+      });
     }
 
-    const logs = await query
-      .orderBy('createdAt', 'desc')
-      .limit(limit)
-      .offset(offset)
-      .execute();
+    const resourceType = searchParams.get('resourceType') || 'all';
+    const resourceId = searchParams.get('resourceId');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 500);
+    const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10), 0);
 
-    const total = await db
-      .selectFrom('audit_logs')
-      .select(db.raw('count(*) as count'))
-      .where('userId', '=', user.id)
-      .executeTakeFirst();
+    let logs = await auditLog.getUserLogs(user.id, Math.min(limit + offset, 500));
+    if (resourceType !== 'all' && resourceId) {
+      logs = logs.filter((log: any) => log.resourceType === resourceType && log.resourceId === resourceId);
+    }
+
+    const paged = logs.slice(offset, offset + limit);
 
     return NextResponse.json({
-      logs,
+      logs: paged,
       pagination: {
         limit,
         offset,
-        total: total?.count || 0,
+        total: logs.length,
       },
     });
   } catch (error: any) {
     console.error('Audit fetch error:', error);
     return NextResponse.json(
-      { error: error?.message || 'Failed to fetch audit logs' },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * Get audit statistics
- * GET /api/audit/stats
- */
-export async function GET(req: NextRequest) {
-  try {
-    const user = await authenticateRequest(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Error rate
-    const errorLogs = await db
-      .selectFrom('audit_logs')
-      .select(db.raw('count(*) as count'))
-      .where('userId', '=', user.id)
-      .where('status', '=', 'error')
-      .executeTakeFirst();
-
-    // Action breakdown
-    const actionBreakdown = await db
-      .selectFrom('audit_logs')
-      .select(['action', db.raw('count(*) as count')])
-      .where('userId', '=', user.id)
-      .groupBy('action')
-      .orderBy(db.raw('count(*)'), 'desc')
-      .limit(10)
-      .execute();
-
-    // Recent activity
-    const recentActivity = await db
-      .selectFrom('audit_logs')
-      .select(['action', 'createdAt'])
-      .where('userId', '=', user.id)
-      .orderBy('createdAt', 'desc')
-      .limit(24)
-      .execute();
-
-    return NextResponse.json({
-      errorRate: {
-        errors: errorLogs?.count || 0,
-        percentage: ((errorLogs?.count || 0) / 100) * 100, // Simplified
-      },
-      actionBreakdown,
-      recentActivity,
-    });
-  } catch (error: any) {
-    console.error('Stats fetch error:', error);
-    return NextResponse.json(
-      { error: error?.message || 'Failed to fetch statistics' },
+      { error: error?.message || 'Failed to fetch audit data' },
       { status: 500 }
     );
   }

@@ -6,11 +6,14 @@ import {
     FileText, FileSpreadsheet, File, Loader2, Search, MessageSquare, MoreVertical,
     ChevronRight, LogOut
 } from 'lucide-react';
-import { DataFile, User, Session } from '../types';
+import { DataFile, User, Session, ConnectorSummary } from '../types';
 
 interface SidebarProps {
     files: DataFile[];
     activeFileIds: string[];
+    connectors?: ConnectorSummary[];
+    isLoadingConnectors?: boolean;
+    onRefreshConnectors?: () => void;
     isSidebarOpen: boolean;
     currentUser: User;
     onClose: () => void;
@@ -31,6 +34,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
     files,
     activeFileIds,
+    connectors = [],
     isSidebarOpen,
     currentUser,
     onClose,
@@ -45,8 +49,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onSwitchSession,
     onDeleteSession,
     isUploading = false,
+    isLoadingConnectors = false,
+    onRefreshConnectors,
     onLogout
 }) => {
+
+    const connectorTypeLabels: Record<string, string> = {
+        sheets: 'Google Sheets',
+        snowflake: 'Snowflake',
+        bigquery: 'BigQuery',
+        postgres: 'Postgres',
+        api: 'API',
+    };
+    const availableConnectorTypes = ['sheets', 'snowflake', 'bigquery', 'postgres', 'api'];
 
     const getFileIcon = (type: string) => {
         switch (type) {
@@ -84,6 +99,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }, [sessions]);
 
     const uploadedFiles = files.filter(f => f.id !== 'sample-sales');
+    const connectorsByType = useMemo(() => {
+        const counter: Record<string, number> = {
+            sheets: 0,
+            snowflake: 0,
+            bigquery: 0,
+            postgres: 0,
+            api: 0,
+        };
+
+        connectors.forEach((connector) => {
+            if (connector.type in counter) counter[connector.type] += 1;
+        });
+
+        return counter;
+    }, [connectors]);
 
     return (
         <>
@@ -188,6 +218,68 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 <FileUp size={16} className="mx-auto text-zinc-700 group-hover:text-[#E50914] mb-1.5 transition-colors" />
                                 <p className="text-[9px] font-bold text-zinc-600 group-hover:text-zinc-400 transition-colors">Upload files</p>
                             </button>
+                        )}
+                    </div>
+
+                    {/* Connectors Section */}
+                    <div className="px-3 pb-3">
+                        <div className="flex items-center justify-between mb-2 px-1">
+                            <p className="text-[8px] font-extrabold text-zinc-600 uppercase tracking-[2px]">
+                                Connectors
+                            </p>
+                            {onRefreshConnectors && (
+                                <button
+                                    onClick={onRefreshConnectors}
+                                    className="p-1 text-zinc-600 hover:text-[#E50914] transition-colors rounded"
+                                    title="Refresh connectors"
+                                >
+                                    <Database size={12} />
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-1.5 mb-2">
+                            {availableConnectorTypes.map((type) => (
+                                <div
+                                    key={type}
+                                    className="px-2 py-1.5 rounded-lg border border-zinc-800/70 bg-zinc-950/40"
+                                >
+                                    <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-wide truncate">
+                                        {connectorTypeLabels[type]}
+                                    </p>
+                                    <p className="text-[9px] font-extrabold text-white mt-0.5">
+                                        {connectorsByType[type]} configured
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+
+                        {isLoadingConnectors ? (
+                            <div className="flex items-center gap-2 p-2.5 glass rounded-xl animate-fade-in">
+                                <Loader2 size={12} className="animate-spin text-[#E50914]" />
+                                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Loading connectors...</span>
+                            </div>
+                        ) : connectors.length > 0 ? (
+                            <div className="space-y-1">
+                                {connectors.map((connector) => (
+                                    <div
+                                        key={connector.id}
+                                        className="flex items-center gap-2.5 p-2 rounded-xl bg-zinc-900/30 border border-zinc-800/60"
+                                    >
+                                        <span className={`w-1.5 h-1.5 rounded-full ${connector.isActive ? 'bg-green-400' : 'bg-zinc-600'}`} />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[10px] font-bold text-white truncate">{connector.name}</p>
+                                            <p className="text-[8px] text-zinc-500 uppercase tracking-wide truncate">
+                                                {connectorTypeLabels[connector.type] || connector.type}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="p-2.5 rounded-xl border border-dashed border-zinc-800 text-center">
+                                <p className="text-[9px] font-semibold text-zinc-600">No connectors configured yet</p>
+                            </div>
                         )}
                     </div>
 

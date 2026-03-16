@@ -13,7 +13,7 @@ export interface AuditLogParams {
   action: string; // e.g., user.login, file.upload, notebook.execute
   resourceType: string; // user, file, notebook, connection
   resourceId?: string;
-  status: 'success' | 'failure' | 'warning';
+  status: 'success' | 'failure' | 'warning' | 'error';
   statusCode?: number;
   description?: string;
   details?: Record<string, any>;
@@ -102,3 +102,14 @@ export function createAuditMiddleware(action: string, resourceType: string) {
     });
   };
 }
+
+/**
+ * Legacy service-style API used by older route handlers.
+ */
+export const AuditService = {
+  logAuditAction,
+  getAuditLogsForResource,
+  getClientIp,
+  getUserAgent,
+  createAuditMiddleware,
+};

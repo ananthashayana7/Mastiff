@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import startServerInit from '@/src/lib/serverInit';
 
 // Start background server initialization (schedules, seeds)
-startServerInit();
+const isBuildPhase =
+    process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.npm_lifecycle_event === 'build';
 
-const inter = Inter({
-    subsets: ["latin"],
-    weight: ["300", "400", "500", "600", "700", "800", "900"],
-});
+if (!isBuildPhase) {
+    startServerInit();
+}
 
 export const metadata: Metadata = {
     title: "Mastiff AI — Data Intelligence Platform",
@@ -23,7 +23,7 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en">
-            <body className={inter.className}>{children}</body>
+            <body>{children}</body>
         </html>
     );
 }

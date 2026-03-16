@@ -242,3 +242,41 @@ export async function logAPIAccess(
         duration,
     });
 }
+
+type AuditLoggerCompatEntry = {
+    userId?: string;
+    action: string;
+    resourceType?: string;
+    resourceId?: string;
+    targetId?: string;
+    status?: 'success' | 'failure' | 'warning';
+    statusCode?: number;
+    description?: string;
+    details?: Record<string, any>;
+    ipAddress?: string;
+    userAgent?: string;
+    error?: string;
+    duration?: number;
+};
+
+/**
+ * Backward-compatible logger API expected by legacy services.
+ */
+export const auditLogger = {
+    async log(entry: AuditLoggerCompatEntry): Promise<void> {
+        await logAuditEvent({
+            userId: entry.userId,
+            action: entry.action,
+            resourceType: entry.resourceType || 'system',
+            resourceId: entry.resourceId || entry.targetId,
+            status: entry.status || 'success',
+            statusCode: entry.statusCode,
+            description: entry.description,
+            details: entry.details,
+            ipAddress: entry.ipAddress,
+            userAgent: entry.userAgent,
+            error: entry.error,
+            duration: entry.duration,
+        });
+    },
+};

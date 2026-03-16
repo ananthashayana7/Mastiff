@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
     typescript: {
         ignoreBuildErrors: true,
     },
+    serverExternalPackages: ["dockerode", "docker-modem", "ssh2"],
+    staticPageGenerationTimeout: 300,
 };
 
 export default nextConfig;

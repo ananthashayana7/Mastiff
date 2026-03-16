@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CacheService } from '@/services/cacheService';
 import { DockerSandboxExecutor } from '@/services/dockerSandboxExecutor';
+import { db } from '@/src/db';
+import { sql } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +19,7 @@ export async function GET(req: NextRequest) {
 
   // Check database
   try {
-    await db.selectFrom('users').selectAll().limit(1).execute();
+    await db.execute(sql`select 1`);
     health.services.database = { status: 'healthy' };
   } catch (error) {
     health.services.database = { status: 'unhealthy', error: String(error) };
@@ -61,7 +63,7 @@ export async function ready(req: NextRequest) {
   try {
     // Quick check if service is ready to accept requests
     await Promise.all([
-      db.selectFrom('users').selectAll().limit(1).execute(),
+      db.execute(sql`select 1`),
       CacheService.healthCheck(),
     ]);
 

@@ -4,7 +4,7 @@
  * Manages organizations, workspaces, teams, and membership
  */
 
-import db from '@/src/db';
+import { db } from '@/src/db';
 import { v4 as uuidv4 } from 'uuid';
 import { auditLogger } from './auditLogger';
 

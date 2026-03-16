@@ -5,7 +5,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import db from '@/src/db';
+import { db } from '@/src/db';
 import {
     scheduledReports,
     reportExecutions,

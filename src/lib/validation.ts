@@ -102,3 +102,22 @@ export const rateLimitKeys = {
     apiCall: (userId: string) => `rate:api:${userId}`,
     codeExecution: (userId: string) => `rate:exec:${userId}`,
 };
+
+/**
+ * Parse and validate input, throwing a compact validation error when invalid.
+ */
+export function validateInput<T>(schema: z.ZodSchema<T>, input: unknown): T {
+    const parsed = schema.safeParse(input);
+    if (parsed.success) {
+        return parsed.data;
+    }
+
+    const message = parsed.error.issues
+        .map((issue) => {
+            const path = issue.path.length > 0 ? `${issue.path.join('.')}: ` : '';
+            return `${path}${issue.message}`;
+        })
+        .join('; ');
+
+    throw new Error(message || 'Invalid input');
+}

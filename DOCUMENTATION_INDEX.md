@@ -113,7 +113,7 @@ Start here for documentation strategy:
    - Setup docs requirements
    - API documentation requirements
    - Examples and templates
-3. **[README.md](README.md)** - Update needed for comprehensive setup
+3. **[README.md](docs/readmes/README.md)** - Update needed for comprehensive setup
 
 ---
 

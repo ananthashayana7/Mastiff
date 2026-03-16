@@ -5,7 +5,7 @@
  * Supports user preferences and workspace-level defaults
  */
 
-import db from '@/src/db';
+import { db } from '@/src/db';
 import { v4 as uuidv4 } from 'uuid';
 import {
     LLMProvider,
