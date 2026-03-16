@@ -327,7 +327,7 @@ export class LLMManagementService {
                 name: 'gemini',
                 displayName: 'Google Gemini',
                 description: 'Advanced multimodal AI model from Google',
-                models: ['gemini-2.0-flash', 'gemini-pro', 'gemini-pro-vision'],
+                models: ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'],
             },
             {
                 name: 'openai',

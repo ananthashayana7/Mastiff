@@ -26,6 +26,10 @@ const MODE_CONFIGS: Record<AnalysisMode, {
 
 const VISUALIZATION_HINTS = /(chart|plot|graph|visuali[sz]e|histogram|pie|bar|line|scatter|heatmap|dashboard)/i;
 
+const ANALYSIS_MODEL_CANDIDATES = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.0-flash-lite'];
+const SUMMARY_MODEL_CANDIDATES = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+const CHAT_MODEL_CANDIDATES = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+
 interface ExecutionSummaryInput {
     success?: boolean;
     result?: string;
@@ -33,6 +37,12 @@ interface ExecutionSummaryInput {
     traceback?: string;
     charts?: string[];
     plotly_charts?: any[];
+}
+
+interface GenerateWithFallbackParams {
+    models: string[];
+    contents: any[];
+    config?: any;
 }
 
 export class LLMService {
@@ -52,15 +62,51 @@ export class LLMService {
         return this.genAI;
     }
 
+    private normalizeResponseText(response: any): string {
+        if (!response) return '';
+        if (typeof response.text === 'function') return response.text() || '';
+        if (typeof response.text === 'string') return response.text;
+        return '';
+    }
+
+    private isModelNotFoundError(error: any): boolean {
+        const msg = String(error?.message || error || '').toLowerCase();
+        return msg.includes('not_found') || msg.includes('not found') || msg.includes('models/');
+    }
+
+    private async generateWithFallback(params: GenerateWithFallbackParams): Promise<{ response: any; model: string }> {
+        const client = this.getClient();
+        if (!client) {
+            throw new Error('AI client not initialized');
+        }
+
+        let lastError: any = null;
+
+        for (const model of Array.from(new Set(params.models))) {
+            try {
+                const response = await client.models.generateContent({
+                    model,
+                    contents: params.contents,
+                    config: params.config,
+                });
+                return { response, model };
+            } catch (error: any) {
+                lastError = error;
+                if (!this.isModelNotFoundError(error)) {
+                    throw error;
+                }
+            }
+        }
+
+        throw lastError || new Error('No supported Gemini model is available');
+    }
+
     async getAnalysisCode(
         userQuery: string,
         files: { name: string; schema: string; sample: any }[],
         history: any[],
         mode: AnalysisMode = 'analysis'
     ) {
-        const client = this.getClient();
-        if (!client) throw new Error('AI client not initialized');
-
         const modeConfig = MODE_CONFIGS[mode];
         const wantsVisualization = VISUALIZATION_HINTS.test(userQuery);
 
@@ -112,8 +158,8 @@ IMPORTANT:
         }));
 
         try {
-            const response = await client.models.generateContent({
-                model: 'gemini-2.0-flash',
+            const { response } = await this.generateWithFallback({
+                models: ANALYSIS_MODEL_CANDIDATES,
                 contents: [
                     ...chatHistory,
                     { role: 'user', parts: [{ text: userQuery }] },
@@ -125,7 +171,7 @@ IMPORTANT:
                 },
             });
 
-            let text = response.text || '{}';
+            let text = this.normalizeResponseText(response) || '{}';
             text = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
             try {
@@ -148,13 +194,12 @@ IMPORTANT:
         execution: ExecutionSummaryInput,
         mode: AnalysisMode = 'analysis'
     ): Promise<string> {
-        const client = this.getClient();
-
         const chartCount = (execution.charts?.length || 0) + (execution.plotly_charts?.length || 0);
         const fallback = execution.error
             ? `Execution failed: ${execution.error}`
             : execution.result || 'Execution completed.';
 
+        const client = this.getClient();
         if (!client) return fallback;
 
         const systemPrompt = `
@@ -190,8 +235,8 @@ Chart count: ${chartCount}
 `;
 
         try {
-            const response = await client.models.generateContent({
-                model: 'gemini-2.5-flash',
+            const { response } = await this.generateWithFallback({
+                models: SUMMARY_MODEL_CANDIDATES,
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 config: {
                     systemInstruction: systemPrompt,
@@ -199,7 +244,7 @@ Chart count: ${chartCount}
                 },
             });
 
-            return response.text || fallback;
+            return this.normalizeResponseText(response) || fallback;
         } catch (error) {
             console.error('LLM Execution Summary Error:', error);
             return fallback;
@@ -230,8 +275,8 @@ BEHAVIOR:
         }));
 
         try {
-            const response = await client.models.generateContent({
-                model: 'gemini-2.5-flash',
+            const { response } = await this.generateWithFallback({
+                models: CHAT_MODEL_CANDIDATES,
                 contents: [
                     ...chatHistory,
                     { role: 'user', parts: [{ text: userQuery }] },
@@ -242,7 +287,7 @@ BEHAVIOR:
                 },
             });
 
-            return response.text || "I wasn't able to generate a response. Please try again.";
+            return this.normalizeResponseText(response) || "I wasn't able to generate a response. Please try again.";
         } catch (error) {
             console.error('LLM Chat Error:', error);
             return 'I encountered an error while processing your request. Please try again.';

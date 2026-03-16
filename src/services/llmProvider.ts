@@ -70,16 +70,70 @@ export abstract class LLMProvider {
  * Google Gemini Provider
  */
 export class GeminiProvider extends LLMProvider {
-    private client: any;
+    private static readonly MODEL_FALLBACKS = [
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-2.0-flash-lite',
+    ];
 
     constructor(config: LLMProviderConfig) {
         super(config);
         this.name = 'gemini';
 
-        // Lazy load the client
         if (!config.apiKey) {
             throw new Error('Gemini API key is required');
         }
+    }
+
+    private normalizeModelName(model: string): string {
+        const normalized = (model || '').trim();
+        const remap: Record<string, string> = {
+            'gemini-1.5-flash': 'gemini-2.5-flash',
+            'gemini-1.5-flash-latest': 'gemini-2.5-flash',
+            'gemini-pro': 'gemini-2.0-flash',
+            'gemini-pro-vision': 'gemini-2.0-flash',
+        };
+        return remap[normalized] || normalized || 'gemini-2.0-flash';
+    }
+
+    private getModelCandidates(): string[] {
+        const configured = this.normalizeModelName(this.config.model);
+        const all = [configured, ...GeminiProvider.MODEL_FALLBACKS];
+        return Array.from(new Set(all));
+    }
+
+    private isModelNotFoundError(error: any): boolean {
+        const msg = String(error?.message || error || '').toLowerCase();
+        return msg.includes('not_found') || msg.includes('not found') || msg.includes('models/');
+    }
+
+    private extractText(response: any): string {
+        if (!response) return '';
+        if (typeof response.text === 'function') return response.text() || '';
+        if (typeof response.text === 'string') return response.text;
+        return '';
+    }
+
+    private async runWithModelFallback(
+        requestFactory: (model: string, ai: any) => Promise<any>
+    ): Promise<{ text: string; model: string }> {
+        const { GoogleGenAI } = await import('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: this.config.apiKey });
+        let lastError: any;
+
+        for (const model of this.getModelCandidates()) {
+            try {
+                const response = await requestFactory(model, ai);
+                return { text: this.extractText(response), model };
+            } catch (error: any) {
+                lastError = error;
+                if (!this.isModelNotFoundError(error)) {
+                    throw error;
+                }
+            }
+        }
+
+        throw lastError || new Error('No supported Gemini model is available');
     }
 
     async generateContent(
@@ -88,28 +142,27 @@ export class GeminiProvider extends LLMProvider {
         options?: any
     ): Promise<LLMResponse> {
         try {
-            const { GoogleGenAI } = await import('@google/genai');
-            const ai = new GoogleGenAI({ apiKey: this.config.apiKey });
-
-            const response = await ai.models.generateContent({
-                model: this.config.model,
-                contents: [
-                    {
-                        role: 'user',
-                        parts: [{ text: prompt }],
+            const { text, model } = await this.runWithModelFallback((candidate, ai) =>
+                ai.models.generateContent({
+                    model: candidate,
+                    contents: [
+                        {
+                            role: 'user',
+                            parts: [{ text: prompt }],
+                        },
+                    ],
+                    config: {
+                        systemInstruction,
+                        temperature: this.config.temperature ?? 0.7,
+                        responseMimeType: options?.responseMimeType || 'text/plain',
                     },
-                ],
-                config: {
-                    systemInstruction,
-                    temperature: this.config.temperature ?? 0.7,
-                    responseMimeType: options?.responseMimeType || 'text/plain',
-                },
-            });
+                })
+            );
 
             return {
-                text: response.text || '',
+                text,
                 provider: 'gemini',
-                model: this.config.model,
+                model,
             };
         } catch (error) {
             console.error('Gemini generation error:', error);
@@ -123,25 +176,24 @@ export class GeminiProvider extends LLMProvider {
         options?: any
     ): Promise<LLMResponse> {
         try {
-            const { GoogleGenAI } = await import('@google/genai');
-            const ai = new GoogleGenAI({ apiKey: this.config.apiKey });
-
-            const response = await ai.models.generateContent({
-                model: this.config.model,
-                contents: messages.map(msg => ({
-                    role: msg.role === 'user' ? 'user' : 'model',
-                    parts: [{ text: msg.content }],
-                })),
-                config: {
-                    systemInstruction,
-                    temperature: this.config.temperature ?? 0.7,
-                },
-            });
+            const { text, model } = await this.runWithModelFallback((candidate, ai) =>
+                ai.models.generateContent({
+                    model: candidate,
+                    contents: messages.map((msg) => ({
+                        role: msg.role === 'user' ? 'user' : 'model',
+                        parts: [{ text: msg.content }],
+                    })),
+                    config: {
+                        systemInstruction,
+                        temperature: options?.temperature ?? this.config.temperature ?? 0.7,
+                    },
+                })
+            );
 
             return {
-                text: response.text || '',
+                text,
                 provider: 'gemini',
-                model: this.config.model,
+                model,
             };
         } catch (error) {
             console.error('Gemini chat error:', error);
@@ -151,19 +203,17 @@ export class GeminiProvider extends LLMProvider {
 
     async validateConnection(): Promise<boolean> {
         try {
-            const { GoogleGenAI } = await import('@google/genai');
-            const ai = new GoogleGenAI({ apiKey: this.config.apiKey });
-
-            await ai.models.generateContent({
-                model: this.config.model,
-                contents: [
-                    {
-                        role: 'user',
-                        parts: [{ text: 'test' }],
-                    },
-                ],
-            });
-
+            await this.runWithModelFallback((candidate, ai) =>
+                ai.models.generateContent({
+                    model: candidate,
+                    contents: [
+                        {
+                            role: 'user',
+                            parts: [{ text: 'test' }],
+                        },
+                    ],
+                })
+            );
             return true;
         } catch (error) {
             console.error('Gemini connection validation failed:', error);
