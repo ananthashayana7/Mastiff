@@ -1,29 +1,25 @@
 /**
  * Connector Management API Routes
- * 
+ *
  * POST /api/connectors - Create connector
  * GET /api/connectors - List connectors
- * GET /api/connectors/[id] - Get connector
- * PUT /api/connectors/[id] - Update connector
- * DELETE /api/connectors/[id] - Delete connector
- * POST /api/connectors/[id]/test - Test connection
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { sessionManager } from '@/src/services/sessionManager';
-import { rateLimiter } from '@/src/lib/rateLimiting';
-import { validateInput } from '@/src/lib/validation';
+import { rateLimiter } from '@/lib/rateLimiting';
+import { validateInput } from '@/lib/validation';
+import { getUserIdFromRequest } from '@/lib/requestAuth';
 import { z } from 'zod';
-import { db } from '@/src/db';
-import { connectors } from '@/src/db/connectorSchema';
-import { encryptionService } from '@/src/services/encryptionService';
-import { eq, and } from 'drizzle-orm';
-import { createConnector } from '@/src/services/connectors/connectorConfig';
+import { db } from '@/db';
+import { connectors } from '@/db/connectorSchema';
+import { encryptionService } from '@/services/encryptionService';
+import { eq, desc } from 'drizzle-orm';
 
 /**
  * Connector creation schema
  */
 const createConnectorSchema = z.object({
+    userId: z.string().uuid().optional(),
     name: z.string().min(1).max(255),
     type: z.enum(['sheets', 'snowflake', 'bigquery', 'postgres', 'api']),
     description: z.string().optional(),
@@ -36,53 +32,34 @@ const createConnectorSchema = z.object({
  */
 export async function POST(request: NextRequest) {
     try {
-        // Rate limit
         const clientId = request.ip || 'unknown';
-        await rateLimiter.checkLimit('connector:create', clientId, 50, 3600); // 50 per hour
+        await rateLimiter.checkLimit('connector:create', clientId, 50, 3600);
 
-        // Validate session
-        const sessionToken = request.cookies.get('session')?.value;
-        if (!sessionToken) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
-        }
-
-        const session = await sessionManager.getSession(sessionToken);
-        if (!session || !session.userId) {
-            return NextResponse.json(
-                { error: 'Invalid session' },
-                { status: 401 }
-            );
-        }
-
-        // Parse and validate body
         const body = await request.json();
         const validated = validateInput(createConnectorSchema, body);
 
-        // Encrypt credentials before storing
-        const encryptedCredentials = await encryptionService.encrypt(
+        const userId = getUserIdFromRequest(request) || validated.userId;
+        if (!userId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const encryptedCredentials = encryptionService.encryptToString(
             JSON.stringify(validated.credentials)
         );
 
-        // Insert connector
         const result = await db.insert(connectors).values({
-            userId: session.userId,
+            userId,
             name: validated.name,
             type: validated.type,
             description: validated.description,
-            credentials: encryptedCredentials,
-            metadata: JSON.stringify(validated.metadata || {}),
+            encryptedCredentials,
+            metadata: validated.metadata || {},
             isActive: true,
         }).returning({ id: connectors.id });
 
         const connectorId = result[0]?.id;
         if (!connectorId) {
-            return NextResponse.json(
-                { error: 'Failed to create connector' },
-                { status: 500 }
-            );
+            return NextResponse.json({ error: 'Failed to create connector' }, { status: 500 });
         }
 
         return NextResponse.json({
@@ -104,50 +81,38 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
     try {
-        // Rate limit
         const clientId = request.ip || 'unknown';
-        await rateLimiter.checkLimit('connector:list', clientId, 200, 3600); // 200 per hour
+        await rateLimiter.checkLimit('connector:list', clientId, 200, 3600);
 
-        // Validate session
-        const sessionToken = request.cookies.get('session')?.value;
-        if (!sessionToken) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+        const userId = getUserIdFromRequest(request);
+        if (!userId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const session = await sessionManager.getSession(sessionToken);
-        if (!session || !session.userId) {
-            return NextResponse.json(
-                { error: 'Invalid session' },
-                { status: 401 }
-            );
-        }
+        const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '50', 10), 100);
+        const offset = parseInt(request.nextUrl.searchParams.get('offset') || '0', 10);
 
-        // Get pagination params
-        const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '50'), 100);
-        const offset = parseInt(request.nextUrl.searchParams.get('offset') || '0');
-
-        // List connectors (don't include encrypted credentials in list)
-        const connectorList = await db.query.connectors.findMany({
-            where: eq(connectors.userId, session.userId),
-            limit,
-            offset,
-        });
+        const connectorList = await db
+            .select({
+                id: connectors.id,
+                name: connectors.name,
+                type: connectors.type,
+                description: connectors.description,
+                isActive: connectors.isActive,
+                lastTestedAt: connectors.lastTestedAt,
+                lastUsedAt: connectors.lastUsedAt,
+                createdAt: connectors.createdAt,
+            })
+            .from(connectors)
+            .where(eq(connectors.userId, userId))
+            .orderBy(desc(connectors.createdAt))
+            .limit(limit)
+            .offset(offset);
 
         return NextResponse.json({
             success: true,
-            connectors: connectorList.map(c => ({
-                id: c.id,
-                name: c.name,
-                type: c.type,
-                description: c.description,
-                isActive: c.isActive,
-                lastTestedAt: c.lastTestedAt,
-                lastUsedAt: c.lastUsedAt,
-                createdAt: c.createdAt,
-            })),
+            connectors: connectorList,
+            supportedTypes: ['sheets', 'snowflake', 'bigquery', 'postgres', 'api'],
             limit,
             offset,
         });

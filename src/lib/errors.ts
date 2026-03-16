@@ -1,6 +1,6 @@
 /**
  * Error Handling & Custom Errors
- * 
+ *
  * Structured error handling for the application
  */
 
@@ -10,13 +10,30 @@ import { NextResponse } from 'next/server';
  * Custom error types
  */
 export class AppError extends Error {
+    public statusCode: number;
+    public code: string;
+    public details?: unknown;
+
     constructor(
-        public message: string,
-        public statusCode: number = 500,
-        public code: string = 'INTERNAL_ERROR'
+        messageOrCode: string,
+        statusCodeOrMessage: number | string = 500,
+        codeOrDetails: string | unknown = 'INTERNAL_ERROR',
+        maybeDetails?: unknown
     ) {
-        super(message);
+        if (typeof statusCodeOrMessage === 'string') {
+            super(statusCodeOrMessage);
+            this.name = 'AppError';
+            this.statusCode = 500;
+            this.code = messageOrCode;
+            this.details = maybeDetails ?? codeOrDetails;
+            return;
+        }
+
+        super(messageOrCode);
         this.name = 'AppError';
+        this.statusCode = statusCodeOrMessage;
+        this.code = typeof codeOrDetails === 'string' ? codeOrDetails : 'INTERNAL_ERROR';
+        this.details = typeof codeOrDetails === 'string' ? maybeDetails : codeOrDetails;
     }
 }
 
@@ -71,12 +88,12 @@ export function errorToResponse(error: any): NextResponse {
             {
                 error: error.message,
                 code: error.code,
+                details: error.details,
             },
             { status: error.statusCode }
         );
     }
 
-    // Unknown error
     console.error('Unhandled error:', error);
 
     return NextResponse.json(

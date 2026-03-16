@@ -3,12 +3,37 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const genAI = new GoogleGenAI(process.env.API_KEY || "");
+const MODEL_CANDIDATES = [
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+];
 
 export class LLMService {
-    async getAnalysisCode(userQuery: string, schema: string, sampleData: any, history: any[]) {
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    private client: GoogleGenAI;
 
+    constructor() {
+        const apiKey = process.env.API_KEY;
+        if (!apiKey) {
+            throw new Error('Missing API_KEY environment variable');
+        }
+        this.client = new GoogleGenAI({ apiKey });
+    }
+
+    private sanitizeJsonText(text: string): string {
+        return text
+            .replace(/```json/g, '')
+            .replace(/```/g, '')
+            .trim();
+    }
+
+    private normalizeTextResponse(response: any): string {
+        if (!response) return '';
+        if (typeof response.text === 'string') return response.text;
+        if (typeof response.text === 'function') return response.text() || '';
+        return '';
+    }
+
+    async getAnalysisCode(userQuery: string, schema: string, sampleData: any, history: any[]) {
         const systemPrompt = `
 You are a data analysis assistant. The user has uploaded a dataset and wants to analyze it.
 
@@ -42,29 +67,42 @@ Code rules:
 - Always return meaningful results
 `;
 
-        const chat = model.startChat({
-            history: history.map(h => ({
-                role: h.role === 'assistant' ? 'model' : 'user',
-                parts: [{ text: h.content }],
-            })),
-        });
+        const convertedHistory = (history || []).slice(-12).map((h: any) => ({
+            role: h.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: h.content }],
+        }));
 
-        try {
-            const result = await chat.sendMessage([
-                { text: systemPrompt },
-                { text: userQuery }
-            ]);
-            const response = await result.response;
-            let text = response.text();
+        let lastError: any = null;
 
-            // Remove markdown code blocks if any
-            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        for (const model of MODEL_CANDIDATES) {
+            try {
+                const response = await this.client.models.generateContent({
+                    model,
+                    contents: [
+                        ...convertedHistory,
+                        { role: 'user', parts: [{ text: userQuery }] },
+                    ],
+                    config: {
+                        systemInstruction: systemPrompt,
+                        responseMimeType: 'application/json',
+                        temperature: 0.2,
+                    },
+                });
 
-            return JSON.parse(text);
-        } catch (error) {
-            console.error("LLM Error:", error);
-            throw new Error("Failed to generate analysis code");
+                const text = this.sanitizeJsonText(this.normalizeTextResponse(response));
+                return JSON.parse(text);
+            } catch (error: any) {
+                lastError = error;
+                const msg = String(error?.message || error);
+                const isModelNotFound = msg.includes('NOT_FOUND') || msg.includes('models/') || msg.includes('not found');
+                if (!isModelNotFound) {
+                    break;
+                }
+            }
         }
+
+        console.error('LLM Error:', lastError);
+        throw new Error('Failed to generate analysis code: no supported Gemini model was available');
     }
 }
 

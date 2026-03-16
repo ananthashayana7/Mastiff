@@ -82,21 +82,3 @@ export const credentials = pgTable("credentials", {
 export const credentialsRelations = relations(credentials, ({ one }) => ({
     user: one(users, { fields: [credentials.userId], references: [users.id] }),
 }));
-
-// Add credentials relation to users
-export const sessionsRelations = relations(sessions, ({ one, many }) => ({
-    user: one(users, { fields: [sessions.userId], references: [users.id] }),
-    messages: many(messages),
-    files: many(files),
-}));
-
-export const filesRelations = relations(files, ({ one }) => ({
-    session: one(sessions, { fields: [files.sessionId], references: [sessions.id] }),
-}));
-
-export const messagesRelations = relations(messages, ({ one }) => ({
-    session: one(sessions, { fields: [messages.sessionId], references: [sessions.id] }),
-}));
-
-// Add composite index for frequently queried combinations
-// These improve performance for queries filtering by userId + other fields

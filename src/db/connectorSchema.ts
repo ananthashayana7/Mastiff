@@ -4,7 +4,7 @@
  * Database schema for storing connector configurations and metadata
  */
 
-import { pgTable, uuid, varchar, text, timestamp, jsonb, enum as pgEnum, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, jsonb, enum as pgEnum, index, boolean, integer } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { users } from './schema';
 

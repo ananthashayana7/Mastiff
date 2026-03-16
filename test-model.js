@@ -1,20 +1,29 @@
 import { GoogleGenAI } from "@google/genai";
 
 async function test() {
-    const apiKey = 'AIzaSyDvIVI0JBaDbEqJcMIITWGq932YCadttNs';
-    const client = new GoogleGenAI({ apiKey });
-    try {
-        // List models doesn't seem to be a function in @google/genai? 
-        // Wait, the client usually has a models property.
-        // Let me try a simple generate call instead with 1.5-flash
-        const response = await client.models.generateContent({
-            model: 'gemini-1.5-flash',
-            contents: [{ role: 'user', parts: [{ text: 'hi' }] }]
-        });
-        console.log("SUCCESS:", response.text);
-    } catch (e) {
-        console.error("ERROR:", e.message);
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+        console.error('ERROR: API_KEY is not set');
+        process.exit(1);
     }
+
+    const client = new GoogleGenAI({ apiKey });
+    const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+
+    for (const model of models) {
+        try {
+            const response = await client.models.generateContent({
+                model,
+                contents: [{ role: 'user', parts: [{ text: 'hi' }] }]
+            });
+            console.log(`SUCCESS ${model}:`, response.text || '[no text]');
+            return;
+        } catch (e) {
+            console.error(`ERROR ${model}:`, e.message);
+        }
+    }
+
+    process.exit(1);
 }
 
 test();

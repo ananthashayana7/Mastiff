@@ -10,6 +10,7 @@
     "allowJs": false,
     "paths": {
       "@/*": [
+        "./*",
         "./src/*"
       ]
     },
@@ -29,7 +30,8 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "baseUrl": "."
   },
   "include": [
     "**/*.ts",

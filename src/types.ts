@@ -1,4 +1,3 @@
-
 export type UserRole = 'Admin' | 'Analyst' | 'Viewer';
 
 export interface User {
@@ -19,6 +18,17 @@ export interface Session {
   updatedAt: number;
   files?: DataFile[];
   messages?: ChatMessage[];
+}
+
+export interface ConnectorSummary {
+  id: string;
+  name: string;
+  type: string;
+  description?: string | null;
+  isActive?: boolean | null;
+  lastTestedAt?: string | number | null;
+  lastUsedAt?: string | number | null;
+  createdAt?: string | number | null;
 }
 
 export interface GroundingSource {
