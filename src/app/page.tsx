@@ -11,6 +11,23 @@ import { DataFile, ChatMessage, AnalysisMode, User as UserType, AnalystPersona, 
 import { Sidebar } from '../components/Sidebar';
 import { ChatWindow } from '../components/ChatWindow';
 
+type ConnectorType = 'sheets' | 'snowflake' | 'bigquery' | 'postgres' | 'api';
+
+interface ConnectorCreatePayload {
+  name: string;
+  type: ConnectorType;
+  description?: string;
+  credentials: Record<string, any>;
+  metadata?: Record<string, any>;
+}
+
+interface ConnectorUpdatePayload {
+  name?: string;
+  description?: string;
+  credentials?: Record<string, any>;
+  isActive?: boolean;
+}
+
 const PERSONAS: AnalystPersona[] = [
   { id: 'default', name: 'MASTIFF AI', icon: 'M', description: 'Core LLM with Python Sandbox integration.', instruction: 'Focus on comprehensive, logical data analysis.' },
   { id: 'statistician', name: 'Scientist', icon: 'S', description: 'Deep statistical validation.', instruction: 'Explain patterns with statistical rigor.' },
@@ -26,6 +43,7 @@ const App: React.FC = () => {
   const [files, setFiles] = useState<DataFile[]>([]);
   const [activeFileIds, setActiveFileIds] = useState<string[]>([]);
   const [connectors, setConnectors] = useState<ConnectorSummary[]>([]);
+  const [linkedConnectorIds, setLinkedConnectorIds] = useState<string[]>([]);
   const [isLoadingConnectors, setIsLoadingConnectors] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -60,15 +78,20 @@ const App: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const buildAuthHeaders = useCallback((userId: string, includeContentType = false): Record<string, string> => {
+    const token = localStorage.getItem('mastiff_token');
+    return {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'x-user-id': userId,
+      ...(includeContentType ? { 'Content-Type': 'application/json' } : {}),
+    };
+  }, []);
+
   const loadConnectors = useCallback(async (userId: string) => {
     setIsLoadingConnectors(true);
     try {
-      const token = localStorage.getItem('mastiff_token');
       const response = await fetch(`/api/connectors?userId=${encodeURIComponent(userId)}&limit=100`, {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          'x-user-id': userId,
-        },
+        headers: buildAuthHeaders(userId),
       });
 
       if (!response.ok) {
@@ -77,13 +100,116 @@ const App: React.FC = () => {
       }
 
       const payload = await response.json();
-      setConnectors(Array.isArray(payload?.connectors) ? payload.connectors : []);
+      const connectorList = Array.isArray(payload?.connectors) ? payload.connectors : [];
+      setConnectors(connectorList);
+      setLinkedConnectorIds((prev) => prev.filter((id) => connectorList.some((connector: ConnectorSummary) => connector.id === id)));
     } catch (error) {
       console.error('Failed to load connectors:', error);
       setConnectors([]);
     } finally {
       setIsLoadingConnectors(false);
     }
+  }, [buildAuthHeaders]);
+
+  const createConnector = useCallback(async (payload: ConnectorCreatePayload) => {
+    if (!currentUser) throw new Error('No authenticated user');
+
+    const response = await fetch('/api/connectors', {
+      method: 'POST',
+      headers: buildAuthHeaders(currentUser.id, true),
+      body: JSON.stringify({
+        ...payload,
+        userId: currentUser.id,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.success === false) {
+      throw new Error(data?.error || data?.message || 'Failed to create connector');
+    }
+
+    await loadConnectors(currentUser.id);
+    return data;
+  }, [buildAuthHeaders, currentUser, loadConnectors]);
+
+  const updateConnector = useCallback(async (connectorId: string, payload: ConnectorUpdatePayload) => {
+    if (!currentUser) throw new Error('No authenticated user');
+
+    const response = await fetch(`/api/connectors/${connectorId}`, {
+      method: 'PUT',
+      headers: buildAuthHeaders(currentUser.id, true),
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.success === false) {
+      throw new Error(data?.error || data?.message || 'Failed to update connector');
+    }
+
+    await loadConnectors(currentUser.id);
+    return data;
+  }, [buildAuthHeaders, currentUser, loadConnectors]);
+
+  const deleteConnectorById = useCallback(async (connectorId: string) => {
+    if (!currentUser) throw new Error('No authenticated user');
+
+    const response = await fetch(`/api/connectors/${connectorId}`, {
+      method: 'DELETE',
+      headers: buildAuthHeaders(currentUser.id),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.success === false) {
+      throw new Error(data?.error || data?.message || 'Failed to delete connector');
+    }
+
+    setLinkedConnectorIds((prev) => prev.filter((id) => id !== connectorId));
+    await loadConnectors(currentUser.id);
+    return data;
+  }, [buildAuthHeaders, currentUser, loadConnectors]);
+
+  const testConnector = useCallback(async (connectorId: string) => {
+    if (!currentUser) throw new Error('No authenticated user');
+
+    const response = await fetch(`/api/connectors/${connectorId}/test`, {
+      method: 'POST',
+      headers: buildAuthHeaders(currentUser.id),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    await loadConnectors(currentUser.id);
+
+    return {
+      success: response.ok && data?.success !== false,
+      message: data?.message || (response.ok ? 'Connection test successful' : 'Connection test failed'),
+      payload: data,
+    };
+  }, [buildAuthHeaders, currentUser, loadConnectors]);
+
+  const loadConnectorSources = useCallback(async (connectorId: string) => {
+    if (!currentUser) throw new Error('No authenticated user');
+
+    const response = await fetch(`/api/connectors/${connectorId}/test`, {
+      method: 'GET',
+      headers: buildAuthHeaders(currentUser.id),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    return {
+      success: response.ok && data?.success !== false,
+      sources: Array.isArray(data?.sources) ? data.sources : [],
+      message: data?.message || (response.ok ? 'Sources loaded' : 'Failed to load sources'),
+      payload: data,
+    };
+  }, [buildAuthHeaders, currentUser]);
+
+  const toggleLinkedConnector = useCallback((connectorId: string) => {
+    setLinkedConnectorIds((prev) => {
+      if (prev.includes(connectorId)) {
+        return prev.filter((id) => id !== connectorId);
+      }
+      return [...prev, connectorId];
+    });
   }, []);
 
   // ===== AUTH CHECK =====
@@ -168,6 +294,8 @@ const App: React.FC = () => {
   }, [currentUser, loadConnectors]);
 
   const loadSessionData = (session: any) => {
+    setLinkedConnectorIds([]);
+
     if (session.messages?.length > 0) {
       setMessages(session.messages.map((m: any) => ({
         id: m.id,
@@ -202,6 +330,7 @@ const App: React.FC = () => {
   const onSwitchSession = async (id: string) => {
     localStorage.setItem('mastiff_session_id', id);
     setSessionId(id);
+    setLinkedConnectorIds([]);
     const session = sessions.find(s => s.id === id);
     if (session) {
       loadSessionData(session);
@@ -318,18 +447,23 @@ const App: React.FC = () => {
       lastUploadTime.current = Date.now();
       // Auto-trigger initial analysis after upload
       if (uploadedFileNames.length > 0) {
-        const autoPrompt = `Upload successful: ${uploadedFileNames.join(', ')}. 
-STRICK RULE: DO NOT provide any introductory text, greets, or summaries of your parsing process. 
-Begin IMMEDIATELY with:
-### 1. Significant Trends & Anomalies
-...and provide exactly **3 crisp, professional insights**. 
+        const autoPrompt = `Upload successful: ${uploadedFileNames.join(', ')}.
+      STRICT RULE: DO NOT provide any introductory text, greetings, or parsing-process summaries.
+      Begin IMMEDIATELY with:
+      ### 1. Significant Trends & Anomalies
+      ...and provide exactly **3 crisp, professional insights**.
 
-Focus on:
-1. Significant trends, correlations, or high-impact anomalies.
-2. Data quality integrity.
-3. One boardroom-ready business fact.
+      Focus on:
+      1. Significant trends, correlations, or high-impact anomalies.
+      2. Data quality integrity.
+      3. One boardroom-ready business fact.
 
-MANDATORY: Generate exactly ONE high-fidelity interactive chart (Plotly) with professional styling. Assign it to 'result'.`;
+      MANDATORY: Generate exactly ONE high-fidelity interactive chart (Plotly) with professional styling and assign it to 'result'.
+      Chart selection guidance:
+      - Prefer pie/donut for part-to-whole with few categories.
+      - Prefer heatmap for correlation/pivot intensity comparisons.
+      Use an accessible, professional color palette.
+      All numerical conclusions must come from executable Python calculations.`;
         setTimeout(() => handleAutoAnalysis(autoPrompt), 300);
       }
     }
@@ -342,7 +476,13 @@ MANDATORY: Generate exactly ONE high-fidelity interactive chart (Plotly) with pr
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, content: prompt, mode: analysisMode, silent: true })
+        body: JSON.stringify({
+          sessionId,
+          content: prompt,
+          mode: analysisMode,
+          silent: true,
+          linkedConnectorIds,
+        })
       });
       const assistantMsg = await res.json();
       setMessages(prev => [...prev, {
@@ -404,6 +544,7 @@ MANDATORY: Generate exactly ONE high-fidelity interactive chart (Plotly) with pr
           sessionId,
           content: promptToUse,
           mode: analysisMode,  // ← NOW SENT TO BACKEND
+          linkedConnectorIds,
         })
       });
 
@@ -455,6 +596,7 @@ MANDATORY: Generate exactly ONE high-fidelity interactive chart (Plotly) with pr
         setMessages([]);
         setFiles([]);
         setActiveFileIds([]);
+        setLinkedConnectorIds([]);
         setIsSidebarOpen(false);
       }
     } catch (err) {
@@ -480,6 +622,7 @@ MANDATORY: Generate exactly ONE high-fidelity interactive chart (Plotly) with pr
     localStorage.removeItem('mastiff_user');
     localStorage.removeItem('mastiff_session_id');
     setConnectors([]);
+    setLinkedConnectorIds([]);
     window.location.href = '/login';
   };
 
@@ -522,8 +665,15 @@ MANDATORY: Generate exactly ONE high-fidelity interactive chart (Plotly) with pr
         files={files}
         activeFileIds={activeFileIds}
         connectors={connectors}
+        linkedConnectorIds={linkedConnectorIds}
         isLoadingConnectors={isLoadingConnectors}
         onRefreshConnectors={() => currentUser && loadConnectors(currentUser.id)}
+        onCreateConnector={createConnector}
+        onUpdateConnector={updateConnector}
+        onDeleteConnector={deleteConnectorById}
+        onTestConnector={testConnector}
+        onLoadConnectorSources={loadConnectorSources}
+        onToggleLinkedConnector={toggleLinkedConnector}
         isSidebarOpen={isSidebarOpen}
         currentUser={currentUser}
         onClose={() => setIsSidebarOpen(false)}

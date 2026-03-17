@@ -1,19 +1,50 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-    Plus, X, FileUp, Trash2, Info, Settings, Clock, Database, Sparkles,
-    FileText, FileSpreadsheet, File, Loader2, Search, MessageSquare, MoreVertical,
-    ChevronRight, LogOut
+    Plus, X, FileUp, Trash2, Settings, Clock, Database,
+    FileText, FileSpreadsheet, File, Loader2, MessageSquare,
+    LogOut, Link2, Unlink, FlaskConical, List, Pencil,
+    Save, CheckCircle2, AlertCircle
 } from 'lucide-react';
 import { DataFile, User, Session, ConnectorSummary } from '../types';
+
+type ConnectorType = 'sheets' | 'snowflake' | 'bigquery' | 'postgres' | 'api';
+
+interface ConnectorCreatePayload {
+    name: string;
+    type: ConnectorType;
+    description?: string;
+    credentials: Record<string, any>;
+    metadata?: Record<string, any>;
+}
+
+interface ConnectorUpdatePayload {
+    name?: string;
+    description?: string;
+    credentials?: Record<string, any>;
+    isActive?: boolean;
+}
+
+interface ConnectorActionResult {
+    success: boolean;
+    message: string;
+    sources?: any[];
+}
 
 interface SidebarProps {
     files: DataFile[];
     activeFileIds: string[];
     connectors?: ConnectorSummary[];
+    linkedConnectorIds?: string[];
     isLoadingConnectors?: boolean;
     onRefreshConnectors?: () => void;
+    onCreateConnector?: (payload: ConnectorCreatePayload) => Promise<any>;
+    onUpdateConnector?: (connectorId: string, payload: ConnectorUpdatePayload) => Promise<any>;
+    onDeleteConnector?: (connectorId: string) => Promise<any>;
+    onTestConnector?: (connectorId: string) => Promise<ConnectorActionResult>;
+    onLoadConnectorSources?: (connectorId: string) => Promise<ConnectorActionResult>;
+    onToggleLinkedConnector?: (connectorId: string) => void;
     isSidebarOpen: boolean;
     currentUser: User;
     onClose: () => void;
@@ -35,6 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     files,
     activeFileIds,
     connectors = [],
+    linkedConnectorIds = [],
     isSidebarOpen,
     currentUser,
     onClose,
@@ -51,8 +83,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
     isUploading = false,
     isLoadingConnectors = false,
     onRefreshConnectors,
+    onCreateConnector,
+    onUpdateConnector,
+    onDeleteConnector,
+    onTestConnector,
+    onLoadConnectorSources,
+    onToggleLinkedConnector,
     onLogout
 }) => {
+
+    const [isConnectorModalOpen, setIsConnectorModalOpen] = useState(false);
+    const [editingConnector, setEditingConnector] = useState<ConnectorSummary | null>(null);
+    const [activeConnectorActionId, setActiveConnectorActionId] = useState<string | null>(null);
+    const [expandedSourcesConnectorId, setExpandedSourcesConnectorId] = useState<string | null>(null);
+    const [sourcesByConnector, setSourcesByConnector] = useState<Record<string, any[]>>({});
+    const [connectorFeedback, setConnectorFeedback] = useState<{
+        kind: 'success' | 'error';
+        text: string;
+    } | null>(null);
+    const [connectorForm, setConnectorForm] = useState<{
+        name: string;
+        type: ConnectorType;
+        description: string;
+        credentialsJson: string;
+        isActive: boolean;
+    }>({
+        name: '',
+        type: 'sheets',
+        description: '',
+        credentialsJson: '{\n  "refreshToken": ""\n}',
+        isActive: true,
+    });
+
+    const connectorCredentialTemplates: Record<ConnectorType, string> = {
+        sheets: '{\n  "refreshToken": "",\n  "spreadsheetId": ""\n}',
+        snowflake: '{\n  "account": "",\n  "username": "",\n  "password": "",\n  "database": "",\n  "schema": "",\n  "warehouse": ""\n}',
+        bigquery: '{\n  "projectId": "",\n  "datasetId": "",\n  "serviceAccountKey": "{}"\n}',
+        postgres: '{\n  "host": "",\n  "port": 5432,\n  "database": "",\n  "username": "",\n  "password": "",\n  "ssl": false\n}',
+        api: '{\n  "baseUrl": "https://api.example.com",\n  "authType": "apikey",\n  "apiKey": ""\n}',
+    };
 
     const connectorTypeLabels: Record<string, string> = {
         sheets: 'Google Sheets',
@@ -61,7 +130,192 @@ export const Sidebar: React.FC<SidebarProps> = ({
         postgres: 'Postgres',
         api: 'API',
     };
-    const availableConnectorTypes = ['sheets', 'snowflake', 'bigquery', 'postgres', 'api'];
+    const availableConnectorTypes: ConnectorType[] = ['sheets', 'snowflake', 'bigquery', 'postgres', 'api'];
+
+    const resetConnectorForm = (type: ConnectorType = 'sheets') => {
+        setConnectorForm({
+            name: '',
+            type,
+            description: '',
+            credentialsJson: connectorCredentialTemplates[type],
+            isActive: true,
+        });
+    };
+
+    const openCreateConnectorModal = () => {
+        setEditingConnector(null);
+        resetConnectorForm();
+        setConnectorFeedback(null);
+        setIsConnectorModalOpen(true);
+    };
+
+    const openEditConnectorModal = (connector: ConnectorSummary) => {
+        setEditingConnector(connector);
+        setConnectorForm({
+            name: connector.name,
+            type: (availableConnectorTypes.includes(connector.type as ConnectorType)
+                ? connector.type
+                : 'api') as ConnectorType,
+            description: connector.description || '',
+            credentialsJson: '',
+            isActive: connector.isActive ?? true,
+        });
+        setConnectorFeedback(null);
+        setIsConnectorModalOpen(true);
+    };
+
+    const closeConnectorModal = () => {
+        setIsConnectorModalOpen(false);
+        setEditingConnector(null);
+        resetConnectorForm();
+    };
+
+    const parseCredentials = (rawJson: string, required: boolean): Record<string, any> | undefined => {
+        const trimmed = rawJson.trim();
+        if (!trimmed) {
+            if (required) throw new Error('Credentials JSON is required.');
+            return undefined;
+        }
+
+        let parsed: any;
+        try {
+            parsed = JSON.parse(trimmed);
+        } catch {
+            throw new Error('Credentials must be valid JSON.');
+        }
+
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            throw new Error('Credentials must be a JSON object.');
+        }
+
+        if (required && Object.keys(parsed).length === 0) {
+            throw new Error('Credentials object cannot be empty.');
+        }
+
+        return parsed;
+    };
+
+    const handleSubmitConnector = async () => {
+        try {
+            setConnectorFeedback(null);
+
+            if (!connectorForm.name.trim()) {
+                throw new Error('Connector name is required.');
+            }
+
+            if (editingConnector) {
+                if (!onUpdateConnector) return;
+
+                const credentials = parseCredentials(connectorForm.credentialsJson, false);
+                await onUpdateConnector(editingConnector.id, {
+                    name: connectorForm.name.trim(),
+                    description: connectorForm.description.trim(),
+                    isActive: connectorForm.isActive,
+                    ...(credentials ? { credentials } : {}),
+                });
+
+                setConnectorFeedback({ kind: 'success', text: 'Connector updated successfully.' });
+            } else {
+                if (!onCreateConnector) return;
+
+                const credentials = parseCredentials(connectorForm.credentialsJson, true) || {};
+                await onCreateConnector({
+                    name: connectorForm.name.trim(),
+                    type: connectorForm.type,
+                    description: connectorForm.description.trim(),
+                    credentials,
+                });
+
+                setConnectorFeedback({ kind: 'success', text: 'Connector created successfully.' });
+            }
+
+            closeConnectorModal();
+        } catch (error: any) {
+            setConnectorFeedback({
+                kind: 'error',
+                text: error?.message || 'Failed to save connector.',
+            });
+        }
+    };
+
+    const handleTestConnector = async (connectorId: string) => {
+        if (!onTestConnector) return;
+
+        setActiveConnectorActionId(connectorId);
+        setConnectorFeedback(null);
+        try {
+            const result = await onTestConnector(connectorId);
+            setConnectorFeedback({
+                kind: result.success ? 'success' : 'error',
+                text: result.message,
+            });
+        } catch (error: any) {
+            setConnectorFeedback({
+                kind: 'error',
+                text: error?.message || 'Connection test failed.',
+            });
+        } finally {
+            setActiveConnectorActionId(null);
+        }
+    };
+
+    const handleLoadSources = async (connectorId: string) => {
+        if (!onLoadConnectorSources) return;
+
+        setActiveConnectorActionId(connectorId);
+        setConnectorFeedback(null);
+        try {
+            const result = await onLoadConnectorSources(connectorId);
+            const sources = Array.isArray(result.sources) ? result.sources : [];
+
+            setSourcesByConnector((prev) => ({
+                ...prev,
+                [connectorId]: sources,
+            }));
+            setExpandedSourcesConnectorId((prev) => (prev === connectorId ? null : connectorId));
+
+            setConnectorFeedback({
+                kind: result.success ? 'success' : 'error',
+                text: result.success
+                    ? `Loaded ${sources.length} source${sources.length === 1 ? '' : 's'} for connector.`
+                    : result.message,
+            });
+        } catch (error: any) {
+            setConnectorFeedback({
+                kind: 'error',
+                text: error?.message || 'Failed to load connector sources.',
+            });
+        } finally {
+            setActiveConnectorActionId(null);
+        }
+    };
+
+    const handleDeleteConnector = async (connectorId: string) => {
+        if (!onDeleteConnector) return;
+        if (!confirm('Delete this connector?')) return;
+
+        setActiveConnectorActionId(connectorId);
+        setConnectorFeedback(null);
+        try {
+            await onDeleteConnector(connectorId);
+            setSourcesByConnector((prev) => {
+                const next = { ...prev };
+                delete next[connectorId];
+                return next;
+            });
+            if (expandedSourcesConnectorId === connectorId) {
+                setExpandedSourcesConnectorId(null);
+            }
+            setConnectorFeedback({ kind: 'success', text: 'Connector deleted.' });
+        } catch (error: any) {
+            setConnectorFeedback({
+                kind: 'error',
+                text: error?.message || 'Failed to delete connector.',
+            });
+        } finally {
+            setActiveConnectorActionId(null);
+        }
+    };
 
     const getFileIcon = (type: string) => {
         switch (type) {
@@ -227,16 +481,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <p className="text-[8px] font-extrabold text-zinc-600 uppercase tracking-[2px]">
                                 Connectors
                             </p>
-                            {onRefreshConnectors && (
-                                <button
-                                    onClick={onRefreshConnectors}
-                                    className="p-1 text-zinc-600 hover:text-[#E50914] transition-colors rounded"
-                                    title="Refresh connectors"
-                                >
-                                    <Database size={12} />
-                                </button>
-                            )}
+                            <div className="flex items-center gap-1">
+                                {onCreateConnector && (
+                                    <button
+                                        onClick={openCreateConnectorModal}
+                                        className="p-1 text-zinc-600 hover:text-[#E50914] transition-colors rounded"
+                                        title="Add connector"
+                                    >
+                                        <Plus size={12} />
+                                    </button>
+                                )}
+                                {onRefreshConnectors && (
+                                    <button
+                                        onClick={onRefreshConnectors}
+                                        className="p-1 text-zinc-600 hover:text-[#E50914] transition-colors rounded"
+                                        title="Refresh connectors"
+                                    >
+                                        <Database size={12} />
+                                    </button>
+                                )}
+                            </div>
                         </div>
+
+                        {connectorFeedback && (
+                            <div
+                                className={`flex items-start gap-2 p-2 mb-2 rounded-xl border ${connectorFeedback.kind === 'error'
+                                        ? 'border-red-900/40 bg-red-950/20'
+                                        : 'border-emerald-900/40 bg-emerald-950/20'
+                                    }`}
+                            >
+                                {connectorFeedback.kind === 'error' ? (
+                                    <AlertCircle size={12} className="text-red-400 mt-0.5 shrink-0" />
+                                ) : (
+                                    <CheckCircle2 size={12} className="text-emerald-400 mt-0.5 shrink-0" />
+                                )}
+                                <p className="text-[9px] font-semibold text-zinc-300 leading-tight">{connectorFeedback.text}</p>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-2 gap-1.5 mb-2">
                             {availableConnectorTypes.map((type) => (
@@ -264,15 +545,82 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 {connectors.map((connector) => (
                                     <div
                                         key={connector.id}
-                                        className="flex items-center gap-2.5 p-2 rounded-xl bg-zinc-900/30 border border-zinc-800/60"
+                                        className="p-2 rounded-xl bg-zinc-900/30 border border-zinc-800/60"
                                     >
-                                        <span className={`w-1.5 h-1.5 rounded-full ${connector.isActive ? 'bg-green-400' : 'bg-zinc-600'}`} />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[10px] font-bold text-white truncate">{connector.name}</p>
-                                            <p className="text-[8px] text-zinc-500 uppercase tracking-wide truncate">
-                                                {connectorTypeLabels[connector.type] || connector.type}
-                                            </p>
+                                        <div className="flex items-center gap-2.5">
+                                            <span className={`w-1.5 h-1.5 rounded-full ${connector.isActive ? 'bg-green-400' : 'bg-zinc-600'}`} />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[10px] font-bold text-white truncate">{connector.name}</p>
+                                                <p className="text-[8px] text-zinc-500 uppercase tracking-wide truncate">
+                                                    {connectorTypeLabels[connector.type] || connector.type}
+                                                </p>
+                                            </div>
                                         </div>
+
+                                        <div className="mt-2 grid grid-cols-2 gap-1">
+                                            <button
+                                                onClick={() => onToggleLinkedConnector?.(connector.id)}
+                                                className={`px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-widest border transition-colors flex items-center justify-center gap-1 ${linkedConnectorIds.includes(connector.id)
+                                                        ? 'border-[#E50914]/40 bg-[#E50914]/10 text-[#ff6b6b]'
+                                                        : 'border-zinc-800 text-zinc-500 hover:text-white'
+                                                    }`}
+                                            >
+                                                {linkedConnectorIds.includes(connector.id) ? <Unlink size={10} /> : <Link2 size={10} />}
+                                                {linkedConnectorIds.includes(connector.id) ? 'Unlink' : 'Link'}
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleTestConnector(connector.id)}
+                                                className="px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-widest border border-zinc-800 text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1"
+                                                disabled={activeConnectorActionId === connector.id}
+                                            >
+                                                {activeConnectorActionId === connector.id ? <Loader2 size={10} className="animate-spin" /> : <FlaskConical size={10} />}
+                                                Test
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleLoadSources(connector.id)}
+                                                className="px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-widest border border-zinc-800 text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1"
+                                                disabled={activeConnectorActionId === connector.id}
+                                            >
+                                                <List size={10} />
+                                                Sources
+                                            </button>
+
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => openEditConnectorModal(connector)}
+                                                    className="flex-1 px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-widest border border-zinc-800 text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1"
+                                                >
+                                                    <Pencil size={10} />
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteConnector(connector.id)}
+                                                    className="px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-widest border border-zinc-800 text-zinc-500 hover:text-red-400 transition-colors"
+                                                    disabled={activeConnectorActionId === connector.id}
+                                                    title="Delete connector"
+                                                >
+                                                    <Trash2 size={10} />
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {expandedSourcesConnectorId === connector.id && (
+                                            <div className="mt-2 p-2 rounded-lg bg-zinc-950/70 border border-zinc-800/70 max-h-28 overflow-y-auto custom-scrollbar">
+                                                {(sourcesByConnector[connector.id] || []).length > 0 ? (
+                                                    <div className="space-y-1">
+                                                        {(sourcesByConnector[connector.id] || []).slice(0, 12).map((source: any, index: number) => (
+                                                            <p key={`${connector.id}-source-${index}`} className="text-[8px] text-zinc-400 truncate">
+                                                                {source?.name || source?.id || source?.tableName || `Source ${index + 1}`}
+                                                            </p>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[8px] text-zinc-600">No sources returned.</p>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -349,6 +697,116 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                 </div>
             </aside>
+
+            {isConnectorModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-lg glass rounded-2xl border border-zinc-800 shadow-2xl">
+                        <div className="p-4 border-b border-zinc-900/80 flex items-center justify-between">
+                            <div>
+                                <h3 className="text-sm font-extrabold text-white tracking-tight">
+                                    {editingConnector ? 'Configure Connector' : 'Add Connector'}
+                                </h3>
+                                <p className="text-[9px] text-zinc-600 mt-1">
+                                    {editingConnector
+                                        ? 'Update connector settings. Leave credentials blank to keep existing secrets.'
+                                        : 'Provide connector details and credentials JSON.'}
+                                </p>
+                            </div>
+                            <button
+                                onClick={closeConnectorModal}
+                                className="p-1.5 text-zinc-500 hover:text-white rounded-lg transition-colors"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+
+                        <div className="p-4 space-y-3">
+                            <div>
+                                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Name</label>
+                                <input
+                                    value={connectorForm.name}
+                                    onChange={(e) => setConnectorForm((prev) => ({ ...prev, name: e.target.value }))}
+                                    className="mt-1 w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-[11px] text-white"
+                                    placeholder="Sales Warehouse"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Type</label>
+                                <select
+                                    value={connectorForm.type}
+                                    disabled={Boolean(editingConnector)}
+                                    onChange={(e) => {
+                                        const nextType = e.target.value as ConnectorType;
+                                        setConnectorForm((prev) => ({
+                                            ...prev,
+                                            type: nextType,
+                                            credentialsJson: editingConnector
+                                                ? prev.credentialsJson
+                                                : connectorCredentialTemplates[nextType],
+                                        }));
+                                    }}
+                                    className="mt-1 w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-[11px] text-white disabled:opacity-60"
+                                >
+                                    {availableConnectorTypes.map((type) => (
+                                        <option key={type} value={type}>
+                                            {connectorTypeLabels[type]}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Description</label>
+                                <input
+                                    value={connectorForm.description}
+                                    onChange={(e) => setConnectorForm((prev) => ({ ...prev, description: e.target.value }))}
+                                    className="mt-1 w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-[11px] text-white"
+                                    placeholder="Finance dashboards and monthly KPI tables"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Credentials JSON</label>
+                                <textarea
+                                    value={connectorForm.credentialsJson}
+                                    onChange={(e) => setConnectorForm((prev) => ({ ...prev, credentialsJson: e.target.value }))}
+                                    className="mt-1 w-full min-h-36 px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-[10px] text-zinc-300 font-mono"
+                                    placeholder={connectorCredentialTemplates[connectorForm.type]}
+                                />
+                            </div>
+
+                            {editingConnector && (
+                                <label className="flex items-center gap-2 text-[10px] font-semibold text-zinc-400">
+                                    <input
+                                        type="checkbox"
+                                        checked={connectorForm.isActive}
+                                        onChange={(e) => setConnectorForm((prev) => ({ ...prev, isActive: e.target.checked }))}
+                                        className="accent-[#E50914]"
+                                    />
+                                    Connector active
+                                </label>
+                            )}
+                        </div>
+
+                        <div className="p-4 border-t border-zinc-900/80 flex items-center justify-end gap-2">
+                            <button
+                                onClick={closeConnectorModal}
+                                className="px-3 py-2 rounded-xl text-[9px] font-extrabold uppercase tracking-widest text-zinc-500 hover:text-white"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSubmitConnector}
+                                className="px-3 py-2 rounded-xl text-[9px] font-extrabold uppercase tracking-widest bg-[#E50914] text-white hover:bg-[#ff1a25] flex items-center gap-1.5"
+                            >
+                                <Save size={11} />
+                                {editingConnector ? 'Save Changes' : 'Create Connector'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 };

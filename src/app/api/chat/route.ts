@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { messages, sessions } from '@/db/schema';
-import { eq, asc } from 'drizzle-orm';
+import { connectors } from '@/db/connectorSchema';
+import { eq, asc, and, inArray } from 'drizzle-orm';
 import { llm } from '@/services/llm';
 import { kernelService } from '@/services/kernel';
-import { AnalysisMode } from '@/types';
+import { AnalysisMode } from '@/src/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +42,13 @@ function shouldRunDataAnalysis(content: string, mode: AnalysisMode, hasFiles: bo
 
 export async function POST(req: NextRequest) {
     try {
-        const { sessionId, content, mode = 'analysis', silent = false } = await req.json();
+        const {
+            sessionId,
+            content,
+            mode = 'analysis',
+            silent = false,
+            linkedConnectorIds = [],
+        } = await req.json();
 
         if (!sessionId || !content) {
             return NextResponse.json({ error: 'Missing sessionId or content' }, { status: 400 });
@@ -62,6 +69,38 @@ export async function POST(req: NextRequest) {
 
         if (!session) {
             return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+        }
+
+        const normalizedLinkedConnectorIds = Array.isArray(linkedConnectorIds)
+            ? linkedConnectorIds
+                .filter((value: unknown): value is string => typeof value === 'string' && value.length > 0)
+                .slice(0, 20)
+            : [];
+
+        let linkedConnectorContext = '';
+        if (normalizedLinkedConnectorIds.length > 0) {
+            const linkedRows = await db
+                .select({
+                    id: connectors.id,
+                    name: connectors.name,
+                    type: connectors.type,
+                    description: connectors.description,
+                })
+                .from(connectors)
+                .where(
+                    and(
+                        eq(connectors.userId, session.userId),
+                        inArray(connectors.id, normalizedLinkedConnectorIds)
+                    )
+                );
+
+            if (linkedRows.length > 0) {
+                linkedConnectorContext = linkedRows
+                    .map((connector) =>
+                        `- ${connector.name} (${connector.type})${connector.description ? `: ${connector.description}` : ''}`
+                    )
+                    .join('\n');
+            }
         }
 
         if (!silent) {
@@ -88,8 +127,37 @@ export async function POST(req: NextRequest) {
                 path: f.filePath,
             }));
 
-            const analysis = await llm.getAnalysisCode(content, fileContexts, session.messages, analysisMode);
-            const executionResult = await kernelService.execute(sessionId, analysis.code, executorFiles);
+            let analysis = await llm.getAnalysisCode(
+                content,
+                fileContexts,
+                session.messages,
+                analysisMode,
+                linkedConnectorContext
+            );
+            let executionResult = await kernelService.execute(sessionId, analysis.code, executorFiles);
+
+            if (executionResult?.error) {
+                const repaired = await llm.repairAnalysisCode(
+                    content,
+                    analysis.code,
+                    executionResult.error,
+                    executionResult.traceback,
+                    fileContexts,
+                    analysisMode
+                );
+
+                if (repaired?.code && repaired.code.trim() && repaired.code !== analysis.code) {
+                    const repairedResult = await kernelService.execute(sessionId, repaired.code, executorFiles);
+                    if (!repairedResult?.error) {
+                        analysis = {
+                            ...analysis,
+                            explanation: repaired.explanation,
+                            code: repaired.code,
+                        };
+                        executionResult = repairedResult;
+                    }
+                }
+            }
 
             const groundedSummary = await llm.summarizeExecution(
                 content,
@@ -136,7 +204,15 @@ export async function POST(req: NextRequest) {
             ? `\n\nAvailable files: ${sessionFiles.map((f) => f.filename).join(', ')}`
             : '';
 
-        const chatResponse = await llm.chat(`${content}${fileHint}`, session.messages, analysisMode === 'analysis' ? 'analysis' : 'chat');
+        const connectorHint = linkedConnectorContext
+            ? `\n\nLinked connectors (metadata only):\n${linkedConnectorContext}`
+            : '';
+
+        const chatResponse = await llm.chat(
+            `${content}${fileHint}${connectorHint}`,
+            session.messages,
+            analysisMode === 'analysis' ? 'analysis' : 'chat'
+        );
 
         const [assistantMsg] = await db.insert(messages).values({
             sessionId,

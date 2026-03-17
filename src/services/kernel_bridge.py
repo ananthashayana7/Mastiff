@@ -22,7 +22,7 @@ try:
     matplotlib.use('Agg')  # Non-interactive backend
     import matplotlib.pyplot as plt
     import seaborn as sns
-    sns.set_theme(style="darkgrid", palette="husl")
+    sns.set_theme(style="whitegrid", palette="colorblind")
     HAS_MPL = True
 except ImportError:
     HAS_MPL = False
@@ -31,7 +31,26 @@ try:
     import plotly.express as px
     import plotly.graph_objects as go
     import plotly.io as pio
-    pio.templates.default = "plotly_dark"
+
+    DEFAULT_COLORWAY = [
+        '#0B6E99', '#FF7F0E', '#2CA02C', '#D62728',
+        '#9467BD', '#8C564B', '#17BECF', '#BCBD22'
+    ]
+
+    pio.templates['mastiff'] = go.layout.Template(
+        layout=go.Layout(
+            colorway=DEFAULT_COLORWAY,
+            font=dict(family='IBM Plex Sans, DejaVu Sans, Arial', size=12, color='#1f2937'),
+            paper_bgcolor='white',
+            plot_bgcolor='white',
+        )
+    )
+    pio.templates['mastiff'].layout.colorscale = dict(
+        sequential=px.colors.sequential.Viridis,
+        diverging=px.colors.diverging.RdBu,
+        sequentialminus=px.colors.sequential.Blues
+    )
+    pio.templates.default = 'mastiff'
     HAS_PLOTLY = True
 except ImportError:
     HAS_PLOTLY = False
@@ -57,6 +76,51 @@ session_state = {
 }
 
 
+def read_csv_flexible(filepath: str, forced_sep: str = None) -> pd.DataFrame:
+    """Read CSV/TSV files with delimiter and encoding fallback."""
+    encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']
+    separators = [forced_sep] if forced_sep else [None, ',', ';', '\t', '|']
+    last_error = None
+
+    for encoding in encodings:
+        for sep in separators:
+            kwargs = {
+                'encoding': encoding,
+                'low_memory': False,
+            }
+
+            if sep is None:
+                kwargs['sep'] = None
+                kwargs['engine'] = 'python'
+            else:
+                kwargs['sep'] = sep
+
+            try:
+                df = pd.read_csv(filepath, **kwargs)
+
+                if not forced_sep and df.shape[1] <= 1 and len(df.columns) > 0:
+                    header_text = str(df.columns[0])
+                    if any(sym in header_text for sym in [',', ';', '\t', '|'] if sym != sep):
+                        continue
+
+                return df
+            except Exception as exc:
+                last_error = exc
+
+    if last_error:
+        raise last_error
+
+    return pd.read_csv(filepath, low_memory=False)
+
+
+def read_json_flexible(filepath: str) -> pd.DataFrame:
+    """Read JSON arrays/objects and line-delimited JSON files."""
+    try:
+        return pd.read_json(filepath)
+    except ValueError:
+        return pd.read_json(filepath, lines=True)
+
+
 def load_files(files_json_str: str):
     """Load data files into the session state."""
     try:
@@ -75,7 +139,7 @@ def load_files(files_json_str: str):
         ext = os.path.splitext(filepath)[1].lower()
         try:
             if ext == '.csv':
-                session_state['dfs'][name] = pd.read_csv(filepath)
+                session_state['dfs'][name] = read_csv_flexible(filepath)
             elif ext in ['.xlsx', '.xls']:
                 # Advanced Sheet Discovery: Scan all sheets and pick the richest one
                 xl = pd.ExcelFile(filepath)
@@ -107,15 +171,18 @@ def load_files(files_json_str: str):
                         break
                 session_state['dfs'][name] = df.reset_index(drop=True)
             elif ext == '.json':
-                session_state['dfs'][name] = pd.read_json(filepath)
+                session_state['dfs'][name] = read_json_flexible(filepath)
             elif ext == '.parquet':
                 session_state['dfs'][name] = pd.read_parquet(filepath)
             elif ext == '.tsv':
-                session_state['dfs'][name] = pd.read_csv(filepath, sep='\t')
+                session_state['dfs'][name] = read_csv_flexible(filepath, forced_sep='\t')
             elif ext in ['.txt']:
                 # Try CSV first, then raw text
                 try:
-                    session_state['dfs'][name] = pd.read_csv(filepath)
+                    parsed = read_csv_flexible(filepath)
+                    if len(parsed.columns) < 2:
+                        raise ValueError('single column text file')
+                    session_state['dfs'][name] = parsed
                 except Exception:
                     with open(filepath, 'r', encoding='utf-8', errors='replace') as fh:
                         content = fh.read()

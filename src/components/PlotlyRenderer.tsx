@@ -40,7 +40,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 plot_bgcolor: 'rgba(10,10,10,0.5)',
                 font: {
                     color: '#a1a1a1',
-                    family: 'Inter, system-ui, sans-serif',
+                    family: 'IBM Plex Sans, system-ui, sans-serif',
                     size: 11
                 },
                 margin: { t: 40, r: 20, l: 50, b: 50 },
@@ -64,17 +64,34 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     font: { color: '#888', size: 10 },
                     bgcolor: 'rgba(0,0,0,0)'
                 },
-                colorway: ['#E50914', '#ff4d4d', '#ff6b6b', '#ff8585', '#B20710', '#a1060e'],
+                colorway: ['#0B6E99', '#FF7F0E', '#2CA02C', '#D62728', '#9467BD', '#17BECF', '#BCBD22', '#8C564B'],
                 hoverlabel: {
                     bgcolor: '#0a0a0a',
                     bordercolor: '#333',
-                    font: { color: '#fff', size: 11, family: 'Inter' }
+                    font: { color: '#fff', size: 11, family: 'IBM Plex Sans' }
                 }
             };
 
-            // Apply dark theme to trace colors if not already set
+            // Respect intrinsic colorscales and categorical color maps (e.g., heatmaps, pies).
             const traces = (data.data || []).map((trace: any, i: number) => {
-                const colors = ['#E50914', '#ff4d4d', '#ff6b6b', '#ff8585', '#B20710'];
+                const colors = ['#0B6E99', '#FF7F0E', '#2CA02C', '#D62728', '#9467BD', '#17BECF'];
+                const traceType = String(trace?.type || '').toLowerCase();
+                const keepIntrinsicColor = [
+                    'heatmap',
+                    'contour',
+                    'surface',
+                    'choropleth',
+                    'treemap',
+                    'sunburst',
+                    'icicle',
+                    'funnelarea',
+                    'pie',
+                ].includes(traceType);
+
+                if (keepIntrinsicColor) {
+                    return trace;
+                }
+
                 return {
                     ...trace,
                     marker: {

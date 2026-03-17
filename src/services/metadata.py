@@ -16,13 +16,59 @@ MAX_SAMPLE_ROWS = 10
 MAX_TOP_CATEGORIES = 10
 
 
+def read_csv_flexible(file_path, forced_sep=None):
+    """Read CSV-like files with delimiter and encoding fallbacks."""
+    encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']
+    separators = [forced_sep] if forced_sep else [None, ',', ';', '\t', '|']
+    last_error = None
+
+    for encoding in encodings:
+        for sep in separators:
+            kwargs = {
+                'low_memory': False,
+                'encoding': encoding,
+            }
+
+            if sep is None:
+                kwargs['sep'] = None
+                kwargs['engine'] = 'python'
+            else:
+                kwargs['sep'] = sep
+
+            try:
+                df = pd.read_csv(file_path, **kwargs)
+
+                # Keep probing if we clearly parsed into a single malformed column.
+                if not forced_sep and df.shape[1] <= 1 and len(df.columns) > 0:
+                    header_text = str(df.columns[0])
+                    if any(sym in header_text for sym in [',', ';', '\t', '|'] if sym != sep):
+                        continue
+
+                return df
+            except Exception as exc:
+                last_error = exc
+
+    if last_error:
+        raise last_error
+
+    return pd.read_csv(file_path, low_memory=False)
+
+
+def read_json_flexible(file_path):
+    """Read JSON arrays, objects, and line-delimited JSON."""
+    try:
+        return pd.read_json(file_path)
+    except ValueError:
+        return pd.read_json(file_path, lines=True)
+
+
 def analyze_file(file_path):
     ext = os.path.splitext(file_path)[1].lower()
     
     try:
         # Load file based on extension
         if ext == '.csv':
-            df = pd.read_csv(file_path, low_memory=False)
+            df = read_csv_flexible(file_path)
         elif ext in ['.xlsx', '.xls']:
             # Advanced Sheet Discovery: Scan all sheets and pick the richest one
             xl = pd.ExcelFile(file_path)
@@ -60,15 +106,15 @@ def analyze_file(file_path):
                     df = df.dropna(how='all').dropna(axis=1, how='all')
                     break
         elif ext == '.json':
-            df = pd.read_json(file_path)
+            df = read_json_flexible(file_path)
         elif ext == '.parquet':
             df = pd.read_parquet(file_path)
         elif ext == '.tsv':
-            df = pd.read_csv(file_path, sep='\t', low_memory=False)
+            df = read_csv_flexible(file_path, forced_sep='\t')
         elif ext == '.txt':
             # Try CSV first (common for .txt data files)
             try:
-                df = pd.read_csv(file_path, low_memory=False)
+                df = read_csv_flexible(file_path)
                 if len(df.columns) < 2:
                     raise ValueError("single column")
             except Exception:

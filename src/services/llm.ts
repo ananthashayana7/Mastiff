@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import { AnalysisMode } from '@/types';
+import { AnalysisMode } from '@/src/types';
 
 const MODE_CONFIGS: Record<AnalysisMode, {
     temperature: number;
@@ -108,7 +108,8 @@ export class LLMService {
         userQuery: string,
         files: { name: string; schema: string; sample: any }[],
         history: any[],
-        mode: AnalysisMode = 'analysis'
+        mode: AnalysisMode = 'analysis',
+        connectorContext: string = ''
     ) {
         const modeConfig = MODE_CONFIGS[mode];
         const wantsVisualization = VISUALIZATION_HINTS.test(userQuery);
@@ -121,6 +122,10 @@ Sample:
 ${JSON.stringify(f.sample, null, 2)}
 `).join('\n');
 
+        const connectorContextBlock = connectorContext
+            ? `\nCONNECTED SOURCES (LINKED CONNECTORS):\n${connectorContext}\n- These are metadata-only references unless query results are explicitly provided.`
+            : '\nCONNECTED SOURCES (LINKED CONNECTORS):\n- None linked.';
+
         const systemPrompt = `
 You are Mastiff, an AI data analyst executing Python in a stateful sandbox.
 
@@ -128,6 +133,7 @@ ${modeConfig.promptPrefix}
 
 DATA CONTEXT:
 ${filesContext}
+${connectorContextBlock}
 
 EXECUTION ENVIRONMENT:
 - Libraries available: pandas, numpy, matplotlib, seaborn, scipy, statsmodels, sklearn, plotly.
@@ -139,10 +145,20 @@ INSTRUCTIONS:
 - Convert data types safely before analysis.
 - Handle missing values and invalid dates robustly.
 - Do all calculations in Python.
+- For every numerical question, write deterministic Python that computes the answer directly from data (never prose-only math).
+- Guard edge cases (division by zero, empty subsets, non-numeric coercion, and missing columns) before computing.
 - Perform a quick data quality check (nulls, outliers, malformed dates) when relevant.
 - Keep explanations grounded in what the code will compute, not assumptions.
 - If visualization is requested (${wantsVisualization ? 'YES' : 'NO'}), produce the most suitable chart.
 - If visualization is not requested, do not force a chart.
+- Chart selection guidance:
+    - Use pie/donut for part-to-whole with <= 8 categories.
+    - Use heatmap for correlation matrices, pivot intensity, or dense cross-tab comparisons.
+    - Use line for temporal trends, bar for ranking, scatter for relationship/outlier checks.
+- Styling guidance for Plotly:
+    - Use professional color palettes (e.g., px.colors.qualitative.Safe, px.colors.qualitative.Vivid).
+    - For heatmaps, use a perceptual continuous scale (e.g., Viridis).
+    - Set readable labels, title, and balanced margins.
 - Keep explanation factual and procedural; do not claim computed numbers before execution.
 
 RESPONSE FORMAT (JSON ONLY):
@@ -190,6 +206,90 @@ IMPORTANT:
         } catch (error) {
             console.error('LLM Analysis Error:', error);
             throw new Error('Failed to generate analysis code');
+        }
+    }
+
+    async repairAnalysisCode(
+        userQuery: string,
+        previousCode: string,
+        executionError: string,
+        traceback: string | undefined,
+        files: { name: string; schema: string; sample: any }[],
+        mode: AnalysisMode = 'analysis'
+    ): Promise<{ explanation: string; code: string } | null> {
+        const modeConfig = MODE_CONFIGS[mode];
+
+        const filesContext = files.map((f) => `
+--- FILE: ${f.name} ---
+Schema:
+${f.schema}
+Sample:
+${JSON.stringify(f.sample, null, 2)}
+`).join('\n');
+
+        const systemPrompt = `
+You are Mastiff, a Python debugging specialist for data analysis code.
+
+${modeConfig.promptPrefix}
+
+You must repair failing analysis code so it executes successfully and still answers the user's query.
+
+RULES:
+- Keep the same intent and output contract.
+- Preserve visualization intent if requested.
+- Add robust guards for missing columns, bad types, empty data, and divide-by-zero.
+- Return only valid JSON.
+
+RESPONSE FORMAT (JSON ONLY):
+{
+  "explanation": "Short explanation of the fix.",
+  "code": "Corrected Python code"
+}
+`;
+
+        const repairPrompt = `
+User query:
+${userQuery}
+
+Data context:
+${filesContext}
+
+Previous failing code:
+${previousCode}
+
+Execution error:
+${executionError}
+
+Traceback:
+${traceback || ''}
+`;
+
+        try {
+            const { response } = await this.generateWithFallback({
+                models: ANALYSIS_MODEL_CANDIDATES,
+                contents: [{ role: 'user', parts: [{ text: repairPrompt }] }],
+                config: {
+                    systemInstruction: systemPrompt,
+                    responseMimeType: 'application/json',
+                    temperature: 0.1,
+                },
+            });
+
+            let text = this.normalizeResponseText(response) || '{}';
+            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
+            const parsed = JSON.parse(text);
+            if (!parsed?.code || typeof parsed.code !== 'string') {
+                return null;
+            }
+
+            return {
+                explanation: parsed.explanation || 'Code repaired after execution failure',
+                code: parsed.code,
+            };
+        } catch (error) {
+            console.error('LLM Repair Error:', error);
+            return null;
         }
     }
 
