@@ -1,4 +1,4 @@
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, execFile } from 'child_process';
 import path from 'path';
 
 const KERNEL_TIMEOUT_MS = 60000; // 60s max per execution
@@ -6,6 +6,7 @@ const MAX_RETRIES = 2;
 
 class KernelService {
     private processes: Map<string, ChildProcess> = new Map();
+    private dependencyCheckedCommands: Set<string> = new Set();
 
     async execute(sessionId: string, code: string, files: { name: string; path: string }[]): Promise<any> {
         let retries = 0;
@@ -16,7 +17,7 @@ class KernelService {
 
                 if (!process || process.killed || process.exitCode !== null) {
                     // Process doesn't exist or has died — start a new one
-                    process = this.startKernel(sessionId);
+                    process = await this.startKernel(sessionId);
                     this.processes.set(sessionId, process);
                 }
 
@@ -97,7 +98,86 @@ class KernelService {
         });
     }
 
-    private startKernel(sessionId: string): ChildProcess {
+    private runExecFile(
+        command: string,
+        args: string[],
+        timeout = 120000
+    ): Promise<{ stdout: string; stderr: string }> {
+        return new Promise((resolve, reject) => {
+            execFile(
+                command,
+                args,
+                {
+                    env: { ...process.env, PYTHONUNBUFFERED: '1' },
+                    timeout,
+                    maxBuffer: 10 * 1024 * 1024,
+                },
+                (error, stdout, stderr) => {
+                    if (error) {
+                        reject(new Error(`${error.message}${stderr ? `\n${stderr}` : ''}`));
+                        return;
+                    }
+                    resolve({ stdout: stdout || '', stderr: stderr || '' });
+                }
+            );
+        });
+    }
+
+    private async getMissingPythonModules(command: string): Promise<string[]> {
+        const checkScript = [
+            'import importlib.util',
+            "mods = ['pandas', 'numpy', 'plotly']",
+            'missing = [m for m in mods if importlib.util.find_spec(m) is None]',
+            "print(','.join(missing))",
+        ].join('; ');
+
+        const { stdout } = await this.runExecFile(command, ['-c', checkScript], 20000);
+        const output = stdout.trim();
+        if (!output) return [];
+        return output.split(',').map((item) => item.trim()).filter(Boolean);
+    }
+
+    private async ensurePythonDependencies(command: string, sessionId: string): Promise<void> {
+        if (this.dependencyCheckedCommands.has(command)) {
+            return;
+        }
+
+        let missingModules = await this.getMissingPythonModules(command);
+        if (missingModules.length === 0) {
+            this.dependencyCheckedCommands.add(command);
+            return;
+        }
+
+        const packagesToInstall = new Set<string>();
+        for (const moduleName of missingModules) {
+            if (moduleName === 'plotly') {
+                packagesToInstall.add('plotly[express]');
+            } else {
+                packagesToInstall.add(moduleName);
+            }
+        }
+
+        console.warn(
+            `Kernel [${sessionId}] missing Python modules (${missingModules.join(', ')}). Attempting install...`
+        );
+
+        await this.runExecFile(
+            command,
+            ['-m', 'pip', 'install', '--user', ...Array.from(packagesToInstall)],
+            240000
+        );
+
+        missingModules = await this.getMissingPythonModules(command);
+        if (missingModules.length > 0) {
+            throw new Error(
+                `Missing required Python modules after install attempt: ${missingModules.join(', ')}`
+            );
+        }
+
+        this.dependencyCheckedCommands.add(command);
+    }
+
+    private async startKernel(sessionId: string): Promise<ChildProcess> {
         const bridgePath = path.join(process.cwd(), 'src', 'services', 'kernel_bridge.py');
 
         // Try 'py' first (Windows launcher), fall back to 'python3', then 'python'
@@ -107,6 +187,8 @@ class KernelService {
 
         for (const cmd of pythonCommands) {
             try {
+                await this.ensurePythonDependencies(cmd, sessionId);
+
                 pythonProcess = spawn(cmd, [bridgePath], {
                     stdio: ['pipe', 'pipe', 'pipe'],
                     env: { ...process.env, PYTHONUNBUFFERED: '1' }
