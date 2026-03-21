@@ -300,7 +300,7 @@ const App: React.FC = () => {
       setMessages(session.messages.map((m: any) => ({
         id: m.id,
         role: m.role,
-        content: m.content,
+        content: m.content || '',
         code: m.code,
         visualization: m.visualizationUrl,
         result: m.result,
@@ -486,10 +486,15 @@ const App: React.FC = () => {
         })
       });
       const assistantMsg = await res.json();
+
+      const responseContent = assistantMsg.content
+        || assistantMsg.error
+        || 'No response received. Please try again.';
+
       setMessages(prev => [...prev, {
         id: assistantMsg.id || `msg-${Date.now()}`,
         role: 'assistant',
-        content: assistantMsg.content,
+        content: responseContent,
         code: assistantMsg.code,
         visualization: assistantMsg.visualizationUrl,
         result: assistantMsg.result,
@@ -552,10 +557,14 @@ const App: React.FC = () => {
 
       const assistantMsg = await res.json();
 
+      const responseContent = assistantMsg.content
+        || assistantMsg.error
+        || 'No response received. Please try again.';
+
       setMessages(prev => [...prev, {
         id: assistantMsg.id || `msg-${Date.now()}`,
         role: 'assistant',
-        content: assistantMsg.content,
+        content: responseContent,
         code: assistantMsg.code,
         visualization: assistantMsg.visualizationUrl,
         result: assistantMsg.result,
@@ -572,7 +581,7 @@ const App: React.FC = () => {
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `An error occurred: ${err.message}. Please try again.`,
+        content: `An error occurred: ${err?.message || 'Unknown error'}. Please try again.`,
         timestamp: Date.now()
       }]);
     } finally {
