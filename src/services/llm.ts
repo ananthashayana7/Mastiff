@@ -60,21 +60,88 @@ interface GenerateWithFallbackParams {
     config?: any;
 }
 
-export class LLMService {
-    private genAI: GoogleGenAI | null = null;
-
-    private getClient() {
-        if (!this.genAI) {
-            const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-            if (!apiKey) {
-                if (process.env.NEXT_PHASE === 'phase-production-build' || process.env.NODE_ENV === 'development') {
-                    return null;
-                }
-                throw new Error('API_KEY must be set when using the Gemini API.');
-            }
-            this.genAI = new GoogleGenAI({ apiKey });
+/**
+ * Parse comma-separated API keys from environment variables.
+ * Filters out empty/whitespace-only entries.
+ */
+export function parseApiKeys(...envValues: (string | undefined)[]): string[] {
+    const keys: string[] = [];
+    for (const raw of envValues) {
+        if (!raw) continue;
+        for (const part of raw.split(',')) {
+            const trimmed = part.trim();
+            if (trimmed) keys.push(trimmed);
         }
-        return this.genAI;
+    }
+    return keys;
+}
+
+/**
+ * Detect errors that indicate a key-level failure (rate-limit, quota, auth)
+ * rather than a model-level or transient failure.
+ */
+export function isKeyExhaustedError(error: any): boolean {
+    const status = error?.status ?? error?.statusCode ?? error?.code;
+    if (status === 429 || status === 403 || status === 401) return true;
+
+    const msg = String(error?.message || error || '').toLowerCase();
+    return (
+        msg.includes('resource_exhausted') ||
+        msg.includes('rate limit') ||
+        msg.includes('rate_limit') ||
+        msg.includes('quota') ||
+        msg.includes('permission_denied') ||
+        msg.includes('api key not valid') ||
+        msg.includes('api_key_invalid') ||
+        msg.includes('invalid api key') ||
+        msg.includes('unauthorized')
+    );
+}
+
+export class LLMService {
+    private clients: Map<string, GoogleGenAI> = new Map();
+    private apiKeys: string[] = [];
+    private currentKeyIndex = 0;
+
+    /**
+     * Resolve all available API keys from environment variables.
+     * Supports comma-separated keys for fallback redundancy.
+     */
+    private resolveApiKeys(): string[] {
+        if (this.apiKeys.length > 0) return this.apiKeys;
+        this.apiKeys = parseApiKeys(
+            process.env.API_KEY,
+            process.env.GEMINI_API_KEY,
+            process.env.GOOGLE_API_KEY
+        );
+        return this.apiKeys;
+    }
+
+    /**
+     * Get (or create) a GoogleGenAI client for the given API key.
+     */
+    private getClientForKey(apiKey: string): GoogleGenAI {
+        let client = this.clients.get(apiKey);
+        if (!client) {
+            client = new GoogleGenAI({ apiKey });
+            this.clients.set(apiKey, client);
+        }
+        return client;
+    }
+
+    /**
+     * Get a client using the current primary API key.
+     * Returns null during build / dev when no keys are configured.
+     */
+    private getClient(): GoogleGenAI | null {
+        const keys = this.resolveApiKeys();
+        if (keys.length === 0) {
+            if (process.env.NEXT_PHASE === 'phase-production-build' || process.env.NODE_ENV === 'development') {
+                return null;
+            }
+            throw new Error('API_KEY must be set when using the Gemini API.');
+        }
+        return this.getClientForKey(keys[this.currentKeyIndex]);
     }
 
     private normalizeResponseText(response: any): string {
@@ -89,27 +156,89 @@ export class LLMService {
         return msg.includes('not_found') || msg.includes('not found') || msg.includes('models/');
     }
 
-    private async generateWithFallback(params: GenerateWithFallbackParams): Promise<{ response: any; model: string }> {
-        const client = this.getClient();
-        if (!client) {
-            throw new Error('AI client not initialized');
-        }
-
+    /**
+     * Try all models with a single API key.
+     * Returns the response on success, or throws the last non-model-not-found error.
+     * Returns null if all models returned "not found".
+     */
+    private async tryModelsWithKey(
+        client: GoogleGenAI,
+        models: string[],
+        contents: any[],
+        config?: any
+    ): Promise<{ response: any; model: string } | null> {
         let lastError: any = null;
 
-        for (const model of Array.from(new Set(params.models))) {
+        for (const model of models) {
             try {
                 const response = await client.models.generateContent({
                     model,
-                    contents: params.contents,
-                    config: params.config,
+                    contents,
+                    config,
                 });
                 return { response, model };
             } catch (error: any) {
                 lastError = error;
+                if (isKeyExhaustedError(error)) {
+                    throw error; // bubble up so key rotation can handle it
+                }
                 if (!this.isModelNotFoundError(error)) {
                     throw error;
                 }
+                // model not found — try next model
+            }
+        }
+
+        if (lastError && !this.isModelNotFoundError(lastError)) {
+            throw lastError;
+        }
+        return null; // all models not found
+    }
+
+    /**
+     * Generate content with automatic key rotation and model fallback.
+     *
+     * Strategy:
+     *  1. For the current API key, try every model candidate in order.
+     *  2. If the key is exhausted (rate-limit / quota / auth), rotate to the
+     *     next API key and repeat from step 1.
+     *  3. Throw the last error if all keys and models are exhausted.
+     */
+    private async generateWithFallback(params: GenerateWithFallbackParams): Promise<{ response: any; model: string }> {
+        const keys = this.resolveApiKeys();
+        if (keys.length === 0) {
+            throw new Error('AI client not initialized');
+        }
+
+        const uniqueModels = Array.from(new Set(params.models));
+        let lastError: any = null;
+
+        // Try each key, starting from the current index and wrapping around
+        for (let attempt = 0; attempt < keys.length; attempt++) {
+            const keyIndex = (this.currentKeyIndex + attempt) % keys.length;
+            const client = this.getClientForKey(keys[keyIndex]);
+
+            try {
+                const result = await this.tryModelsWithKey(
+                    client,
+                    uniqueModels,
+                    params.contents,
+                    params.config
+                );
+                if (result) {
+                    // Promote this key as the current one for future calls
+                    this.currentKeyIndex = keyIndex;
+                    return result;
+                }
+            } catch (error: any) {
+                lastError = error;
+                if (isKeyExhaustedError(error)) {
+                    console.warn(
+                        `API key ${keyIndex + 1}/${keys.length} exhausted, rotating to next key…`
+                    );
+                    continue; // try next key
+                }
+                throw error; // non-key error, fail fast
             }
         }
 

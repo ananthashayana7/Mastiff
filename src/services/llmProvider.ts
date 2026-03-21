@@ -67,6 +67,37 @@ export abstract class LLMProvider {
 }
 
 /**
+ * Detect errors that indicate a key-level failure (rate-limit, quota, auth).
+ */
+function isKeyExhaustedError(error: any): boolean {
+    const status = error?.status ?? error?.statusCode ?? error?.code;
+    if (status === 429 || status === 403 || status === 401) return true;
+
+    const msg = String(error?.message || error || '').toLowerCase();
+    return (
+        msg.includes('resource_exhausted') ||
+        msg.includes('rate limit') ||
+        msg.includes('rate_limit') ||
+        msg.includes('quota') ||
+        msg.includes('permission_denied') ||
+        msg.includes('api key not valid') ||
+        msg.includes('api_key_invalid') ||
+        msg.includes('invalid api key') ||
+        msg.includes('unauthorized')
+    );
+}
+
+/**
+ * Parse a possibly comma-separated API key string into individual keys.
+ */
+function parseApiKeys(raw: string): string[] {
+    return raw
+        .split(',')
+        .map(k => k.trim())
+        .filter(Boolean);
+}
+
+/**
  * Google Gemini Provider
  */
 export class GeminiProvider extends LLMProvider {
@@ -76,11 +107,16 @@ export class GeminiProvider extends LLMProvider {
         'gemini-2.0-flash-lite',
     ];
 
+    /** All API keys parsed from the comma-separated config value */
+    private apiKeys: string[];
+    private currentKeyIndex = 0;
+
     constructor(config: LLMProviderConfig) {
         super(config);
         this.name = 'gemini';
 
-        if (!config.apiKey) {
+        this.apiKeys = parseApiKeys(config.apiKey || '');
+        if (this.apiKeys.length === 0) {
             throw new Error('Gemini API key is required');
         }
     }
@@ -114,11 +150,15 @@ export class GeminiProvider extends LLMProvider {
         return '';
     }
 
-    private async runWithModelFallback(
+    /**
+     * Try all model candidates with a single GoogleGenAI client.
+     * Returns a result on success, or null if every model was "not found".
+     * Throws key-exhausted or unexpected errors for the caller to handle.
+     */
+    private async tryModelsWithClient(
+        ai: any,
         requestFactory: (model: string, ai: any) => Promise<any>
-    ): Promise<{ text: string; model: string }> {
-        const { GoogleGenAI } = await import('@google/genai');
-        const ai = new GoogleGenAI({ apiKey: this.config.apiKey });
+    ): Promise<{ text: string; model: string } | null> {
         let lastError: any;
 
         for (const model of this.getModelCandidates()) {
@@ -127,9 +167,53 @@ export class GeminiProvider extends LLMProvider {
                 return { text: this.extractText(response), model };
             } catch (error: any) {
                 lastError = error;
+                if (isKeyExhaustedError(error)) {
+                    throw error; // bubble up for key rotation
+                }
                 if (!this.isModelNotFoundError(error)) {
                     throw error;
                 }
+            }
+        }
+
+        if (lastError && !this.isModelNotFoundError(lastError)) {
+            throw lastError;
+        }
+        return null; // all models not found
+    }
+
+    /**
+     * Run a request with automatic key rotation and model fallback.
+     *
+     * For each API key (starting from the current index), tries every model
+     * candidate. If the key is exhausted (rate-limit / quota / auth), rotates
+     * to the next key and retries.
+     */
+    private async runWithModelFallback(
+        requestFactory: (model: string, ai: any) => Promise<any>
+    ): Promise<{ text: string; model: string }> {
+        const { GoogleGenAI } = await import('@google/genai');
+        let lastError: any;
+
+        for (let attempt = 0; attempt < this.apiKeys.length; attempt++) {
+            const keyIndex = (this.currentKeyIndex + attempt) % this.apiKeys.length;
+            const ai = new GoogleGenAI({ apiKey: this.apiKeys[keyIndex] });
+
+            try {
+                const result = await this.tryModelsWithClient(ai, requestFactory);
+                if (result) {
+                    this.currentKeyIndex = keyIndex; // promote working key
+                    return result;
+                }
+            } catch (error: any) {
+                lastError = error;
+                if (isKeyExhaustedError(error)) {
+                    console.warn(
+                        `Gemini API key ${keyIndex + 1}/${this.apiKeys.length} exhausted, rotating…`
+                    );
+                    continue;
+                }
+                throw error;
             }
         }
 
