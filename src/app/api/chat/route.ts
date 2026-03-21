@@ -5,6 +5,7 @@ import { connectors } from '@/db/connectorSchema';
 import { eq, asc, and, inArray } from 'drizzle-orm';
 import { llm } from '@/services/llm';
 import { kernelService } from '@/services/kernel';
+import { generateDataIntelligenceReport, formatWarningsForPrompt } from '@/services/dataIntelligenceService';
 import { AnalysisMode } from '@/src/types';
 import { analyseFile, formatForPrompt, DataIntelligenceReport } from '@/services/dataIntelligenceService';
 
@@ -139,6 +140,9 @@ export async function POST(req: NextRequest) {
                 path: f.filePath,
             }));
 
+            const dataQualityWarnings = generateDataIntelligenceReport(fileContexts);
+            const dataQualityContext = formatWarningsForPrompt(dataQualityWarnings);
+
             /* ---- Data Intelligence Pre-Scan ---- */
             const intelligenceReports: DataIntelligenceReport[] = sessionFiles.map((f) => {
                 const metadata = (f.metadata ?? {}) as Record<string, unknown>;
@@ -147,6 +151,7 @@ export async function POST(req: NextRequest) {
             });
             const dataIntelligenceContext = formatForPrompt(intelligenceReports);
 
+
             let analysis = await llm.getAnalysisCode(
                 content,
                 fileContexts,
@@ -154,6 +159,7 @@ export async function POST(req: NextRequest) {
                 analysisMode,
                 linkedConnectorContext,
                 persona,
+                dataQualityContext
                 dataIntelligenceContext
             );
             let executionResult = await kernelService.execute(sessionId, analysis.code, executorFiles);
@@ -193,6 +199,8 @@ export async function POST(req: NextRequest) {
                     plotly_charts: executionResult.plotly_charts,
                 },
                 analysisMode,
+                dataQualityContext
+
                 dataIntelligenceContext
             );
 
