@@ -444,7 +444,10 @@ export function formatWarningsForPrompt(warnings: DataQualityWarning[]): string 
         '- For negative_margin: trigger a Data Quality Alert in the output and suggest verification steps.',
         '- For synthetic_data or zero_variance: note that analysis may not reflect real-world volatility.',
         '- Prioritize findings by impact: rank issues that affect the largest revenue/cost share first.',
-=======
+    ].join('\n');
+}
+
+/**
  * Data Intelligence Service
  *
  * Pre-analysis "skepticism layer" that checks data quality, detects patterns,
