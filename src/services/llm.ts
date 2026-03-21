@@ -132,8 +132,11 @@ ${JSON.stringify(f.sample, null, 2)}
             ? `\nCONNECTED SOURCES (LINKED CONNECTORS):\n${connectorContext}\n- These are metadata-only references unless query results are explicitly provided.`
             : '\nCONNECTED SOURCES (LINKED CONNECTORS):\n- None linked.';
 
-        const personaBlock = personaInstruction
-            ? `\nANALYST PERSONA: ${personaInstruction}`
+        const sanitizedPersona = typeof personaInstruction === 'string'
+            ? personaInstruction.slice(0, 500).trim()
+            : '';
+        const personaBlock = sanitizedPersona
+            ? `\nANALYST PERSONA: ${sanitizedPersona}`
             : '';
 
         const systemPrompt = `
@@ -376,8 +379,11 @@ Chart count: ${chartCount}
 
         const modeConfig = MODE_CONFIGS[mode];
 
-        const personaBlock = personaInstruction
-            ? `\nANALYST PERSONA: ${personaInstruction}`
+        const sanitizedPersona = typeof personaInstruction === 'string'
+            ? personaInstruction.slice(0, 500).trim()
+            : '';
+        const personaBlock = sanitizedPersona
+            ? `\nANALYST PERSONA: ${sanitizedPersona}`
             : '';
 
         const systemPrompt = `

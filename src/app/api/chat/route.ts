@@ -232,9 +232,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(assistantMsg);
     } catch (error: any) {
         console.error('Chat API Error:', error);
-        const errorMessage = error?.message
-            || (error?.code === 'ECONNREFUSED' ? 'Database connection refused. Please ensure the database is running.' : '')
-            || 'An unexpected error occurred during analysis';
+        let errorMessage = error?.message || '';
+        if (!errorMessage && error?.code === 'ECONNREFUSED') {
+            errorMessage = 'Database connection refused. Please ensure the database is running.';
+        }
+        if (!errorMessage) {
+            errorMessage = 'An unexpected error occurred during analysis';
+        }
         return NextResponse.json(
             {
                 error: errorMessage,

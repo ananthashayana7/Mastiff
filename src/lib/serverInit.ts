@@ -4,14 +4,17 @@ import { TemplateService } from '@/src/services/templateService';
 let initialized = false;
 
 function isDatabaseConnectionError(error: any): boolean {
-    const msg = String(error?.message || error?.code || error || '').toLowerCase();
+    const code = String(error?.code || '');
+    if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT') {
+        return true;
+    }
+    const msg = String(error?.message || '').toLowerCase();
     return (
         msg.includes('econnrefused') ||
         msg.includes('enotfound') ||
         msg.includes('etimedout') ||
-        msg.includes('connection') ||
-        msg.includes('cannot read properties of undefined') ||
-        error?.code === 'ECONNREFUSED'
+        msg.includes('connection refused') ||
+        msg.includes('cannot read properties of undefined')
     );
 }
 
