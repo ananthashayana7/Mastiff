@@ -52,7 +52,12 @@ export async function POST(req: NextRequest) {
         } = await req.json();
 
         if (!sessionId || !content) {
-            return NextResponse.json({ error: 'Missing sessionId or content' }, { status: 400 });
+            return NextResponse.json({
+                error: 'Missing sessionId or content',
+                content: 'Missing session or message content. Please try again.',
+                role: 'assistant',
+                id: `error-${Date.now()}`,
+            }, { status: 400 });
         }
 
         const validModes: AnalysisMode[] = ['chat', 'analysis'];
@@ -69,7 +74,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!session) {
-            return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+            return NextResponse.json({
+                error: 'Session not found',
+                content: 'Session not found. Please start a new chat session.',
+                role: 'assistant',
+                id: `error-${Date.now()}`,
+            }, { status: 404 });
         }
 
         const normalizedLinkedConnectorIds = Array.isArray(linkedConnectorIds)
