@@ -40,11 +40,9 @@ ANALYSIS GUIDELINES:
 - For management-level decisions, include confidence levels and risk factors.
 - Always prefer quantitative evidence over qualitative assertions.
 - Move beyond DESCRIPTIVE logic ("what happened") to DIAGNOSTIC logic ("is this normal?").
-- Before declaring any trend, check: Is there enough data? Is the data too perfect? Is one row the outlier?`,
-
+- Before declaring any trend, check: Is there enough data? Is the data too perfect? Is one row the outlier?
 - ALWAYS generate a colorful, interactive Plotly chart for any numerical analysis — charts are mandatory, not optional.
-- Tables alone are never sufficient. Pair every table with an insightful visualization.
-- Always prefer quantitative evidence over qualitative assertions.`,
+- Tables alone are never sufficient. Pair every table with an insightful visualization.`,
         maxHistorySlice: 8,
     },
 };
@@ -262,7 +260,7 @@ export class LLMService {
         mode: AnalysisMode = 'analysis',
         connectorContext: string = '',
         personaInstruction: string = '',
-        dataQualityContext: string = ''
+        dataQualityContext: string = '',
         dataIntelligenceContext: string = ''
     ) {
         const modeConfig = MODE_CONFIGS[mode];
@@ -289,6 +287,7 @@ ${JSON.stringify(f.sample, null, 2)}
 
         const dataQualityBlock = dataQualityContext
             ? `\n${dataQualityContext}`
+            : '';
 
         const intelligenceBlock = dataIntelligenceContext
             ? `\n${dataIntelligenceContext}\n`
@@ -497,7 +496,7 @@ ${traceback || ''}
         code: string,
         execution: ExecutionSummaryInput,
         mode: AnalysisMode = 'analysis',
-        dataQualityContext: string = ''
+        dataQualityContext: string = '',
         dataIntelligenceContext: string = ''
     ): Promise<string> {
         const chartCount = (execution.charts?.length || 0) + (execution.plotly_charts?.length || 0);
@@ -510,6 +509,7 @@ ${traceback || ''}
 
         const dataQualityBlock = dataQualityContext
             ? `\n${dataQualityContext}`
+            : '';
 
         const intelligenceBlock = dataIntelligenceContext
             ? `\n${dataIntelligenceContext}\n`

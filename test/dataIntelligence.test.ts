@@ -8,6 +8,13 @@ import {
     checkUniversalPatterns,
     generateDataIntelligenceReport,
     formatWarningsForPrompt,
+    checkUniformity,
+    sampleSizeLabel,
+    detectOutliers,
+    computeQualityScore,
+    qualityLabel,
+    analyseFile,
+    formatForPrompt,
     type FileMetadata,
     type FileContext,
 } from '../src/services/dataIntelligenceService';
@@ -501,15 +508,8 @@ describe('formatWarningsForPrompt', () => {
         const result = formatWarningsForPrompt(warnings);
         expect(result).toContain('INSTRUCTIONS FOR HANDLING THESE WARNINGS');
         expect(result).toContain('tentative');
-=======
-    checkUniformity,
-    sampleSizeLabel,
-    detectOutliers,
-    computeQualityScore,
-    qualityLabel,
-    analyseFile,
-    formatForPrompt,
-} from '../src/services/dataIntelligenceService';
+    });
+});
 
 /* ------------------------------------------------------------------ */
 /*  checkUniformity                                                    */
