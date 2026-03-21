@@ -89,22 +89,21 @@ def analyze_file(file_path):
             # Robust cleaning for financial files (which often have empty header rows/titles)
             df = df.dropna(how='all').dropna(axis=1, how='all')
             
-            # Try to find a header row
-            for i in range(min(15, len(df))):
-                row = df.iloc[i]
-                non_null_count = row.notnull().sum()
-                
-                # A valid header usually:
-                # 1. Has at least 2 non-null values (prevents single-cell titles)
-                # 2. Has a high unique count relative to non-nulls (prevents rows of 'NaN' or duplicates)
-                if non_null_count >= 2 and row.nunique() >= non_null_count * 0.8:
-                    new_header = df.iloc[i]
-                    # Clean the header names (remove \n and excess spaces)
-                    new_header = [str(h).replace('\n', ' ').strip() for h in new_header]
-                    df = df.iloc[i+1:]
-                    df.columns = new_header
-                    df = df.dropna(how='all').dropna(axis=1, how='all')
-                    break
+            # Only search for a header row if columns look auto-generated (e.g. 'Unnamed: 0')
+            unnamed_count = sum(1 for c in df.columns if 'unnamed' in str(c).lower())
+            if unnamed_count > len(df.columns) * 0.5:
+                for i in range(min(15, len(df))):
+                    row = df.iloc[i]
+                    non_null_count = row.notnull().sum()
+                    
+                    if non_null_count >= 2 and row.nunique() >= non_null_count * 0.8:
+                        new_header = df.iloc[i]
+                        # Clean the header names (remove \n and excess spaces)
+                        new_header = [str(h).replace('\n', ' ').strip() for h in new_header]
+                        df = df.iloc[i+1:]
+                        df.columns = new_header
+                        df = df.dropna(how='all').dropna(axis=1, how='all')
+                        break
         elif ext == '.json':
             df = read_json_flexible(file_path)
         elif ext == '.parquet':
@@ -255,6 +254,10 @@ def sanitize(obj):
         return None if (f != f) else f
     elif isinstance(obj, (np.bool_,)):
         return bool(obj)
+    elif isinstance(obj, (pd.Timestamp, np.datetime64)):
+        return str(obj)
+    elif isinstance(obj, pd.Timedelta):
+        return str(obj)
     return obj
 
 

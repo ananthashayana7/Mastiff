@@ -126,7 +126,7 @@ class KernelService {
     private async getMissingPythonModules(command: string): Promise<string[]> {
         const checkScript = [
             'import importlib.util',
-            "mods = ['pandas', 'numpy', 'plotly']",
+            "mods = ['pandas', 'numpy', 'plotly', 'openpyxl']",
             'missing = [m for m in mods if importlib.util.find_spec(m) is None]',
             "print(','.join(missing))",
         ].join('; ');
