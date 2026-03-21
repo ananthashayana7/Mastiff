@@ -645,8 +645,7 @@ export function analyseFile(
     const warnings: string[] = [];
     const rows = Array.isArray(sample) ? sample : [];
     // Use metadata row_count (actual dataset size) when available; fall back to sample length
-    const metadataRowCount = typeof schema.row_count === 'number' ? schema.row_count : undefined;
-    const totalRows = metadataRowCount ?? rows.length;
+    const totalRows = typeof schema.row_count === 'number' ? schema.row_count : rows.length;
     const columnNames = rows.length > 0
         ? Object.keys(rows[0])
         : (schema.columns && typeof schema.columns === 'object'

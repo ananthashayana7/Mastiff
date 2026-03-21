@@ -785,7 +785,7 @@ describe('empty dataset handling', () => {
         expect(warnings).toHaveLength(1);
         expect(warnings[0].severity).toBe('critical');
         expect(warnings[0].message).toContain('0 rows');
-        expect(warnings[0].message).toContain('parsing failure');
+        expect(warnings[0].message).toContain('file parsing failure');
     });
 
     it('analyseFile with empty sample and schema.row_count=0 gives score 0', () => {

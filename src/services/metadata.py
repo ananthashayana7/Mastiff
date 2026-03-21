@@ -92,7 +92,6 @@ def analyze_file(file_path):
             # Only search for a header row if columns look auto-generated (e.g. 'Unnamed: 0')
             unnamed_count = sum(1 for c in df.columns if 'unnamed' in str(c).lower())
             if unnamed_count > len(df.columns) * 0.5:
-                pre_header_len = len(df)
                 for i in range(min(15, len(df))):
                     row = df.iloc[i]
                     non_null_count = row.notnull().sum()
