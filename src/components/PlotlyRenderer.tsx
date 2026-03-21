@@ -64,7 +64,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     font: { color: '#888', size: 10 },
                     bgcolor: 'rgba(0,0,0,0)'
                 },
-                colorway: ['#0B6E99', '#FF7F0E', '#2CA02C', '#D62728', '#9467BD', '#17BECF', '#BCBD22', '#8C564B'],
+                colorway: ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52'],
                 hoverlabel: {
                     bgcolor: '#0a0a0a',
                     bordercolor: '#333',
@@ -74,7 +74,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
 
             // Respect intrinsic colorscales and categorical color maps (e.g., heatmaps, pies).
             const traces = (data.data || []).map((trace: any, i: number) => {
-                const colors = ['#0B6E99', '#FF7F0E', '#2CA02C', '#D62728', '#9467BD', '#17BECF'];
+                const colors = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52'];
                 const traceType = String(trace?.type || '').toLowerCase();
                 const keepIntrinsicColor = [
                     'heatmap',
