@@ -70,6 +70,12 @@ const CORRELATION_THRESHOLD = 0.998;   // ≈ R = 1.0 with floating-point tolera
 const OUTLIER_SEGMENT_RATIO = 0.5;     // single row > 50 % of segment total
 const MIN_VARIANCE_THRESHOLD = 1e-10;  // effectively zero variance
 
+const ID_COLUMN_CANDIDATES = ['id', 'ID', 'Id', 'Transaction_ID', 'transaction_id', 'txn_id', 'order_id', 'Order_ID'];
+
+const REVENUE_PATTERN = /revenue|sales|income/i;
+const COST_PATTERN = /cost|cogs|expense/i;
+const PROFIT_PATTERN = /profit|margin|net/i;
+
 // ---------------------------------------------------------------------------
 // 1. Sample Size Sanity Check
 // ---------------------------------------------------------------------------
@@ -207,7 +213,10 @@ export function checkOutlierSkew(
         for (let i = 0; i < values.length; i++) {
             const share = Math.abs(values[i]) / total;
             if (share > OUTLIER_SEGMENT_RATIO) {
-                const rowLabel = sample[i]?.['id'] || sample[i]?.['ID'] || sample[i]?.['Transaction_ID'] || `row ${i + 1}`;
+                const rowLabel = ID_COLUMN_CANDIDATES.reduce<string | undefined>(
+                    (found, key) => found || (sample[i]?.[key] != null ? String(sample[i][key]) : undefined),
+                    undefined,
+                ) || `row ${i + 1}`;
                 warnings.push({
                     type: 'outlier_skew',
                     severity: 'warning',
@@ -275,13 +284,13 @@ export function checkNegativeMargins(
 
     // Look for revenue/cost/profit column pairs (case-insensitive)
     const colNames = Object.keys(metadata.columns).map((c) => c.toLowerCase());
-    const hasRevenue = colNames.some((c) => /revenue|sales|income/i.test(c));
-    const hasCost = colNames.some((c) => /cost|cogs|expense/i.test(c));
-    const hasProfit = colNames.some((c) => /profit|margin|net/i.test(c));
+    const hasRevenue = colNames.some((c) => REVENUE_PATTERN.test(c));
+    const hasCost = colNames.some((c) => COST_PATTERN.test(c));
+    const hasProfit = colNames.some((c) => PROFIT_PATTERN.test(c));
 
     if (hasRevenue && hasCost && sample.length > 0) {
-        const revenueCol = Object.keys(metadata.columns).find((c) => /revenue|sales|income/i.test(c));
-        const costCol = Object.keys(metadata.columns).find((c) => /cost|cogs|expense/i.test(c));
+        const revenueCol = Object.keys(metadata.columns).find((c) => REVENUE_PATTERN.test(c));
+        const costCol = Object.keys(metadata.columns).find((c) => COST_PATTERN.test(c));
 
         if (revenueCol && costCol) {
             const revValues = extractNumericColumn(sample, revenueCol).filter(Number.isFinite);
@@ -321,7 +330,7 @@ export function checkNegativeMargins(
 
     // Check for a dedicated profit/margin column that is always negative
     if (hasProfit) {
-        const profitCol = Object.keys(metadata.columns).find((c) => /profit|margin|net/i.test(c));
+        const profitCol = Object.keys(metadata.columns).find((c) => PROFIT_PATTERN.test(c));
         if (profitCol) {
             const stats = metadata.columns[profitCol]?.stats;
             if (stats && stats.max < 0 && metadata.row_count > 1) {
