@@ -108,6 +108,7 @@ describe('LLMService multi-key fallback', () => {
     const originalEnv = { ...process.env };
 
     beforeEach(() => {
+        vi.resetModules();
         // Ensure clean state
         delete process.env.API_KEY;
         delete process.env.GEMINI_API_KEY;
@@ -115,18 +116,23 @@ describe('LLMService multi-key fallback', () => {
     });
 
     afterEach(() => {
+        // Restore all env vars that tests may touch
         process.env.API_KEY = originalEnv.API_KEY;
         process.env.GEMINI_API_KEY = originalEnv.GEMINI_API_KEY;
         process.env.GOOGLE_API_KEY = originalEnv.GOOGLE_API_KEY;
+        process.env.NODE_ENV = originalEnv.NODE_ENV;
+        if (originalEnv.NEXT_PHASE !== undefined) {
+            process.env.NEXT_PHASE = originalEnv.NEXT_PHASE;
+        } else {
+            delete process.env.NEXT_PHASE;
+        }
     });
 
     it('resolves multiple keys from a single comma-separated env var', async () => {
         process.env.API_KEY = 'keyA,keyB,keyC';
-        // We import fresh to test the service picks up keys properly
         const { LLMService } = await import('../src/services/llm');
         const svc = new LLMService();
 
-        // Access the private method via bracket notation to verify key resolution
         const keys = (svc as any).resolveApiKeys();
         expect(keys).toEqual(['keyA', 'keyB', 'keyC']);
     });
@@ -150,9 +156,6 @@ describe('LLMService multi-key fallback', () => {
 
         const client = (svc as any).getClient();
         expect(client).toBeNull();
-
-        // Restore
-        process.env.NODE_ENV = originalEnv.NODE_ENV;
     });
 
     it('getClient throws in production with no keys', async () => {
@@ -162,8 +165,5 @@ describe('LLMService multi-key fallback', () => {
         const svc = new LLMService();
 
         expect(() => (svc as any).getClient()).toThrow('API_KEY must be set');
-
-        // Restore
-        process.env.NODE_ENV = originalEnv.NODE_ENV;
     });
 });

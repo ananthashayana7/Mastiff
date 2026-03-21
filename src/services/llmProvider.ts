@@ -90,7 +90,8 @@ function isKeyExhaustedError(error: any): boolean {
 /**
  * Parse a possibly comma-separated API key string into individual keys.
  */
-function parseApiKeys(raw: string): string[] {
+function parseApiKeys(raw: string | undefined): string[] {
+    if (!raw) return [];
     return raw
         .split(',')
         .map(k => k.trim())
