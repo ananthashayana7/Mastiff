@@ -219,7 +219,7 @@ def load_files(files_json_str: str):
                     session_state['dfs'][name] = pd.DataFrame({'text': content.split('\n')})
         except Exception as e:
             sys.stderr.write(f"Error: Could not load {name}: {str(e)}\n")
-            session_state['dfs'][name] = pd.DataFrame({'_load_error': [f'Failed to load {name}: {str(e)}']})
+            session_state['dfs'][name] = pd.DataFrame({'load_error': [f'Failed to load {name}: {str(e)}']})
 
 
 def execute_request(request: dict) -> dict:
