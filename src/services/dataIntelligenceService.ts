@@ -83,7 +83,16 @@ const PROFIT_PATTERN = /profit|margin|net/i;
 export function checkSampleSize(metadata: FileMetadata): DataQualityWarning[] {
     const warnings: DataQualityWarning[] = [];
 
-    if (metadata.row_count < SAMPLE_SIZE_THRESHOLD) {
+    if (metadata.row_count === 0) {
+        warnings.push({
+            type: 'low_sample_size',
+            severity: 'critical',
+            message:
+                `Dataset contains 0 rows — no analysis is possible. ` +
+                `This likely indicates a file parsing failure (e.g. misidentified header row, unsupported formatting, or empty sheet). ` +
+                `Verify the source file has actual data rows below the header.`,
+        });
+    } else if (metadata.row_count < SAMPLE_SIZE_THRESHOLD) {
         warnings.push({
             type: 'low_sample_size',
             severity: metadata.row_count < 10 ? 'critical' : 'warning',
@@ -528,7 +537,7 @@ export function checkUniformity(nums: number[], threshold = 0.01): boolean {
  * Returns appropriate language depending on sample size.
  */
 export function sampleSizeLabel(n: number): string {
-    if (n === 0) return 'No data points available.';
+    if (n === 0) return 'No data rows found — verify the file was parsed correctly and contains data below the header row.';
     if (n === 1) return 'Single Data Point — treat as anecdotal evidence only.';
     if (n < 5) return 'Anecdotal Evidence — fewer than 5 data points; not statistically meaningful.';
     if (n < 30) return `Limited sample (N=${n}). Findings are directional signals, not conclusive trends.`;
@@ -581,6 +590,9 @@ export function computeQualityScore(
     outlierCount: number,
     columnCount: number
 ): number {
+    // Empty dataset — no meaningful quality can be assessed
+    if (totalRows === 0) return 0;
+
     let score = 100;
 
     // Null penalty
@@ -632,12 +644,18 @@ export function analyseFile(
 ): DataIntelligenceReport {
     const warnings: string[] = [];
     const rows = Array.isArray(sample) ? sample : [];
-    const totalRows = rows.length;
-    const columnNames = totalRows > 0 ? Object.keys(rows[0]) : Object.keys(schema);
+    // Use metadata row_count (actual dataset size) when available; fall back to sample length
+    const metadataRowCount = typeof schema.row_count === 'number' ? schema.row_count : undefined;
+    const totalRows = metadataRowCount ?? rows.length;
+    const columnNames = rows.length > 0
+        ? Object.keys(rows[0])
+        : (schema.columns && typeof schema.columns === 'object'
+            ? Object.keys(schema.columns as Record<string, unknown>)
+            : Object.keys(schema));
 
     /* ---- count nulls ---- */
     let nullCells = 0;
-    const totalCells = totalRows * columnNames.length;
+    const sampleCells = rows.length * columnNames.length;
     for (const row of rows) {
         for (const col of columnNames) {
             const v = (row as Record<string, unknown>)[col];
@@ -715,7 +733,7 @@ export function analyseFile(
     /* ---- quality score ---- */
     const qualityScore = computeQualityScore(
         totalRows,
-        totalCells,
+        sampleCells,
         nullCells,
         syntheticFlag,
         allOutliers.length,

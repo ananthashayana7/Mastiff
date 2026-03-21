@@ -763,3 +763,55 @@ describe('formatForPrompt', () => {
         expect(prompt).toContain('DATA INTELLIGENCE PRE-SCAN');
     });
 });
+
+/* ------------------------------------------------------------------ */
+/*  Zero-row / empty dataset edge cases                                */
+/* ------------------------------------------------------------------ */
+describe('empty dataset handling', () => {
+    it('computeQualityScore returns 0 for zero rows', () => {
+        expect(computeQualityScore(0, 0, 0, false, 0, 5)).toBe(0);
+        expect(computeQualityScore(0, 0, 0, false, 0, 0)).toBe(0);
+        expect(computeQualityScore(0, 0, 0, true, 0, 10)).toBe(0);
+    });
+
+    it('checkSampleSize returns critical warning with specific message for 0 rows', () => {
+        const metadata: FileMetadata = {
+            row_count: 0,
+            column_count: 5,
+            columns: {},
+            sample: [],
+        };
+        const warnings = checkSampleSize(metadata);
+        expect(warnings).toHaveLength(1);
+        expect(warnings[0].severity).toBe('critical');
+        expect(warnings[0].message).toContain('0 rows');
+        expect(warnings[0].message).toContain('parsing failure');
+    });
+
+    it('analyseFile with empty sample and schema.row_count=0 gives score 0', () => {
+        const report = analyseFile({ row_count: 0, columns: { A: {}, B: {} } }, []);
+        expect(report.qualityScore).toBe(0);
+        expect(report.qualityLabel).toBe('Very Low');
+    });
+
+    it('analyseFile uses schema.row_count when available', () => {
+        const sample = Array.from({ length: 10 }, () => ({ Revenue: 100 }));
+        const report = analyseFile({ row_count: 500 }, sample);
+        // With 500 rows (from schema), no sample-size penalty should apply
+        expect(report.sampleSizeDisclaimer).toBe('');
+        expect(report.qualityScore).toBeGreaterThanOrEqual(80);
+    });
+
+    it('sampleSizeLabel returns parsing guidance for 0', () => {
+        const label = sampleSizeLabel(0);
+        expect(label).toContain('No data rows found');
+        expect(label).toContain('header');
+    });
+
+    it('formatForPrompt includes score 0 for empty dataset', () => {
+        const emptyReport = analyseFile({ row_count: 0 }, []);
+        const prompt = formatForPrompt([emptyReport]);
+        expect(prompt).toContain('0/100');
+        expect(prompt).toContain('Very Low');
+    });
+});

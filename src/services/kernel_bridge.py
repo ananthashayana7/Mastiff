@@ -195,10 +195,25 @@ def load_files(files_json_str: str):
                         non_null_count = row.notnull().sum()
                         if non_null_count >= 2 and row.nunique() >= non_null_count * 0.8:
                             new_header = [str(h).replace('\n', ' ').strip() for h in df.iloc[i]]
-                            df = df.iloc[i+1:]
-                            df.columns = new_header
-                            df = df.dropna(how='all').dropna(axis=1, how='all')
+                            candidate_df = df.iloc[i+1:].copy()
+                            candidate_df.columns = new_header
+                            candidate_df = candidate_df.dropna(how='all').dropna(axis=1, how='all')
+                            # Only accept the new header if it leaves data rows
+                            if len(candidate_df) > 0:
+                                df = candidate_df
                             break
+                
+                # Fallback: if cleaning left 0 rows, re-read the best sheet with header=None
+                if len(df) == 0 and sheet_scores:
+                    raw_df = pd.read_excel(filepath, sheet_name=sheet_scores[0][1], header=None)
+                    raw_df = raw_df.dropna(how='all').dropna(axis=1, how='all')
+                    if len(raw_df) > 0:
+                        new_header = [str(h).replace('\n', ' ').strip() for h in raw_df.iloc[0]]
+                        df = raw_df.iloc[1:]
+                        df.columns = new_header
+                        df = df.dropna(how='all').dropna(axis=1, how='all')
+                        if len(df) == 0:
+                            df = raw_df.reset_index(drop=True)
                 session_state['dfs'][name] = df.reset_index(drop=True)
             elif ext == '.json':
                 session_state['dfs'][name] = read_json_flexible(filepath)

@@ -322,6 +322,14 @@ INSTRUCTIONS:
 - Isolate outliers (Z-score > 3) and show stats with and without them when relevant.
 - Keep explanations grounded in what the code will compute, not assumptions.
 
+DATA LOADING & VERIFICATION:
+- ALWAYS start your code by verifying the dataframe is not empty: check len(df) > 0.
+- If the dataframe appears empty (0 rows), attempt to re-read the file directly using the file path from dfs metadata.
+  For Excel files: try pd.read_excel with header=None, then infer the correct header row.
+  For CSV files: try different encodings and delimiters.
+- Print the actual shape (rows × columns) at the start so the execution output reflects the real data.
+- If the dataframe truly has 0 rows after all loading attempts, set result to a diagnostic message explaining the columns found (if any) and likely cause, NOT a generic "no data" template.
+
 VISUALIZATION RULES (MANDATORY):
 - ALWAYS produce at least one Plotly chart whenever the data contains numerical columns — do NOT wait for the user to ask.
 - Tables alone are NOT sufficient. Every numerical analysis MUST be accompanied by a colorful, interactive Plotly visualization.
@@ -551,12 +559,21 @@ THE "SO WHAT?" TEST:
 - Bad: "The East region has a loss of -€256."
 - Better: "The East region is losing money on every sale. Recommendation: Increase the price by at least 12% to reach break-even."
 
-OUTPUT STRUCTURE (Hierarchy of Importance):
+CRITICAL — AVOID TEMPLATE RESPONSES:
+- DO NOT produce boilerplate / fill-in-the-blank style output that reads like a generic report template.
+- Every sentence must reference specific values, column names, or patterns from the execution result.
+- If the execution result is empty or shows 0 rows, do NOT generate a long structured report pretending analysis was done.
+  Instead, briefly state that the dataset could not be analysed, explain the likely technical cause (e.g. file parsing issue, mismatched headers, empty sheets), and recommend concrete debugging steps specific to the file.
+- Never restate the data quality score verbatim from the pre-scan — derive your own assessment from the actual execution output.
+- Vary your language and structure across responses; do not reuse the exact same section headers every time.
+- Ground every claim in a number or column name that appears in the execution result.
+
+OUTPUT STRUCTURE (Hierarchy of Importance — adapt headers to match the actual content):
 1. **EXECUTIVE SUMMARY** — The "Big Picture" in 2 sentences max.
 2. **CRITICAL ALERTS** (Level 1) — Immediate threats like negative margins or systemic pricing failures.
 3. **STRATEGIC OPPORTUNITIES** (Level 2) — Hidden gems with high margins; where to focus marketing/resources.
 4. **OPERATIONAL NOTES** (Level 3) — Minor observations (most-used payment method, etc.) — keep brief.
-5. **DATA QUALITY SCORE** — Rate the reliability of the data provided (score out of 100 with label).
+5. **DATA QUALITY SCORE** — Your own reliability rating of the data based on what the code actually found (not the pre-scan score).
 `;
 
         const prompt = `
