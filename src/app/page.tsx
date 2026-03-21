@@ -29,9 +29,9 @@ interface ConnectorUpdatePayload {
 }
 
 const PERSONAS: AnalystPersona[] = [
-  { id: 'default', name: 'MASTIFF AI', icon: 'M', description: 'Core LLM with Python Sandbox integration.', instruction: 'Focus on comprehensive, logical data analysis.' },
-  { id: 'statistician', name: 'Scientist', icon: 'S', description: 'Deep statistical validation.', instruction: 'Explain patterns with statistical rigor.' },
-  { id: 'business', name: 'Strategist', icon: 'G', description: 'Business & growth focus.', instruction: 'Recommend actions for growth and ROI.' },
+  { id: 'default', name: 'MASTIFF AI', icon: 'M', description: 'Core LLM with Python Sandbox integration.', instruction: 'Focus on comprehensive, logical data analysis. Provide well-rounded insights covering trends, patterns, anomalies, and actionable recommendations. Use professional formatting with clear sections.' },
+  { id: 'statistician', name: 'Scientist', icon: 'S', description: 'Deep statistical validation & rigor.', instruction: 'Approach every question with statistical rigor. Emphasize significance tests, confidence intervals, effect sizes, distributions, and hypothesis testing. Cite specific statistical methods used. Flag when sample sizes are too small for reliable inference. Always quantify uncertainty.' },
+  { id: 'business', name: 'Strategist', icon: 'G', description: 'Business & growth strategy focus.', instruction: 'Frame all analysis through a business strategy lens. Focus on revenue impact, market positioning, competitive advantages, ROI, cost optimization, and growth levers. Provide boardroom-ready executive summaries. Prioritize actionable recommendations with projected business outcomes.' },
 ];
 
 const App: React.FC = () => {
@@ -482,6 +482,7 @@ const App: React.FC = () => {
           mode: analysisMode,
           silent: true,
           linkedConnectorIds,
+          persona: activePersona.instruction,
         })
       });
       const assistantMsg = await res.json();
@@ -545,6 +546,7 @@ const App: React.FC = () => {
           content: promptToUse,
           mode: analysisMode,  // ← NOW SENT TO BACKEND
           linkedConnectorIds,
+          persona: activePersona.instruction,
         })
       });
 

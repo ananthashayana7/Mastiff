@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(userSessions);
     } catch (error: any) {
         console.error("Session GET Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const errorMessage = error?.message
+            || (error?.code === 'ECONNREFUSED' ? 'Database connection refused. Please ensure the database is running.' : 'Failed to fetch sessions');
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
 

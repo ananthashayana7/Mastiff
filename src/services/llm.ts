@@ -9,20 +9,25 @@ const MODE_CONFIGS: Record<AnalysisMode, {
     chat: {
         temperature: 0.35,
         promptPrefix: `MODE: CHAT
-- Answer clearly and directly.
-- For conceptual questions, give a pure theory answer.
+- Answer clearly, directly, and conversationally.
+- For conceptual questions, give a pure theory answer with relevant examples.
 - If the user asks for analysis without data, provide an explicit assumption or a Python template.
-- Never invent data, percentages, or trends.`,
+- Never invent data, percentages, or trends.
+- Use markdown formatting for clarity: headers, bullet points, code blocks.
+- Be helpful and thorough — explain your reasoning step by step when needed.`,
         maxHistorySlice: 10,
     },
     analysis: {
         temperature: 0.15,
-        promptPrefix: `MODE: ANALYSIS
-- Use deterministic, evidence-driven reasoning.
-- Never fabricate metrics or trends.
-- If visualization is requested, generate suitable plotting code.
-- Validate data quality before producing executive insights.
-- Add uncertainty caveats when sample size or data quality is weak.`,
+        promptPrefix: `MODE: DEEP ANALYSIS
+- Use deterministic, evidence-driven reasoning with high analytical precision.
+- Never fabricate metrics, trends, or statistics.
+- If visualization is requested, generate suitable plotting code with professional styling.
+- Validate data quality and integrity before producing executive insights.
+- Add uncertainty caveats when sample size or data quality is weak.
+- Structure responses with clear sections: Key Findings, Statistical Summary, Recommendations.
+- For management-level decisions, include confidence levels and risk factors.
+- Always prefer quantitative evidence over qualitative assertions.`,
         maxHistorySlice: 8,
     },
 };
@@ -109,7 +114,8 @@ export class LLMService {
         files: { name: string; schema: string; sample: any }[],
         history: any[],
         mode: AnalysisMode = 'analysis',
-        connectorContext: string = ''
+        connectorContext: string = '',
+        personaInstruction: string = ''
     ) {
         const modeConfig = MODE_CONFIGS[mode];
         const wantsVisualization = VISUALIZATION_HINTS.test(userQuery);
@@ -126,10 +132,15 @@ ${JSON.stringify(f.sample, null, 2)}
             ? `\nCONNECTED SOURCES (LINKED CONNECTORS):\n${connectorContext}\n- These are metadata-only references unless query results are explicitly provided.`
             : '\nCONNECTED SOURCES (LINKED CONNECTORS):\n- None linked.';
 
+        const personaBlock = personaInstruction
+            ? `\nANALYST PERSONA: ${personaInstruction}`
+            : '';
+
         const systemPrompt = `
 You are Mastiff, an AI data analyst executing Python in a stateful sandbox.
 
 ${modeConfig.promptPrefix}
+${personaBlock}
 
 DATA CONTEXT:
 ${filesContext}
@@ -308,15 +319,18 @@ ${traceback || ''}
         if (!client) return fallback;
 
         const systemPrompt = `
-You are an evidence-grounded analyst.
-Use ONLY the provided execution artifacts.
+You are an evidence-grounded data analyst providing executive-quality insights.
+Use ONLY the provided execution artifacts — never fabricate data.
 
 RULES:
-- Never fabricate values, percentages, or trends.
-- If evidence is insufficient, state that clearly.
+- Never fabricate values, percentages, or trends not present in the execution output.
+- If evidence is insufficient, state that clearly and suggest what additional data would help.
 - If execution failed, explain the failure plainly and suggest a concrete next step.
-- Keep response concise and decision-oriented.
-- If charts exist, mention what was visualized without inventing unseen details.
+- Structure your response with clear sections: Key Findings, Details, and Recommendations where appropriate.
+- Present numerical findings with appropriate precision.
+- If charts were generated, describe what they reveal without inventing unseen details.
+- Keep the response concise, professional, and decision-oriented.
+- Use markdown formatting: bold for key metrics, bullet points for findings, headers for sections.
 `;
 
         const prompt = `
@@ -356,22 +370,30 @@ Chart count: ${chartCount}
         }
     }
 
-    async chat(userQuery: string, history: any[], mode: AnalysisMode = 'chat'): Promise<string> {
+    async chat(userQuery: string, history: any[], mode: AnalysisMode = 'chat', personaInstruction: string = ''): Promise<string> {
         const client = this.getClient();
         if (!client) return 'AI service is not currently available. Please check your API key configuration.';
 
         const modeConfig = MODE_CONFIGS[mode];
 
+        const personaBlock = personaInstruction
+            ? `\nANALYST PERSONA: ${personaInstruction}`
+            : '';
+
         const systemPrompt = `
-You are Mastiff, an expert AI data and analytics assistant.
+You are Mastiff, an expert AI data and analytics assistant built for enterprise-grade intelligence.
 
 ${modeConfig.promptPrefix}
+${personaBlock}
 
 BEHAVIOR:
-- For theory questions: answer with theory only.
-- For practical questions without data: provide assumptions and optionally a Python example.
-- For high-stakes decisions: include confidence caveats when evidence is limited.
-- Use markdown formatting for clarity.
+- For theory questions: answer with depth and clarity, providing relevant examples and context.
+- For practical questions without data: provide clear assumptions and optionally a Python example.
+- For high-stakes or management decisions: include confidence caveats and evidence quality assessments.
+- Use markdown formatting for clarity: headers (##), bullet points, bold for key metrics, tables for structured data.
+- Structure longer responses with clear sections and takeaways.
+- Be precise with numbers — never round excessively or present vague ranges when exact values are available.
+- When providing recommendations, prioritize them by impact and feasibility.
 `;
 
         const chatHistory = history.slice(-modeConfig.maxHistorySlice).map((h) => ({

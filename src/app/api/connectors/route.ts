@@ -69,8 +69,10 @@ export async function POST(request: NextRequest) {
         });
     } catch (error: any) {
         console.error('Error creating connector:', error);
+        const errorMessage = error?.message
+            || (error?.code === 'ECONNREFUSED' ? 'Database connection refused. Please ensure the database is running.' : 'Failed to create connector');
         return NextResponse.json(
-            { error: error.message || 'Failed to create connector' },
+            { error: errorMessage },
             { status: 500 }
         );
     }
@@ -118,8 +120,10 @@ export async function GET(request: NextRequest) {
         });
     } catch (error: any) {
         console.error('Error listing connectors:', error);
+        const errorMessage = error?.message
+            || (error?.code === 'ECONNREFUSED' ? 'Database connection refused. Please ensure the database is running.' : 'Failed to list connectors');
         return NextResponse.json(
-            { error: error.message || 'Failed to list connectors' },
+            { error: errorMessage },
             { status: 500 }
         );
     }

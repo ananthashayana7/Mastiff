@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
             mode = 'analysis',
             silent = false,
             linkedConnectorIds = [],
+            persona = '',
         } = await req.json();
 
         if (!sessionId || !content) {
@@ -132,7 +133,8 @@ export async function POST(req: NextRequest) {
                 fileContexts,
                 session.messages,
                 analysisMode,
-                linkedConnectorContext
+                linkedConnectorContext,
+                persona
             );
             let executionResult = await kernelService.execute(sessionId, analysis.code, executorFiles);
 
@@ -211,7 +213,8 @@ export async function POST(req: NextRequest) {
         const chatResponse = await llm.chat(
             `${content}${fileHint}${connectorHint}`,
             session.messages,
-            analysisMode === 'analysis' ? 'analysis' : 'chat'
+            analysisMode === 'analysis' ? 'analysis' : 'chat',
+            persona
         );
 
         const [assistantMsg] = await db.insert(messages).values({
@@ -229,10 +232,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(assistantMsg);
     } catch (error: any) {
         console.error('Chat API Error:', error);
+        const errorMessage = error?.message
+            || (error?.code === 'ECONNREFUSED' ? 'Database connection refused. Please ensure the database is running.' : '')
+            || 'An unexpected error occurred during analysis';
         return NextResponse.json(
             {
-                error: error.message || 'An error occurred during analysis',
-                content: `I encountered an error while processing your request: ${error.message}. Please try again.`,
+                error: errorMessage,
+                content: `I encountered an error while processing your request: ${errorMessage}. Please try again.`,
                 role: 'assistant',
                 id: `error-${Date.now()}`,
             },

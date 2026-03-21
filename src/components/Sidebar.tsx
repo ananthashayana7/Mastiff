@@ -478,26 +478,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {/* Connectors Section */}
                     <div className="px-3 pb-3">
                         <div className="flex items-center justify-between mb-2 px-1">
-                            <p className="text-[8px] font-extrabold text-zinc-600 uppercase tracking-[2px]">
+                            <p className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-[2px]">
                                 Connectors
                             </p>
                             <div className="flex items-center gap-1">
                                 {onCreateConnector && (
                                     <button
                                         onClick={openCreateConnectorModal}
-                                        className="p-1 text-zinc-600 hover:text-[#E50914] transition-colors rounded"
+                                        className="p-1.5 text-zinc-500 hover:text-[#E50914] transition-colors rounded"
                                         title="Add connector"
                                     >
-                                        <Plus size={12} />
+                                        <Plus size={14} />
                                     </button>
                                 )}
                                 {onRefreshConnectors && (
                                     <button
                                         onClick={onRefreshConnectors}
-                                        className="p-1 text-zinc-600 hover:text-[#E50914] transition-colors rounded"
+                                        className="p-1.5 text-zinc-500 hover:text-[#E50914] transition-colors rounded"
                                         title="Refresh connectors"
                                     >
-                                        <Database size={12} />
+                                        <Database size={14} />
                                     </button>
                                 )}
                             </div>
@@ -505,17 +505,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                         {connectorFeedback && (
                             <div
-                                className={`flex items-start gap-2 p-2 mb-2 rounded-xl border ${connectorFeedback.kind === 'error'
+                                className={`flex items-start gap-2 p-2.5 mb-2 rounded-xl border ${connectorFeedback.kind === 'error'
                                         ? 'border-red-900/40 bg-red-950/20'
                                         : 'border-emerald-900/40 bg-emerald-950/20'
                                     }`}
                             >
                                 {connectorFeedback.kind === 'error' ? (
-                                    <AlertCircle size={12} className="text-red-400 mt-0.5 shrink-0" />
+                                    <AlertCircle size={14} className="text-red-400 mt-0.5 shrink-0" />
                                 ) : (
-                                    <CheckCircle2 size={12} className="text-emerald-400 mt-0.5 shrink-0" />
+                                    <CheckCircle2 size={14} className="text-emerald-400 mt-0.5 shrink-0" />
                                 )}
-                                <p className="text-[9px] font-semibold text-zinc-300 leading-tight">{connectorFeedback.text}</p>
+                                <p className="text-[11px] font-semibold text-zinc-300 leading-tight">{connectorFeedback.text}</p>
                             </div>
                         )}
 
@@ -523,12 +523,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             {availableConnectorTypes.map((type) => (
                                 <div
                                     key={type}
-                                    className="px-2 py-1.5 rounded-lg border border-zinc-800/70 bg-zinc-950/40"
+                                    className="px-2.5 py-2 rounded-lg border border-zinc-800/70 bg-zinc-950/40"
                                 >
-                                    <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-wide truncate">
+                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide truncate">
                                         {connectorTypeLabels[type]}
                                     </p>
-                                    <p className="text-[9px] font-extrabold text-white mt-0.5">
+                                    <p className="text-[11px] font-extrabold text-white mt-0.5">
                                         {connectorsByType[type]} configured
                                     </p>
                                 </div>
@@ -536,88 +536,88 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </div>
 
                         {isLoadingConnectors ? (
-                            <div className="flex items-center gap-2 p-2.5 glass rounded-xl animate-fade-in">
-                                <Loader2 size={12} className="animate-spin text-[#E50914]" />
-                                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Loading connectors...</span>
+                            <div className="flex items-center gap-2 p-3 glass rounded-xl animate-fade-in">
+                                <Loader2 size={14} className="animate-spin text-[#E50914]" />
+                                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Loading connectors...</span>
                             </div>
                         ) : connectors.length > 0 ? (
-                            <div className="space-y-1">
+                            <div className="space-y-1.5">
                                 {connectors.map((connector) => (
                                     <div
                                         key={connector.id}
-                                        className="p-2 rounded-xl bg-zinc-900/30 border border-zinc-800/60"
+                                        className="p-3 rounded-xl bg-zinc-900/30 border border-zinc-800/60"
                                     >
                                         <div className="flex items-center gap-2.5">
-                                            <span className={`w-1.5 h-1.5 rounded-full ${connector.isActive ? 'bg-green-400' : 'bg-zinc-600'}`} />
+                                            <span className={`w-2 h-2 rounded-full ${connector.isActive ? 'bg-green-400' : 'bg-zinc-600'}`} />
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-[10px] font-bold text-white truncate">{connector.name}</p>
-                                                <p className="text-[8px] text-zinc-500 uppercase tracking-wide truncate">
+                                                <p className="text-[12px] font-bold text-white truncate">{connector.name}</p>
+                                                <p className="text-[10px] text-zinc-500 uppercase tracking-wide truncate">
                                                     {connectorTypeLabels[connector.type] || connector.type}
                                                 </p>
                                             </div>
                                         </div>
 
-                                        <div className="mt-2 grid grid-cols-2 gap-1">
+                                        <div className="mt-2.5 grid grid-cols-2 gap-1.5">
                                             <button
                                                 onClick={() => onToggleLinkedConnector?.(connector.id)}
-                                                className={`px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-widest border transition-colors flex items-center justify-center gap-1 ${linkedConnectorIds.includes(connector.id)
+                                                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-colors flex items-center justify-center gap-1.5 ${linkedConnectorIds.includes(connector.id)
                                                         ? 'border-[#E50914]/40 bg-[#E50914]/10 text-[#ff6b6b]'
                                                         : 'border-zinc-800 text-zinc-500 hover:text-white'
                                                     }`}
                                             >
-                                                {linkedConnectorIds.includes(connector.id) ? <Unlink size={10} /> : <Link2 size={10} />}
+                                                {linkedConnectorIds.includes(connector.id) ? <Unlink size={12} /> : <Link2 size={12} />}
                                                 {linkedConnectorIds.includes(connector.id) ? 'Unlink' : 'Link'}
                                             </button>
 
                                             <button
                                                 onClick={() => handleTestConnector(connector.id)}
-                                                className="px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-widest border border-zinc-800 text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1"
+                                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-800 text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1.5"
                                                 disabled={activeConnectorActionId === connector.id}
                                             >
-                                                {activeConnectorActionId === connector.id ? <Loader2 size={10} className="animate-spin" /> : <FlaskConical size={10} />}
+                                                {activeConnectorActionId === connector.id ? <Loader2 size={12} className="animate-spin" /> : <FlaskConical size={12} />}
                                                 Test
                                             </button>
 
                                             <button
                                                 onClick={() => handleLoadSources(connector.id)}
-                                                className="px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-widest border border-zinc-800 text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1"
+                                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-800 text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1.5"
                                                 disabled={activeConnectorActionId === connector.id}
                                             >
-                                                <List size={10} />
+                                                <List size={12} />
                                                 Sources
                                             </button>
 
-                                            <div className="flex items-center gap-1">
+                                            <div className="flex items-center gap-1.5">
                                                 <button
                                                     onClick={() => openEditConnectorModal(connector)}
-                                                    className="flex-1 px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-widest border border-zinc-800 text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1"
+                                                    className="flex-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-800 text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1.5"
                                                 >
-                                                    <Pencil size={10} />
+                                                    <Pencil size={12} />
                                                     Edit
                                                 </button>
                                                 <button
                                                     onClick={() => handleDeleteConnector(connector.id)}
-                                                    className="px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-widest border border-zinc-800 text-zinc-500 hover:text-red-400 transition-colors"
+                                                    className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-800 text-zinc-500 hover:text-red-400 transition-colors"
                                                     disabled={activeConnectorActionId === connector.id}
                                                     title="Delete connector"
                                                 >
-                                                    <Trash2 size={10} />
+                                                    <Trash2 size={12} />
                                                 </button>
                                             </div>
                                         </div>
 
                                         {expandedSourcesConnectorId === connector.id && (
-                                            <div className="mt-2 p-2 rounded-lg bg-zinc-950/70 border border-zinc-800/70 max-h-28 overflow-y-auto custom-scrollbar">
+                                            <div className="mt-2.5 p-2.5 rounded-lg bg-zinc-950/70 border border-zinc-800/70 max-h-32 overflow-y-auto custom-scrollbar">
                                                 {(sourcesByConnector[connector.id] || []).length > 0 ? (
                                                     <div className="space-y-1">
                                                         {(sourcesByConnector[connector.id] || []).slice(0, 12).map((source: any, index: number) => (
-                                                            <p key={`${connector.id}-source-${index}`} className="text-[8px] text-zinc-400 truncate">
+                                                            <p key={`${connector.id}-source-${index}`} className="text-[10px] text-zinc-400 truncate">
                                                                 {source?.name || source?.id || source?.tableName || `Source ${index + 1}`}
                                                             </p>
                                                         ))}
                                                     </div>
                                                 ) : (
-                                                    <p className="text-[8px] text-zinc-600">No sources returned.</p>
+                                                    <p className="text-[10px] text-zinc-600">No sources returned.</p>
                                                 )}
                                             </div>
                                         )}
@@ -625,8 +625,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 ))}
                             </div>
                         ) : (
-                            <div className="p-2.5 rounded-xl border border-dashed border-zinc-800 text-center">
-                                <p className="text-[9px] font-semibold text-zinc-600">No connectors configured yet</p>
+                            <div className="p-3 rounded-xl border border-dashed border-zinc-800 text-center">
+                                <p className="text-[11px] font-semibold text-zinc-600">No connectors configured yet</p>
                             </div>
                         )}
                     </div>
