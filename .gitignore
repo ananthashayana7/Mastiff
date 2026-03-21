@@ -25,3 +25,8 @@ dist-ssr
 
 .next
 tsconfig.tsbuildinfo
+
+# Local environment secrets
+.env
+.env.*
+!.env.example
