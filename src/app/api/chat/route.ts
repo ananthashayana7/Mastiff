@@ -5,6 +5,7 @@ import { connectors } from '@/db/connectorSchema';
 import { eq, asc, and, inArray } from 'drizzle-orm';
 import { llm } from '@/services/llm';
 import { kernelService } from '@/services/kernel';
+import { generateDataIntelligenceReport, formatWarningsForPrompt } from '@/services/dataIntelligenceService';
 import { AnalysisMode } from '@/src/types';
 
 export const dynamic = 'force-dynamic';
@@ -138,13 +139,17 @@ export async function POST(req: NextRequest) {
                 path: f.filePath,
             }));
 
+            const dataQualityWarnings = generateDataIntelligenceReport(fileContexts);
+            const dataQualityContext = formatWarningsForPrompt(dataQualityWarnings);
+
             let analysis = await llm.getAnalysisCode(
                 content,
                 fileContexts,
                 session.messages,
                 analysisMode,
                 linkedConnectorContext,
-                persona
+                persona,
+                dataQualityContext
             );
             let executionResult = await kernelService.execute(sessionId, analysis.code, executorFiles);
 
@@ -182,7 +187,8 @@ export async function POST(req: NextRequest) {
                     charts: executionResult.charts,
                     plotly_charts: executionResult.plotly_charts,
                 },
-                analysisMode
+                analysisMode,
+                dataQualityContext
             );
 
             const [assistantMsg] = await db.insert(messages).values({

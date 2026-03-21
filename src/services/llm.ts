@@ -27,7 +27,9 @@ const MODE_CONFIGS: Record<AnalysisMode, {
 - Add uncertainty caveats when sample size or data quality is weak.
 - Structure responses with clear sections: Key Findings, Statistical Summary, Recommendations.
 - For management-level decisions, include confidence levels and risk factors.
-- Always prefer quantitative evidence over qualitative assertions.`,
+- Always prefer quantitative evidence over qualitative assertions.
+- Move beyond DESCRIPTIVE logic ("what happened") to DIAGNOSTIC logic ("is this normal?").
+- Before declaring any trend, check: Is there enough data? Is the data too perfect? Is one row the outlier?`,
         maxHistorySlice: 8,
     },
 };
@@ -115,7 +117,8 @@ export class LLMService {
         history: any[],
         mode: AnalysisMode = 'analysis',
         connectorContext: string = '',
-        personaInstruction: string = ''
+        personaInstruction: string = '',
+        dataQualityContext: string = ''
     ) {
         const modeConfig = MODE_CONFIGS[mode];
         const wantsVisualization = VISUALIZATION_HINTS.test(userQuery);
@@ -139,6 +142,10 @@ ${JSON.stringify(f.sample, null, 2)}
             ? `\nANALYST PERSONA: ${sanitizedPersona}`
             : '';
 
+        const dataQualityBlock = dataQualityContext
+            ? `\n${dataQualityContext}`
+            : '';
+
         const systemPrompt = `
 You are Mastiff, an AI data analyst executing Python in a stateful sandbox.
 
@@ -148,6 +155,7 @@ ${personaBlock}
 DATA CONTEXT:
 ${filesContext}
 ${connectorContextBlock}
+${dataQualityBlock}
 
 EXECUTION ENVIRONMENT:
 - Libraries available: pandas, numpy, matplotlib, seaborn, scipy, statsmodels, sklearn, plotly.
@@ -174,6 +182,17 @@ INSTRUCTIONS:
     - For heatmaps, use a perceptual continuous scale (e.g., Viridis).
     - Set readable labels, title, and balanced margins.
 - Keep explanation factual and procedural; do not claim computed numbers before execution.
+
+DIAGNOSTIC ANALYSIS RULES:
+- If the dataset has fewer than 30 rows, never call any pattern "Universal" or "Consistent". Use "tentative" or "preliminary".
+- Check for perfect correlations (R ≈ 1.0) between numeric columns; if found, flag the data as potentially formulaic.
+- Report BOTH mean and median for numeric summaries. If they diverge significantly, note the skew.
+- If a single row accounts for >50% of a segment's value, isolate it and show results with and without it.
+- For root-cause analysis: check if a loss/issue is global (all regions, all categories, all dates) or localized. If global, point to base pricing or structural factors. If localized, point to the specific dimension.
+- For contribution analysis ("why" not just "what"): when profit or revenue changes, decompose into volume, price, and cost components.
+- If time-series data is available, compare current period to same period last year (YoY) when possible, not just sequential months.
+- If consistent losses are detected, calculate the implied burn rate or exhaustion point when cash/balance data is available.
+- Rank insights by impact: focus on the finding that affects the largest share of revenue or cost first.
 
 RESPONSE FORMAT (JSON ONLY):
 {
@@ -311,7 +330,8 @@ ${traceback || ''}
         userQuery: string,
         code: string,
         execution: ExecutionSummaryInput,
-        mode: AnalysisMode = 'analysis'
+        mode: AnalysisMode = 'analysis',
+        dataQualityContext: string = ''
     ): Promise<string> {
         const chartCount = (execution.charts?.length || 0) + (execution.plotly_charts?.length || 0);
         const fallback = execution.error
@@ -320,6 +340,10 @@ ${traceback || ''}
 
         const client = this.getClient();
         if (!client) return fallback;
+
+        const dataQualityBlock = dataQualityContext
+            ? `\n${dataQualityContext}`
+            : '';
 
         const systemPrompt = `
 You are an evidence-grounded data analyst providing executive-quality insights.
@@ -334,6 +358,16 @@ RULES:
 - If charts were generated, describe what they reveal without inventing unseen details.
 - Keep the response concise, professional, and decision-oriented.
 - Use markdown formatting: bold for key metrics, bullet points for findings, headers for sections.
+
+DIAGNOSTIC INTELLIGENCE RULES:
+- If the dataset has fewer than 30 rows, include a note: "⚠️ Small sample size (N=X) — findings are preliminary, not definitive."
+- If any metric is driven by a single outlier, call it out: "Note: This result is heavily influenced by [specific entry]. Excluding it yields [alternative figure]."
+- Report both mean and median for key metrics. If they diverge by >20%, note the skew explicitly.
+- If all entries show losses/negatives, flag it as a potential data quality issue, not just a business finding.
+- Rank your recommendations by estimated impact (highest first).
+- When identifying root causes, distinguish between global issues (affects all segments) and localized issues (affects specific regions/categories/periods).
+- Apply the "So What?" test: each finding should lead to a concrete, actionable recommendation.
+${dataQualityBlock}
 `;
 
         const prompt = `
