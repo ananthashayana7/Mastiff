@@ -1,17 +1,24 @@
 
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useCallback } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell,
   ScatterChart, Scatter, ZAxis, Brush,
   AreaChart, Area,
-  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, RadialBarChart, RadialBar
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, RadialBarChart, RadialBar,
+  Treemap, FunnelChart, Funnel, LabelList,
+  ComposedChart
 } from 'recharts';
 import { VisualizationData } from '../types';
-import { Download, Table as TableIcon, FileText, ArrowUp, ArrowDown, Search, Filter, X, RefreshCw, Cpu, TrendingUp, MousePointer2, Maximize2, Minimize2 } from 'lucide-react';
+import { Download, Table as TableIcon, FileText, ArrowUp, ArrowDown, Search, Filter, X, RefreshCw, Cpu, TrendingUp, MousePointer2, Maximize2, Minimize2, BarChart3 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
-const COLORS = ['#E50914', '#ff4d4d', '#ff6b6b', '#ff8585', '#B20710', '#F5F5F1', '#D2D2D2', '#564D4D', '#808080', '#A1060E'];
+const COLORS = [
+  '#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A',
+  '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52',
+  '#E50914', '#1F77B4', '#2CA02C', '#D62728', '#9467BD',
+  '#8C564B', '#17BECF', '#BCBD22', '#FF7F0E', '#7F7F7F'
+];
 
 interface ChartRendererProps {
   viz: VisualizationData;
@@ -166,22 +173,50 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
   const renderContent = () => {
     const tooltipStyle = { backgroundColor: '#0a0a0a', borderRadius: '12px', border: '1px solid #1f1f1f', color: '#fff', fontSize: '10px', fontWeight: '700', padding: '8px 12px', boxShadow: '0 8px 30px rgba(0,0,0,0.5)' };
     const commonProps = { margin: { top: 10, right: 20, left: 0, bottom: 10 } };
-    const axisProps = { axisLine: false, tickLine: false, tick: { fontSize: 9, fill: '#444', fontWeight: 600 } };
+    const axisProps = { axisLine: false, tickLine: false, tick: { fontSize: 9, fill: '#666', fontWeight: 600 } };
 
     switch (type) {
       case 'bar':
         return (
           <BarChart data={data} {...commonProps} onClick={(e) => (e as any)?.activePayload && handleDataClick((e as any).activePayload[0].payload)}>
+            <defs>
+              {config.keys?.map((key, i) => (
+                <linearGradient key={`bar-grad-${key}`} id={`bar-gradient-${i}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.9} />
+                  <stop offset="100%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.6} />
+                </linearGradient>
+              ))}
+            </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1a1a1a" />
             <XAxis dataKey={config.xAxis} {...axisProps} />
             <YAxis {...axisProps} />
-            <Tooltip cursor={{ fill: 'rgba(229, 9, 20, 0.04)' }} contentStyle={tooltipStyle as any} />
+            <Tooltip cursor={{ fill: 'rgba(99, 110, 250, 0.06)' }} contentStyle={tooltipStyle as any} />
             <Legend verticalAlign="top" height={30} wrapperStyle={{ fontSize: '9px', fontWeight: 800 }} />
             {config.keys?.map((key, i) => (
-              <Bar key={key} dataKey={key} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} barSize={24} animationDuration={800} />
+              <Bar key={key} dataKey={key} fill={`url(#bar-gradient-${i})`} radius={[6, 6, 0, 0]} barSize={28} animationDuration={800}>
+                <LabelList dataKey={key} position="top" style={{ fontSize: '8px', fill: '#888', fontWeight: 700 }} />
+              </Bar>
             ))}
-            <Brush dataKey={config.xAxis} height={20} stroke="#E50914" fill="#0a0a0a" />
+            <Brush dataKey={config.xAxis} height={20} stroke="#636EFA" fill="#0a0a0a" />
           </BarChart>
+        );
+      case 'composedbar':
+        return (
+          <ComposedChart data={data} {...commonProps} onClick={(e) => (e as any)?.activePayload && handleDataClick((e as any).activePayload[0].payload)}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1a1a1a" />
+            <XAxis dataKey={config.xAxis} {...axisProps} />
+            <YAxis {...axisProps} />
+            <Tooltip contentStyle={tooltipStyle as any} />
+            <Legend verticalAlign="top" height={30} wrapperStyle={{ fontSize: '9px', fontWeight: 800 }} />
+            {config.keys?.map((key, i) => (
+              i === 0 ? (
+                <Bar key={key} dataKey={key} fill={COLORS[i % COLORS.length]} radius={[6, 6, 0, 0]} barSize={28} animationDuration={800} />
+              ) : (
+                <Line key={key} type="monotone" dataKey={key} stroke={COLORS[i % COLORS.length]} strokeWidth={2.5} dot={{ r: 3, strokeWidth: 0, fill: COLORS[i % COLORS.length] }} animationDuration={1200} />
+              )
+            ))}
+            <Brush dataKey={config.xAxis} height={20} stroke="#636EFA" fill="#0a0a0a" />
+          </ComposedChart>
         );
       case 'line':
         return (
@@ -192,9 +227,9 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
             <Tooltip contentStyle={tooltipStyle as any} />
             <Legend verticalAlign="top" height={30} wrapperStyle={{ fontSize: '9px', fontWeight: 800 }} />
             {config.keys?.map((key, i) => (
-              <Line key={key} type="monotone" dataKey={key} stroke={COLORS[i % COLORS.length]} strokeWidth={2.5} dot={{ r: 3, strokeWidth: 0, fill: COLORS[i % COLORS.length] }} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} animationDuration={1200} />
+              <Line key={key} type="monotone" dataKey={key} stroke={COLORS[i % COLORS.length]} strokeWidth={2.5} dot={{ r: 3, strokeWidth: 0, fill: COLORS[i % COLORS.length] }} activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }} animationDuration={1200} />
             ))}
-            <Brush dataKey={config.xAxis} height={20} stroke="#E50914" fill="#0a0a0a" />
+            <Brush dataKey={config.xAxis} height={20} stroke="#636EFA" fill="#0a0a0a" />
           </LineChart>
         );
       case 'area':
@@ -203,8 +238,8 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
             <defs>
               {config.keys?.map((key, i) => (
                 <linearGradient key={`grad-${key}`} id={`gradient-${i}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0} />
+                  <stop offset="0%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.4} />
+                  <stop offset="100%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.02} />
                 </linearGradient>
               ))}
             </defs>
@@ -221,8 +256,8 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
       case 'pie':
         return (
           <PieChart>
-            <Pie data={data} innerRadius={60} outerRadius={95} paddingAngle={3} dataKey="value" nameKey="label" stroke="none" onClick={handleDataClick} animationDuration={800}>
-              {data.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+            <Pie data={data} innerRadius={55} outerRadius={95} paddingAngle={4} dataKey="value" nameKey="label" stroke="none" onClick={handleDataClick} animationDuration={800} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              {data.map((_entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
             </Pie>
             <Tooltip contentStyle={tooltipStyle as any} />
             <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '9px', fontWeight: 700 }} />
@@ -234,9 +269,9 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1a1a1a" />
             <XAxis type="number" dataKey={config.xAxis} name={config.xAxis} {...axisProps} />
             <YAxis type="number" dataKey={config.yAxis} name={config.yAxis} {...axisProps} />
-            <ZAxis range={[30, 200]} />
+            <ZAxis range={[40, 250]} />
             <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={tooltipStyle as any} />
-            <Scatter name="Data" data={data} fill="#E50914" onClick={(e) => handleDataClick(e)} shape="circle" />
+            <Scatter name="Data" data={data} fill="#636EFA" onClick={(e) => handleDataClick(e)} shape="circle" />
           </ScatterChart>
         );
       case 'radar':
@@ -246,11 +281,99 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
             <PolarAngleAxis dataKey={config.xAxis || 'subject'} tick={{ fontSize: 9, fill: '#666', fontWeight: 600 }} />
             <PolarRadiusAxis tick={{ fontSize: 8, fill: '#444' }} />
             {config.keys?.map((key, i) => (
-              <Radar key={key} name={key} dataKey={key} stroke={COLORS[i % COLORS.length]} fill={COLORS[i % COLORS.length]} fillOpacity={0.15} strokeWidth={2} />
+              <Radar key={key} name={key} dataKey={key} stroke={COLORS[i % COLORS.length]} fill={COLORS[i % COLORS.length]} fillOpacity={0.2} strokeWidth={2} />
             ))}
             <Tooltip contentStyle={tooltipStyle as any} />
             <Legend wrapperStyle={{ fontSize: '9px', fontWeight: 800 }} />
           </RadarChart>
+        );
+      case 'heatmap': {
+        // Render heatmap as a grid using colored cells
+        if (!data || data.length === 0) return <div className="flex items-center justify-center h-full text-zinc-600 text-xs">No data</div>;
+        const headers = Object.keys(data[0]).filter(h => h !== (config.xAxis || '_row'));
+        const rowKey = config.xAxis || Object.keys(data[0])[0];
+        const allValues = data.flatMap(row => headers.map(h => Number(row[h]) || 0));
+        const minVal = Math.min(...allValues);
+        const maxVal = Math.max(...allValues);
+        const getHeatColor = (val: number) => {
+          const ratio = maxVal === minVal ? 0.5 : (val - minVal) / (maxVal - minVal);
+          // Viridis-inspired: deep purple → teal → yellow
+          const r = Math.round(68 + ratio * 185);
+          const g = Math.round(1 + ratio * 220);
+          const b = Math.round(84 + (1 - ratio) * 130);
+          return `rgb(${r},${g},${b})`;
+        };
+        return (
+          <div className="w-full h-full overflow-auto custom-scrollbar p-2">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className="px-3 py-2 text-[9px] font-extrabold text-zinc-500 uppercase tracking-wider text-left sticky top-0 bg-zinc-950/90 z-10">{rowKey}</th>
+                  {headers.map(h => (
+                    <th key={h} className="px-3 py-2 text-[9px] font-extrabold text-zinc-500 uppercase tracking-wider text-center sticky top-0 bg-zinc-950/90 z-10">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((row, ri) => (
+                  <tr key={ri} className="cursor-pointer hover:opacity-80 transition-opacity" onClick={() => handleDataClick(row)}>
+                    <td className="px-3 py-2 text-[10px] font-bold text-zinc-300 whitespace-nowrap">{row[rowKey]}</td>
+                    {headers.map(h => {
+                      const val = Number(row[h]) || 0;
+                      return (
+                        <td key={h} className="px-3 py-2 text-center" title={`${h}: ${val}`}>
+                          <div className="rounded-md px-2 py-1.5 text-[10px] font-bold transition-all hover:scale-105" style={{ backgroundColor: getHeatColor(val), color: val > (minVal + maxVal) / 2 ? '#000' : '#fff' }}>
+                            {typeof val === 'number' ? val.toLocaleString(undefined, { maximumFractionDigits: 2 }) : val}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
+      case 'treemap': {
+        if (!data || data.length === 0) return <div className="flex items-center justify-center h-full text-zinc-600 text-xs">No data</div>;
+        const treemapData = data.map((d, i) => ({
+          ...d,
+          fill: COLORS[i % COLORS.length],
+        }));
+        const TreemapContent = (props: any) => {
+          const { x, y, width, height, name, value, fill } = props;
+          if (width < 30 || height < 20) return null;
+          return (
+            <g>
+              <rect x={x} y={y} width={width} height={height} fill={fill} stroke="#0a0a0a" strokeWidth={2} rx={4} style={{ cursor: 'pointer' }} />
+              {width > 50 && height > 30 && (
+                <>
+                  <text x={x + width / 2} y={y + height / 2 - 6} textAnchor="middle" fill="#fff" fontSize={10} fontWeight={700}>{name}</text>
+                  <text x={x + width / 2} y={y + height / 2 + 10} textAnchor="middle" fill="rgba(255,255,255,0.7)" fontSize={9} fontWeight={600}>
+                    {typeof value === 'number' ? value.toLocaleString() : value}
+                  </text>
+                </>
+              )}
+            </g>
+          );
+        };
+        return (
+          <Treemap data={treemapData} dataKey={config.keys?.[0] || 'value'} nameKey={config.xAxis || 'name'} stroke="#0a0a0a" animationDuration={800}
+            content={<TreemapContent />}>
+            <Tooltip contentStyle={tooltipStyle as any} />
+          </Treemap>
+        );
+      }
+      case 'funnel':
+        return (
+          <FunnelChart>
+            <Tooltip contentStyle={tooltipStyle as any} />
+            <Funnel dataKey={config.keys?.[0] || 'value'} nameKey={config.xAxis || 'name'} data={data} isAnimationActive animationDuration={800}>
+              {data.map((_entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+              <LabelList position="right" fill="#fff" stroke="none" style={{ fontSize: '10px', fontWeight: 700 }} />
+            </Funnel>
+          </FunnelChart>
         );
       default:
         return <div className="flex flex-col items-center justify-center h-full gap-4 text-zinc-700"><RefreshCw className="animate-spin" size={28} /></div>;

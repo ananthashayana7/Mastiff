@@ -10,6 +10,7 @@ import { ChatMessage, AnalysisMode, AnalystPersona, DataFile, Session } from '..
 import { ChartRenderer } from './ChartRenderer';
 import { PlotlyRenderer } from './PlotlyRenderer';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { AutoChartSuggestion } from './AutoChartSuggestion';
 import { exportToPDF } from '../services/ReportExporter';
 
 interface ChatWindowProps {
@@ -437,6 +438,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                 </div>
                                             )}
                                         </div>
+                                    </div>
+                                )}
+
+                                {/* Auto-Generated Chart for Tabular Data */}
+                                {m.role === 'assistant' && m.result?.updated_df_sample && Array.isArray(m.result.updated_df_sample) && m.result.updated_df_sample.length > 0 && !m.result?.plotly_charts?.length && !m.result?.charts?.length && (
+                                    <div className="pt-2">
+                                        <AutoChartSuggestion data={m.result.updated_df_sample} title="Data Insight" />
                                     </div>
                                 )}
 

@@ -7,6 +7,7 @@ import { llm } from '@/services/llm';
 import { kernelService } from '@/services/kernel';
 import { generateDataIntelligenceReport, formatWarningsForPrompt } from '@/services/dataIntelligenceService';
 import { AnalysisMode } from '@/src/types';
+import { analyseFile, formatForPrompt, DataIntelligenceReport } from '@/services/dataIntelligenceService';
 
 export const dynamic = 'force-dynamic';
 
@@ -142,6 +143,15 @@ export async function POST(req: NextRequest) {
             const dataQualityWarnings = generateDataIntelligenceReport(fileContexts);
             const dataQualityContext = formatWarningsForPrompt(dataQualityWarnings);
 
+            /* ---- Data Intelligence Pre-Scan ---- */
+            const intelligenceReports: DataIntelligenceReport[] = sessionFiles.map((f) => {
+                const metadata = (f.metadata ?? {}) as Record<string, unknown>;
+                const sample = (Array.isArray((metadata as any)?.sample) ? (metadata as any).sample : []) as Record<string, unknown>[];
+                return analyseFile(metadata, sample);
+            });
+            const dataIntelligenceContext = formatForPrompt(intelligenceReports);
+
+
             let analysis = await llm.getAnalysisCode(
                 content,
                 fileContexts,
@@ -150,6 +160,7 @@ export async function POST(req: NextRequest) {
                 linkedConnectorContext,
                 persona,
                 dataQualityContext
+                dataIntelligenceContext
             );
             let executionResult = await kernelService.execute(sessionId, analysis.code, executorFiles);
 
@@ -189,6 +200,8 @@ export async function POST(req: NextRequest) {
                 },
                 analysisMode,
                 dataQualityContext
+
+                dataIntelligenceContext
             );
 
             const [assistantMsg] = await db.insert(messages).values({

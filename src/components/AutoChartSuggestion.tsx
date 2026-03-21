@@ -1,0 +1,233 @@
+"use client";
+
+import React, { useMemo, useState } from 'react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  LineChart, Line, PieChart, Pie, Cell,
+  AreaChart, Area
+} from 'recharts';
+import { BarChart3, TrendingUp, PieChart as PieIcon, Activity, ChevronDown, ChevronUp } from 'lucide-react';
+
+const CHART_COLORS = [
+  '#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A',
+  '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52',
+];
+
+interface AutoChartSuggestionProps {
+  data: any[];
+  title?: string;
+}
+
+type ChartType = 'bar' | 'line' | 'pie' | 'area';
+
+interface ChartOption {
+  type: ChartType;
+  label: string;
+  icon: React.ReactNode;
+}
+
+const CHART_OPTIONS: ChartOption[] = [
+  { type: 'bar', label: 'Bar', icon: <BarChart3 size={12} /> },
+  { type: 'line', label: 'Line', icon: <TrendingUp size={12} /> },
+  { type: 'pie', label: 'Pie', icon: <PieIcon size={12} /> },
+  { type: 'area', label: 'Area', icon: <Activity size={12} /> },
+];
+
+/**
+ * AutoChartSuggestion analyzes tabular result data and auto-renders
+ * the most suitable chart alongside the table. Users can toggle
+ * between chart types interactively.
+ */
+export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, title }) => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const analysis = useMemo(() => {
+    if (!data || !Array.isArray(data) || data.length === 0) return null;
+
+    const headers = Object.keys(data[0]);
+    if (headers.length < 2) return null;
+
+    // Detect numeric and categorical columns
+    const numericCols: string[] = [];
+    const categoricalCols: string[] = [];
+
+    headers.forEach(h => {
+      const values = data.map(row => row[h]).filter(v => v != null && v !== '');
+      const numericCount = values.filter(v => !isNaN(Number(v)) && typeof v !== 'boolean').length;
+      if (numericCount > values.length * 0.7 && values.length > 0) {
+        numericCols.push(h);
+      } else {
+        categoricalCols.push(h);
+      }
+    });
+
+    if (numericCols.length === 0) return null;
+
+    // Pick the best category (x-axis) and metric columns
+    const xAxis = categoricalCols.length > 0 ? categoricalCols[0] : headers[0];
+    const metricKeys = numericCols.slice(0, 5); // Max 5 metrics
+
+    // Determine best default chart type
+    let defaultType: ChartType = 'bar';
+    const uniqueX = new Set(data.map(row => row[xAxis])).size;
+
+    if (uniqueX <= 6 && metricKeys.length === 1) {
+      defaultType = 'pie';
+    } else if (uniqueX > 10) {
+      defaultType = 'line';
+    } else {
+      defaultType = 'bar';
+    }
+
+    // Prepare pie data
+    const pieData = metricKeys.length > 0
+      ? data.slice(0, 12).map(row => ({
+        name: String(row[xAxis] ?? ''),
+        value: Math.abs(Number(row[metricKeys[0]]) || 0),
+      }))
+      : [];
+
+    return { xAxis, metricKeys, defaultType, pieData, numericCols, categoricalCols };
+  }, [data]);
+
+  const [activeChart, setActiveChart] = useState<ChartType | null>(null);
+
+  // Use default chart type from analysis
+  const chartType = activeChart ?? analysis?.defaultType ?? 'bar';
+
+  if (!analysis || !data || data.length === 0) return null;
+
+  const { xAxis, metricKeys, pieData } = analysis;
+  const tooltipStyle = { backgroundColor: '#0a0a0a', borderRadius: '10px', border: '1px solid #1f1f1f', color: '#fff', fontSize: '10px', fontWeight: '700', padding: '6px 10px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' };
+  const axisProps = { axisLine: false, tickLine: false, tick: { fontSize: 9, fill: '#666', fontWeight: 600 } };
+
+  // Convert data for chart (ensure numbers)
+  const chartData = data.slice(0, 50).map(row => {
+    const item: any = { [xAxis]: row[xAxis] };
+    metricKeys.forEach(k => { item[k] = Number(row[k]) || 0; });
+    return item;
+  });
+
+  const renderChart = () => {
+    switch (chartType) {
+      case 'bar':
+        return (
+          <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
+            <defs>
+              {metricKeys.map((key, i) => (
+                <linearGradient key={`auto-bar-${key}`} id={`auto-bar-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={CHART_COLORS[i % CHART_COLORS.length]} stopOpacity={0.9} />
+                  <stop offset="100%" stopColor={CHART_COLORS[i % CHART_COLORS.length]} stopOpacity={0.55} />
+                </linearGradient>
+              ))}
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1a1a1a" />
+            <XAxis dataKey={xAxis} {...axisProps} />
+            <YAxis {...axisProps} />
+            <Tooltip contentStyle={tooltipStyle as any} cursor={{ fill: 'rgba(99, 110, 250, 0.06)' }} />
+            {metricKeys.length > 1 && <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: '9px', fontWeight: 700 }} />}
+            {metricKeys.map((key, i) => (
+              <Bar key={key} dataKey={key} fill={`url(#auto-bar-grad-${i})`} radius={[5, 5, 0, 0]} animationDuration={800} />
+            ))}
+          </BarChart>
+        );
+      case 'line':
+        return (
+          <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1a1a1a" />
+            <XAxis dataKey={xAxis} {...axisProps} />
+            <YAxis {...axisProps} />
+            <Tooltip contentStyle={tooltipStyle as any} />
+            {metricKeys.length > 1 && <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: '9px', fontWeight: 700 }} />}
+            {metricKeys.map((key, i) => (
+              <Line key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2.5} dot={{ r: 3, fill: CHART_COLORS[i % CHART_COLORS.length], strokeWidth: 0 }} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} animationDuration={1000} />
+            ))}
+          </LineChart>
+        );
+      case 'pie':
+        return (
+          <PieChart>
+            <Pie data={pieData} innerRadius={50} outerRadius={90} paddingAngle={3} dataKey="value" nameKey="name" stroke="none" animationDuration={800}
+              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              {pieData.map((_entry, index) => <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
+            </Pie>
+            <Tooltip contentStyle={tooltipStyle as any} />
+            <Legend verticalAlign="bottom" height={32} wrapperStyle={{ fontSize: '9px', fontWeight: 700 }} />
+          </PieChart>
+        );
+      case 'area':
+        return (
+          <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
+            <defs>
+              {metricKeys.map((key, i) => (
+                <linearGradient key={`auto-area-${key}`} id={`auto-area-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={CHART_COLORS[i % CHART_COLORS.length]} stopOpacity={0.4} />
+                  <stop offset="100%" stopColor={CHART_COLORS[i % CHART_COLORS.length]} stopOpacity={0.02} />
+                </linearGradient>
+              ))}
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1a1a1a" />
+            <XAxis dataKey={xAxis} {...axisProps} />
+            <YAxis {...axisProps} />
+            <Tooltip contentStyle={tooltipStyle as any} />
+            {metricKeys.length > 1 && <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: '9px', fontWeight: 700 }} />}
+            {metricKeys.map((key, i) => (
+              <Area key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} fill={`url(#auto-area-grad-${i})`} animationDuration={1000} />
+            ))}
+          </AreaChart>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="w-full glass rounded-2xl overflow-hidden shadow-xl animate-fade-in border border-zinc-800/30">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-zinc-800/40 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="p-1 bg-gradient-to-br from-[#636EFA] to-[#AB63FA] rounded-lg">
+            <BarChart3 size={12} className="text-white" />
+          </div>
+          <span className="text-[10px] font-extrabold text-zinc-300 uppercase tracking-widest">
+            {title ? `Chart · ${title}` : 'Auto-Generated Chart'}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Chart type switcher */}
+          <div className="flex gap-0.5 bg-zinc-900/60 rounded-lg p-0.5">
+            {CHART_OPTIONS.map(opt => (
+              <button
+                key={opt.type}
+                onClick={() => setActiveChart(opt.type)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[8px] font-bold uppercase tracking-wider transition-all ${
+                  chartType === opt.type
+                    ? 'bg-[#636EFA] text-white shadow-lg'
+                    : 'text-zinc-600 hover:text-zinc-300'
+                }`}
+              >
+                {opt.icon}
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-1 text-zinc-600 hover:text-white transition-colors"
+          >
+            {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Chart */}
+      {!isCollapsed && (
+        <div className="w-full h-[260px] p-3">
+          <ResponsiveContainer width="100%" height="100%">
+            {renderChart() || <div />}
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+};

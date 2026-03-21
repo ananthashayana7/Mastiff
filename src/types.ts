@@ -95,7 +95,7 @@ export interface ChatMessage {
 export type AnalysisMode = 'chat' | 'analysis';
 
 export interface VisualizationData {
-  type: 'bar' | 'line' | 'pie' | 'scatter' | 'table' | 'cluster' | 'area' | 'radar' | 'heatmap';
+  type: 'bar' | 'line' | 'pie' | 'scatter' | 'table' | 'cluster' | 'area' | 'radar' | 'heatmap' | 'composedbar' | 'treemap' | 'funnel';
   title: string;
   data: any[];
   config: {

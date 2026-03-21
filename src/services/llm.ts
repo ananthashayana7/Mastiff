@@ -19,8 +19,19 @@ const MODE_CONFIGS: Record<AnalysisMode, {
     },
     analysis: {
         temperature: 0.15,
-        promptPrefix: `MODE: DEEP ANALYSIS
-- Use deterministic, evidence-driven reasoning with high analytical precision.
+        promptPrefix: `MODE: DEEP ANALYSIS (Digital Twin — Senior Strategic Business Analyst)
+OBJECTIVE: Find non-obvious patterns. Move beyond summarizing totals. Act as a skeptic who identifies "Why" things happen, not just "What" happened.
+
+ANALYSIS GUIDELINES:
+1. SKEPTICISM FIRST: If data is small (N < 30), lead with a disclaimer. If margins are perfectly uniform, flag it as synthetic/formulaic data.
+2. OUTLIER ISOLATION: Identify "The Villain." Is one transaction ruining the stats for an entire region? Isolate it and show the "adjusted" stats without it.
+3. MARGIN OVER REVENUE: High revenue is meaningless if profit is negative. Always prioritize "Profitability per Unit" over "Total Sales Volume."
+4. THE "SO WHAT?" TEST: For every finding, provide one "Immediate Action." (e.g., "Finding: North is losing money. Action: Increase North pricing by 10%.")
+5. DIAGNOSTIC OVER DESCRIPTIVE: Do not just say what happened — explain why. Calculate variance attribution: Is the loss due to Price (low unit price), Volume (low qty), or Cost (high COGS)?
+6. DISCOUNT ELASTICITY: If Discount > 20% but Qty = 1, the discount failed. If Qty > 10, it is a volume play. Call this out.
+7. MULTIVARIATE ATTRIBUTION: Look for co-occurrence (e.g., does a category only lose money with a certain payment method or on certain days?).
+8. VARIANCE TRIGGER: If all margins are identical (Variance = 0), stop segmenting and report a Systemic Pricing Failure.
+9. Handle nulls silently or as a sidebar — do not spend significant analysis time on missing cells.
 - Never fabricate metrics, trends, or statistics.
 - If visualization is requested, generate suitable plotting code with professional styling.
 - Validate data quality and integrity before producing executive insights.
@@ -30,6 +41,10 @@ const MODE_CONFIGS: Record<AnalysisMode, {
 - Always prefer quantitative evidence over qualitative assertions.
 - Move beyond DESCRIPTIVE logic ("what happened") to DIAGNOSTIC logic ("is this normal?").
 - Before declaring any trend, check: Is there enough data? Is the data too perfect? Is one row the outlier?`,
+
+- ALWAYS generate a colorful, interactive Plotly chart for any numerical analysis — charts are mandatory, not optional.
+- Tables alone are never sufficient. Pair every table with an insightful visualization.
+- Always prefer quantitative evidence over qualitative assertions.`,
         maxHistorySlice: 8,
     },
 };
@@ -55,21 +70,88 @@ interface GenerateWithFallbackParams {
     config?: any;
 }
 
-export class LLMService {
-    private genAI: GoogleGenAI | null = null;
-
-    private getClient() {
-        if (!this.genAI) {
-            const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-            if (!apiKey) {
-                if (process.env.NEXT_PHASE === 'phase-production-build' || process.env.NODE_ENV === 'development') {
-                    return null;
-                }
-                throw new Error('API_KEY must be set when using the Gemini API.');
-            }
-            this.genAI = new GoogleGenAI({ apiKey });
+/**
+ * Parse comma-separated API keys from environment variables.
+ * Filters out empty/whitespace-only entries.
+ */
+export function parseApiKeys(...envValues: (string | undefined)[]): string[] {
+    const keys: string[] = [];
+    for (const raw of envValues) {
+        if (!raw) continue;
+        for (const part of raw.split(',')) {
+            const trimmed = part.trim();
+            if (trimmed) keys.push(trimmed);
         }
-        return this.genAI;
+    }
+    return keys;
+}
+
+/**
+ * Detect errors that indicate a key-level failure (rate-limit, quota, auth)
+ * rather than a model-level or transient failure.
+ */
+export function isKeyExhaustedError(error: any): boolean {
+    const status = error?.status ?? error?.statusCode ?? error?.code;
+    if (status === 429 || status === 403 || status === 401) return true;
+
+    const msg = String(error?.message || error || '').toLowerCase();
+    return (
+        msg.includes('resource_exhausted') ||
+        msg.includes('rate limit') ||
+        msg.includes('rate_limit') ||
+        msg.includes('quota') ||
+        msg.includes('permission_denied') ||
+        msg.includes('api key not valid') ||
+        msg.includes('api_key_invalid') ||
+        msg.includes('invalid api key') ||
+        msg.includes('unauthorized')
+    );
+}
+
+export class LLMService {
+    private clients: Map<string, GoogleGenAI> = new Map();
+    private apiKeys: string[] = [];
+    private currentKeyIndex = 0;
+
+    /**
+     * Resolve all available API keys from environment variables.
+     * Supports comma-separated keys for fallback redundancy.
+     */
+    private resolveApiKeys(): string[] {
+        if (this.apiKeys.length > 0) return this.apiKeys;
+        this.apiKeys = parseApiKeys(
+            process.env.API_KEY,
+            process.env.GEMINI_API_KEY,
+            process.env.GOOGLE_API_KEY
+        );
+        return this.apiKeys;
+    }
+
+    /**
+     * Get (or create) a GoogleGenAI client for the given API key.
+     */
+    private getClientForKey(apiKey: string): GoogleGenAI {
+        let client = this.clients.get(apiKey);
+        if (!client) {
+            client = new GoogleGenAI({ apiKey });
+            this.clients.set(apiKey, client);
+        }
+        return client;
+    }
+
+    /**
+     * Get a client using the current primary API key.
+     * Returns null during build / dev when no keys are configured.
+     */
+    private getClient(): GoogleGenAI | null {
+        const keys = this.resolveApiKeys();
+        if (keys.length === 0) {
+            if (process.env.NEXT_PHASE === 'phase-production-build' || process.env.NODE_ENV === 'development') {
+                return null;
+            }
+            throw new Error('API_KEY must be set when using the Gemini API.');
+        }
+        return this.getClientForKey(keys[this.currentKeyIndex]);
     }
 
     private normalizeResponseText(response: any): string {
@@ -84,27 +166,89 @@ export class LLMService {
         return msg.includes('not_found') || msg.includes('not found') || msg.includes('models/');
     }
 
-    private async generateWithFallback(params: GenerateWithFallbackParams): Promise<{ response: any; model: string }> {
-        const client = this.getClient();
-        if (!client) {
-            throw new Error('AI client not initialized');
-        }
-
+    /**
+     * Try all models with a single API key.
+     * Returns the response on success, or throws the last non-model-not-found error.
+     * Returns null if all models returned "not found".
+     */
+    private async tryModelsWithKey(
+        client: GoogleGenAI,
+        models: string[],
+        contents: any[],
+        config?: any
+    ): Promise<{ response: any; model: string } | null> {
         let lastError: any = null;
 
-        for (const model of Array.from(new Set(params.models))) {
+        for (const model of models) {
             try {
                 const response = await client.models.generateContent({
                     model,
-                    contents: params.contents,
-                    config: params.config,
+                    contents,
+                    config,
                 });
                 return { response, model };
             } catch (error: any) {
                 lastError = error;
+                if (isKeyExhaustedError(error)) {
+                    throw error; // bubble up so key rotation can handle it
+                }
                 if (!this.isModelNotFoundError(error)) {
                     throw error;
                 }
+                // model not found — try next model
+            }
+        }
+
+        if (lastError && !this.isModelNotFoundError(lastError)) {
+            throw lastError;
+        }
+        return null; // all models not found
+    }
+
+    /**
+     * Generate content with automatic key rotation and model fallback.
+     *
+     * Strategy:
+     *  1. For the current API key, try every model candidate in order.
+     *  2. If the key is exhausted (rate-limit / quota / auth), rotate to the
+     *     next API key and repeat from step 1.
+     *  3. Throw the last error if all keys and models are exhausted.
+     */
+    private async generateWithFallback(params: GenerateWithFallbackParams): Promise<{ response: any; model: string }> {
+        const keys = this.resolveApiKeys();
+        if (keys.length === 0) {
+            throw new Error('AI client not initialized');
+        }
+
+        const uniqueModels = Array.from(new Set(params.models));
+        let lastError: any = null;
+
+        // Try each key, starting from the current index and wrapping around
+        for (let attempt = 0; attempt < keys.length; attempt++) {
+            const keyIndex = (this.currentKeyIndex + attempt) % keys.length;
+            const client = this.getClientForKey(keys[keyIndex]);
+
+            try {
+                const result = await this.tryModelsWithKey(
+                    client,
+                    uniqueModels,
+                    params.contents,
+                    params.config
+                );
+                if (result) {
+                    // Promote this key as the current one for future calls
+                    this.currentKeyIndex = keyIndex;
+                    return result;
+                }
+            } catch (error: any) {
+                lastError = error;
+                if (isKeyExhaustedError(error)) {
+                    console.warn(
+                        `API key ${keyIndex + 1}/${keys.length} exhausted, rotating to next key…`
+                    );
+                    continue; // try next key
+                }
+                throw error; // non-key error, fail fast
             }
         }
 
@@ -119,6 +263,7 @@ export class LLMService {
         connectorContext: string = '',
         personaInstruction: string = '',
         dataQualityContext: string = ''
+        dataIntelligenceContext: string = ''
     ) {
         const modeConfig = MODE_CONFIGS[mode];
         const wantsVisualization = VISUALIZATION_HINTS.test(userQuery);
@@ -144,13 +289,16 @@ ${JSON.stringify(f.sample, null, 2)}
 
         const dataQualityBlock = dataQualityContext
             ? `\n${dataQualityContext}`
-            : '';
 
+        const intelligenceBlock = dataIntelligenceContext
+            ? `\n${dataIntelligenceContext}\n`
+            : '';
         const systemPrompt = `
-You are Mastiff, an AI data analyst executing Python in a stateful sandbox.
+You are Mastiff, a Senior Strategic Business Analyst (Digital Twin) executing Python in a stateful sandbox.
 
 ${modeConfig.promptPrefix}
 ${personaBlock}
+${intelligenceBlock}
 
 DATA CONTEXT:
 ${filesContext}
@@ -165,22 +313,40 @@ EXECUTION ENVIRONMENT:
 
 INSTRUCTIONS:
 - Convert data types safely before analysis.
-- Handle missing values and invalid dates robustly.
+- Handle missing values silently (do not dedicate significant output to nulls — focus on the data that exists).
 - Do all calculations in Python.
 - For every numerical question, write deterministic Python that computes the answer directly from data (never prose-only math).
 - Guard edge cases (division by zero, empty subsets, non-numeric coercion, and missing columns) before computing.
-- Perform a quick data quality check (nulls, outliers, malformed dates) when relevant.
+- Compute data quality metrics (null ratio, outlier Z-scores, margin uniformity) as part of the analysis code.
+- For profit analysis, calculate Variance Attribution: is the loss from Price, Volume, or Cost?
+- For discount analysis, check Discount Elasticity: high discount + low qty = failed discount; high discount + high qty = volume play.
+- Isolate outliers (Z-score > 3) and show stats with and without them when relevant.
 - Keep explanations grounded in what the code will compute, not assumptions.
-- If visualization is requested (${wantsVisualization ? 'YES' : 'NO'}), produce the most suitable chart.
-- If visualization is not requested, do not force a chart.
+
+VISUALIZATION RULES (MANDATORY):
+- ALWAYS produce at least one Plotly chart whenever the data contains numerical columns — do NOT wait for the user to ask.
+- Tables alone are NOT sufficient. Every numerical analysis MUST be accompanied by a colorful, interactive Plotly visualization.
+- If the user explicitly requests a chart, produce the most suitable one. If not explicitly requested but numerical data is present, still produce a chart automatically.
 - Chart selection guidance:
     - Use pie/donut for part-to-whole with <= 8 categories.
     - Use heatmap for correlation matrices, pivot intensity, or dense cross-tab comparisons.
-    - Use line for temporal trends, bar for ranking, scatter for relationship/outlier checks.
-- Styling guidance for Plotly:
-    - Use professional color palettes (e.g., px.colors.qualitative.Safe, px.colors.qualitative.Vivid).
-    - For heatmaps, use a perceptual continuous scale (e.g., Viridis).
-    - Set readable labels, title, and balanced margins.
+    - Use line for temporal trends; bar for ranking or comparison; scatter for relationship/outlier checks.
+    - Use grouped/stacked bar for multi-metric comparisons across categories.
+    - Use area for cumulative trends; radar for multivariate profiles.
+    - Use treemap or sunburst for hierarchical breakdowns.
+    - Use funnel for sequential stage analysis.
+    - Use histogram for distribution analysis.
+    - Use box/violin for statistical spread comparisons.
+    - When in doubt, prefer bar or line charts — they are the most universally readable.
+- Styling guidance for Plotly (MAKE CHARTS COLORFUL AND INSIGHTFUL):
+    - Use vivid, high-contrast color palettes: px.colors.qualitative.Vivid, px.colors.qualitative.Bold, px.colors.qualitative.Safe, or custom palettes like ['#636EFA','#EF553B','#00CC96','#AB63FA','#FFA15A','#19D3F3','#FF6692','#B6E880','#FF97FF','#FECB52'].
+    - For heatmaps, use perceptual continuous scales (Viridis, Plasma, Inferno).
+    - Set clear, descriptive titles and axis labels.
+    - Use hover templates for rich interactive tooltips (e.g., hovertemplate="<b>%{x}</b><br>Value: %{y:,.2f}<extra></extra>").
+    - Add text annotations on bars/points for key values using textposition='auto'.
+    - Use rounded bar shapes (marker=dict(line=dict(width=0), cornerradius=5)) where possible.
+    - Add gridlines subtly, set balanced margins, and ensure responsive layout.
+    - For multiple traces, use distinct colors per trace and a clear legend.
 - Keep explanation factual and procedural; do not claim computed numbers before execution.
 
 DIAGNOSTIC ANALYSIS RULES:
@@ -198,7 +364,7 @@ RESPONSE FORMAT (JSON ONLY):
 {
   "explanation": "Short description of what the code will do.",
   "code": "Python code",
-  "requires_visualization": ${wantsVisualization ? 'true' : 'false'}
+  "requires_visualization": true
 }
 
 IMPORTANT:
@@ -332,6 +498,7 @@ ${traceback || ''}
         execution: ExecutionSummaryInput,
         mode: AnalysisMode = 'analysis',
         dataQualityContext: string = ''
+        dataIntelligenceContext: string = ''
     ): Promise<string> {
         const chartCount = (execution.charts?.length || 0) + (execution.plotly_charts?.length || 0);
         const fallback = execution.error
@@ -343,20 +510,24 @@ ${traceback || ''}
 
         const dataQualityBlock = dataQualityContext
             ? `\n${dataQualityContext}`
+
+        const intelligenceBlock = dataIntelligenceContext
+            ? `\n${dataIntelligenceContext}\n`
             : '';
 
         const systemPrompt = `
-You are an evidence-grounded data analyst providing executive-quality insights.
+You are a Senior Strategic Business Analyst (Digital Twin) providing executive-quality insights.
 Use ONLY the provided execution artifacts — never fabricate data.
+${intelligenceBlock}
+
+ROLE: Skeptical business strategist, not a table reporter.
 
 RULES:
 - Never fabricate values, percentages, or trends not present in the execution output.
 - If evidence is insufficient, state that clearly and suggest what additional data would help.
 - If execution failed, explain the failure plainly and suggest a concrete next step.
-- Structure your response with clear sections: Key Findings, Details, and Recommendations where appropriate.
 - Present numerical findings with appropriate precision.
 - If charts were generated, describe what they reveal without inventing unseen details.
-- Keep the response concise, professional, and decision-oriented.
 - Use markdown formatting: bold for key metrics, bullet points for findings, headers for sections.
 
 DIAGNOSTIC INTELLIGENCE RULES:
@@ -368,6 +539,24 @@ DIAGNOSTIC INTELLIGENCE RULES:
 - When identifying root causes, distinguish between global issues (affects all segments) and localized issues (affects specific regions/categories/periods).
 - Apply the "So What?" test: each finding should lead to a concrete, actionable recommendation.
 ${dataQualityBlock}
+VOICE & TONE (sound like a Digital Twin, not a calculator):
+- Instead of "Region X lost €Y" → "Region X is leaking margin due to [root cause]."
+- Instead of "Discounting caused the loss" → "The discount failed to trigger volume, resulting in a sunk cost."
+- Instead of "Segment X is profitable" → "Segment X is your anchor segment, showing resilient margins."
+- Instead of "I am 100% confident" → "Based on a limited sample, we see a signal of…"
+- For small datasets, use hedging language: "signal", "directional", "anecdotal" rather than "Key Finding" or "Trend".
+
+THE "SO WHAT?" TEST:
+- Every finding MUST be paired with an Immediate Action recommendation.
+- Bad: "The East region has a loss of -€256."
+- Better: "The East region is losing money on every sale. Recommendation: Increase the price by at least 12% to reach break-even."
+
+OUTPUT STRUCTURE (Hierarchy of Importance):
+1. **EXECUTIVE SUMMARY** — The "Big Picture" in 2 sentences max.
+2. **CRITICAL ALERTS** (Level 1) — Immediate threats like negative margins or systemic pricing failures.
+3. **STRATEGIC OPPORTUNITIES** (Level 2) — Hidden gems with high margins; where to focus marketing/resources.
+4. **OPERATIONAL NOTES** (Level 3) — Minor observations (most-used payment method, etc.) — keep brief.
+5. **DATA QUALITY SCORE** — Rate the reliability of the data provided (score out of 100 with label).
 `;
 
         const prompt = `
