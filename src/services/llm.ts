@@ -33,7 +33,8 @@ ANALYSIS GUIDELINES:
 8. VARIANCE TRIGGER: If all margins are identical (Variance = 0), stop segmenting and report a Systemic Pricing Failure.
 9. Handle nulls silently or as a sidebar — do not spend significant analysis time on missing cells.
 - Never fabricate metrics, trends, or statistics.
-- If visualization is requested, generate suitable plotting code with professional styling.
+- ALWAYS generate a colorful, interactive Plotly chart for any numerical analysis — charts are mandatory, not optional.
+- Tables alone are never sufficient. Pair every table with an insightful visualization.
 - Always prefer quantitative evidence over qualitative assertions.`,
         maxHistorySlice: 8,
     },
@@ -308,23 +309,38 @@ INSTRUCTIONS:
 - For discount analysis, check Discount Elasticity: high discount + low qty = failed discount; high discount + high qty = volume play.
 - Isolate outliers (Z-score > 3) and show stats with and without them when relevant.
 - Keep explanations grounded in what the code will compute, not assumptions.
-- If visualization is requested (${wantsVisualization ? 'YES' : 'NO'}), produce the most suitable chart.
-- If visualization is not requested, do not force a chart.
+
+VISUALIZATION RULES (MANDATORY):
+- ALWAYS produce at least one Plotly chart whenever the data contains numerical columns — do NOT wait for the user to ask.
+- Tables alone are NOT sufficient. Every numerical analysis MUST be accompanied by a colorful, interactive Plotly visualization.
+- If the user explicitly requests a chart, produce the most suitable one. If not explicitly requested but numerical data is present, still produce a chart automatically.
 - Chart selection guidance:
     - Use pie/donut for part-to-whole with <= 8 categories.
     - Use heatmap for correlation matrices, pivot intensity, or dense cross-tab comparisons.
-    - Use line for temporal trends, bar for ranking, scatter for relationship/outlier checks.
-- Styling guidance for Plotly:
-    - Use professional color palettes (e.g., px.colors.qualitative.Safe, px.colors.qualitative.Vivid).
-    - For heatmaps, use a perceptual continuous scale (e.g., Viridis).
-    - Set readable labels, title, and balanced margins.
+    - Use line for temporal trends; bar for ranking or comparison; scatter for relationship/outlier checks.
+    - Use grouped/stacked bar for multi-metric comparisons across categories.
+    - Use area for cumulative trends; radar for multivariate profiles.
+    - Use treemap or sunburst for hierarchical breakdowns.
+    - Use funnel for sequential stage analysis.
+    - Use histogram for distribution analysis.
+    - Use box/violin for statistical spread comparisons.
+    - When in doubt, prefer bar or line charts — they are the most universally readable.
+- Styling guidance for Plotly (MAKE CHARTS COLORFUL AND INSIGHTFUL):
+    - Use vivid, high-contrast color palettes: px.colors.qualitative.Vivid, px.colors.qualitative.Bold, px.colors.qualitative.Safe, or custom palettes like ['#636EFA','#EF553B','#00CC96','#AB63FA','#FFA15A','#19D3F3','#FF6692','#B6E880','#FF97FF','#FECB52'].
+    - For heatmaps, use perceptual continuous scales (Viridis, Plasma, Inferno).
+    - Set clear, descriptive titles and axis labels.
+    - Use hover templates for rich interactive tooltips (e.g., hovertemplate="<b>%{x}</b><br>Value: %{y:,.2f}<extra></extra>").
+    - Add text annotations on bars/points for key values using textposition='auto'.
+    - Use rounded bar shapes (marker=dict(line=dict(width=0), cornerradius=5)) where possible.
+    - Add gridlines subtly, set balanced margins, and ensure responsive layout.
+    - For multiple traces, use distinct colors per trace and a clear legend.
 - Keep explanation factual and procedural; do not claim computed numbers before execution.
 
 RESPONSE FORMAT (JSON ONLY):
 {
   "explanation": "Short description of what the code will do.",
   "code": "Python code",
-  "requires_visualization": ${wantsVisualization ? 'true' : 'false'}
+  "requires_visualization": true
 }
 
 IMPORTANT:
