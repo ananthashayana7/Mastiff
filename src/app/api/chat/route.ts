@@ -6,6 +6,7 @@ import { eq, asc, and, inArray } from 'drizzle-orm';
 import { llm } from '@/services/llm';
 import { kernelService } from '@/services/kernel';
 import { AnalysisMode } from '@/src/types';
+import { analyseFile, formatForPrompt, DataIntelligenceReport } from '@/services/dataIntelligenceService';
 
 export const dynamic = 'force-dynamic';
 
@@ -138,13 +139,22 @@ export async function POST(req: NextRequest) {
                 path: f.filePath,
             }));
 
+            /* ---- Data Intelligence Pre-Scan ---- */
+            const intelligenceReports: DataIntelligenceReport[] = sessionFiles.map((f) => {
+                const metadata = (f.metadata ?? {}) as Record<string, unknown>;
+                const sample = (Array.isArray((metadata as any)?.sample) ? (metadata as any).sample : []) as Record<string, unknown>[];
+                return analyseFile(metadata, sample);
+            });
+            const dataIntelligenceContext = formatForPrompt(intelligenceReports);
+
             let analysis = await llm.getAnalysisCode(
                 content,
                 fileContexts,
                 session.messages,
                 analysisMode,
                 linkedConnectorContext,
-                persona
+                persona,
+                dataIntelligenceContext
             );
             let executionResult = await kernelService.execute(sessionId, analysis.code, executorFiles);
 
@@ -182,7 +192,8 @@ export async function POST(req: NextRequest) {
                     charts: executionResult.charts,
                     plotly_charts: executionResult.plotly_charts,
                 },
-                analysisMode
+                analysisMode,
+                dataIntelligenceContext
             );
 
             const [assistantMsg] = await db.insert(messages).values({
