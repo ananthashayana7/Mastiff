@@ -1,0 +1,35 @@
+import { spawnSync } from 'node:child_process';
+import { describe, expect, it } from 'vitest';
+import { buildRecoverySnippet } from '../src/app/api/chat/recoverySnippets';
+
+function expectPythonToCompile(code: string) {
+  const result = spawnSync('python3', ['-c', 'import sys; compile(sys.stdin.read(), "<generated>", "exec")'], {
+    input: `import pandas as pd\n\ndfs = {}\ndf = None\n${code}\n`,
+    encoding: 'utf8',
+  });
+
+  expect(result.status, result.stderr || result.stdout).toBe(0);
+}
+
+describe('buildRecoverySnippet', () => {
+  it('generates valid Python for xlsx recovery when filenames contain braces, quotes, and leading digits', () => {
+    const snippet = buildRecoverySnippet({
+      filename: `1774177089423-S4_{Line}'Rejection.xlsx`,
+      filePath: String.raw`C:\Netflix\Mastiff\uploads\1774177089423-S4_{Line}'Rejection.xlsx`,
+    });
+
+    expect(snippet).toContain(`dfs["1774177089423-S4_{Line}'Rejection.xlsx"] = _rdf`);
+    expect(snippet).toContain(`print("Recovered " + str(len(_rdf)) + " rows from " + "1774177089423-S4_{Line}'Rejection.xlsx")`);
+    expectPythonToCompile(snippet);
+  });
+
+  it('generates valid Python for csv recovery snippets', () => {
+    const snippet = buildRecoverySnippet({
+      filename: '95-rejections{daily}.csv',
+      filePath: '/uploads/95-rejections{daily}.csv',
+    });
+
+    expect(snippet).toContain(`pd.read_csv("/uploads/95-rejections{daily}.csv", encoding=_enc)`);
+    expectPythonToCompile(snippet);
+  });
+});
