@@ -1,6 +1,9 @@
 import { pgTable, text, uuid, timestamp, boolean, jsonb, varchar, decimal, numeric, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
+const extraConfig = <T>(...config: T[]) =>
+  Object.fromEntries(config.map((item, idx) => [`config_${idx}`, item])) as Record<string, T>;
+
 /**
  * OBSERVABILITY SCHEMA - Phase 4.1
  *
@@ -56,14 +59,14 @@ export const metrics = pgTable(
     tags: jsonb("tags"),
     metadata: jsonb("metadata"),
   },
-  (table) => [
+  (table) => extraConfig(
     index("metrics_org_idx").on(table.organization_id),
     index("metrics_name_idx").on(table.metric_name),
     index("metrics_service_idx").on(table.service),
     index("metrics_timestamp_idx").on(table.timestamp),
     index("metrics_user_idx").on(table.user_id),
     index("metrics_endpoint_idx").on(table.endpoint),
-  ]
+  )
 );
 
 /**
@@ -114,7 +117,7 @@ export const logs = pgTable(
     // Timestamps
     timestamp: timestamp("timestamp", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
+  (table) => extraConfig(
     index("logs_org_idx").on(table.organization_id),
     index("logs_level_idx").on(table.log_level),
     index("logs_service_idx").on(table.service),
@@ -122,7 +125,7 @@ export const logs = pgTable(
     index("logs_user_idx").on(table.user_id),
     index("logs_timestamp_idx").on(table.timestamp),
     index("logs_error_idx").on(table.error_code),
-  ]
+  )
 );
 
 /**
@@ -180,14 +183,14 @@ export const traces = pgTable(
     start_time: timestamp("start_time", { withTimezone: true }).notNull(),
     end_time: timestamp("end_time", { withTimezone: true }),
   },
-  (table) => [
+  (table) => extraConfig(
     index("traces_org_idx").on(table.organization_id),
     index("traces_id_idx").on(table.trace_id),
     index("traces_parent_idx").on(table.parent_trace_id),
     index("traces_user_idx").on(table.user_id),
     index("traces_status_idx").on(table.status),
     index("traces_start_time_idx").on(table.start_time),
-  ]
+  )
 );
 
 /**
@@ -231,14 +234,14 @@ export const traceSpans = pgTable(
     // Metrics
     metrics: jsonb("metrics"), // {latency_ms, bytes_transferred}
   },
-  (table) => [
+  (table) => extraConfig(
     index("spans_trace_idx").on(table.trace_id),
     index("spans_span_idx").on(table.span_id),
     index("spans_operation_idx").on(table.operation_name),
     index("spans_service_idx").on(table.service_name),
     index("spans_start_time_idx").on(table.start_time),
     index("spans_error_idx").on(table.is_error),
-  ]
+  )
 );
 
 /**
@@ -281,14 +284,14 @@ export const events = pgTable(
     timestamp: timestamp("timestamp", { withTimezone: true }).notNull().defaultNow(),
     duration_ms: numeric("duration_ms", { precision: 10, scale: 2 }),
   },
-  (table) => [
+  (table) => extraConfig(
     index("events_org_idx").on(table.organization_id),
     index("events_type_idx").on(table.event_type),
     index("events_category_idx").on(table.event_category),
     index("events_user_idx").on(table.user_id),
     index("events_timestamp_idx").on(table.timestamp),
     index("events_actor_idx").on(table.actor_id),
-  ]
+  )
 );
 
 /**
@@ -333,13 +336,13 @@ export const anomalies = pgTable(
     // Timestamps
     detected_at: timestamp("detected_at").notNull().defaultNow(),
   },
-  (table) => [
+  (table) => extraConfig(
     index("anomalies_org_idx").on(table.organization_id),
     index("anomalies_type_idx").on(table.anomaly_type),
     index("anomalies_severity_idx").on(table.severity),
     index("anomalies_status_idx").on(table.status),
     index("anomalies_detected_idx").on(table.detected_at),
-  ]
+  )
 );
 
 /**
@@ -362,8 +365,8 @@ export const alertingRules = pgTable(
     metric_name: text("metric_name"),
     condition: text("condition"), // 'greater_than' | 'less_than' | 'equals'
     threshold_value: numeric("threshold_value", { precision: 20, scale: 6 }),
-    evaluation_window_seconds: numeric("evaluation_window_seconds", { precision: 10, scale: 0 }).default(300),
-    datapoints_required: numeric("datapoints_required", { precision: 10, scale: 0 }).default(3),
+    evaluation_window_seconds: numeric("evaluation_window_seconds", { precision: 10, scale: 0 }).default("300"),
+    datapoints_required: numeric("datapoints_required", { precision: 10, scale: 0 }).default("3"),
     
     // Filters
     filters: jsonb("filters"), // {service: 'api', endpoint: '/chat/*'}
@@ -379,11 +382,11 @@ export const alertingRules = pgTable(
     created_at: timestamp("created_at").notNull().defaultNow(),
     updated_at: timestamp("updated_at").notNull().defaultNow(),
   },
-  (table) => [
+  (table) => extraConfig(
     index("alert_rules_org_idx").on(table.organization_id),
     index("alert_rules_enabled_idx").on(table.is_enabled),
     index("alert_rules_metric_idx").on(table.metric_name),
-  ]
+  )
 );
 
 /**
@@ -409,7 +412,7 @@ export const dashboardConfigs = pgTable(
     widgets: jsonb("widgets"), // Array of widget configs with metrics, charts, tables
     
     // Settings
-    refresh_interval_seconds: numeric("refresh_interval_seconds", { precision: 10, scale: 0 }).default(60),
+    refresh_interval_seconds: numeric("refresh_interval_seconds", { precision: 10, scale: 0 }).default("60"),
     time_range_default: text("time_range_default").default('1h'), // '1h' | '24h' | '7d'
     is_default: boolean("is_default").default(false),
     is_public: boolean("is_public").default(false),
@@ -418,11 +421,11 @@ export const dashboardConfigs = pgTable(
     created_at: timestamp("created_at").notNull().defaultNow(),
     updated_at: timestamp("updated_at").notNull().defaultNow(),
   },
-  (table) => [
+  (table) => extraConfig(
     index("dashboards_org_idx").on(table.organization_id),
     index("dashboards_creator_idx").on(table.created_by),
     index("dashboards_default_idx").on(table.is_default),
-  ]
+  )
 );
 
 // Relations

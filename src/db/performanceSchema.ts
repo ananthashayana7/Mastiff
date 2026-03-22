@@ -1,6 +1,9 @@
 import { pgTable, text, uuid, timestamp, boolean, jsonb, varchar, decimal, numeric, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
+const extraConfig = <T>(...config: T[]) =>
+  Object.fromEntries(config.map((item, idx) => [`config_${idx}`, item])) as Record<string, T>;
+
 /**
  * PERFORMANCE ANALYTICS SCHEMA - Phase 4.2
  *
@@ -29,10 +32,10 @@ export const performanceSnapshots = pgTable(
     snapshot_period: text("snapshot_period").notNull(), // '1h' | '1d' | '1w' | '1m'
     
     // Request Metrics
-    total_requests: numeric("total_requests", { precision: 20, scale: 0 }).default(0),
-    successful_requests: numeric("successful_requests", { precision: 20, scale: 0 }).default(0),
-    failed_requests: numeric("failed_requests", { precision: 20, scale: 0 }).default(0),
-    total_timeout_requests: numeric("total_timeout_requests", { precision: 20, scale: 0 }).default(0),
+    total_requests: numeric("total_requests", { precision: 20, scale: 0 }).default("0"),
+    successful_requests: numeric("successful_requests", { precision: 20, scale: 0 }).default("0"),
+    failed_requests: numeric("failed_requests", { precision: 20, scale: 0 }).default("0"),
+    total_timeout_requests: numeric("total_timeout_requests", { precision: 20, scale: 0 }).default("0"),
     
     // Response Time
     p50_latency_ms: numeric("p50_latency_ms", { precision: 10, scale: 2 }),
@@ -75,11 +78,11 @@ export const performanceSnapshots = pgTable(
     
     created_at: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [
+  (table) => extraConfig(
     index("perf_snapshots_org_idx").on(table.organization_id),
     index("perf_snapshots_date_idx").on(table.snapshot_date),
     index("perf_snapshots_period_idx").on(table.snapshot_period),
-  ]
+  )
 );
 
 /**
@@ -121,11 +124,11 @@ export const widgetTemplates = pgTable(
     created_at: timestamp("created_at").notNull().defaultNow(),
     updated_at: timestamp("updated_at").notNull().defaultNow(),
   },
-  (table) => [
+  (table) => extraConfig(
     index("widget_templates_org_idx").on(table.organization_id),
     index("widget_templates_type_idx").on(table.widget_type),
     index("widget_templates_category_idx").on(table.category),
-  ]
+  )
 );
 
 /**
@@ -159,7 +162,7 @@ export const serviceHealth = pgTable(
     dependency_status: jsonb("dependency_status"), // {database: 'healthy', cache: 'degraded'}
     
     // Incidents
-    active_incidents: numeric("active_incidents", { precision: 10, scale: 0 }).default(0),
+    active_incidents: numeric("active_incidents", { precision: 10, scale: 0 }).default("0"),
     last_incident_at: timestamp("last_incident_at"),
     mttr_minutes: numeric("mttr_minutes", { precision: 10, scale: 2 }), // Mean time to recovery
     
@@ -168,11 +171,11 @@ export const serviceHealth = pgTable(
     
     updated_at: timestamp("updated_at").notNull().defaultNow(),
   },
-  (table) => [
+  (table) => extraConfig(
     index("service_health_org_idx").on(table.organization_id),
     index("service_health_service_idx").on(table.service_name),
     index("service_health_status_idx").on(table.status),
-  ]
+  )
 );
 
 /**
@@ -211,11 +214,11 @@ export const performanceRecommendations = pgTable(
     created_at: timestamp("created_at").notNull().defaultNow(),
     created_by: text("created_by"), // 'AI' | user_id
   },
-  (table) => [
+  (table) => extraConfig(
     index("perf_rec_org_idx").on(table.organization_id),
     index("perf_rec_type_idx").on(table.recommendation_type),
     index("perf_rec_status_idx").on(table.status),
-  ]
+  )
 );
 
 /**
@@ -252,11 +255,11 @@ export const performanceBenchmarks = pgTable(
     created_by: uuid("created_by"),
     created_at: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [
+  (table) => extraConfig(
     index("benchmarks_org_idx").on(table.organization_id),
     index("benchmarks_metric_idx").on(table.metric_name),
     index("benchmarks_status_idx").on(table.status),
-  ]
+  )
 );
 
 /**
@@ -295,11 +298,11 @@ export const sloDefinitions = pgTable(
     is_active: boolean("is_active").notNull().default(true),
     created_at: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [
+  (table) => extraConfig(
     index("slo_org_idx").on(table.organization_id),
     index("slo_service_idx").on(table.service),
     index("slo_status_idx").on(table.status),
-  ]
+  )
 );
 
 /**
@@ -334,11 +337,11 @@ export const performanceCompareHistory = pgTable(
     
     created_at: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [
+  (table) => extraConfig(
     index("perf_compare_org_idx").on(table.organization_id),
     index("perf_compare_metric_idx").on(table.metric_name),
     index("perf_compare_period_idx").on(table.period_start, table.period_end),
-  ]
+  )
 );
 
 // Relations
