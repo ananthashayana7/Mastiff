@@ -14,7 +14,8 @@ import {
   date,
 } from 'drizzle-orm/pg-core';
 
-import { usersTable } from './schema';
+const extraConfig = <T>(...config: T[]) =>
+  Object.fromEntries(config.map((item, idx) => [`config_${idx}`, item])) as Record<string, T>;
 
 /**
  * Cost Analytics Schema
@@ -73,11 +74,11 @@ export const serviceUsageTable = pgTable(
     timestamp: timestamp('timestamp').notNull().defaultNow(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [
+  (t) => extraConfig(
     index('idx_service_usage_org').on(t.organizationId),
     index('idx_service_usage_service').on(t.serviceName),
     index('idx_service_usage_period').on(t.usagePeriodStart, t.usagePeriodEnd),
-  ]
+  )
 );
 
 // Aggregated cost breakdown by dimensions
@@ -115,11 +116,11 @@ export const costBreakdownTable = pgTable(
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [
+  (t) => extraConfig(
     index('idx_cost_breakdown_org').on(t.organizationId),
     index('idx_cost_breakdown_period').on(t.periodDate, t.periodType),
     index('idx_cost_breakdown_service').on(t.serviceName),
-  ]
+  )
 );
 
 // Budget allocation and forecasting
@@ -157,10 +158,10 @@ export const resourceAllocationTable = pgTable(
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
-  (t) => [
+  (t) => extraConfig(
     index('idx_resource_allocation_org').on(t.organizationId),
     index('idx_resource_allocation_level').on(t.allocationLevel, t.targetId),
-  ]
+  )
 );
 
 // Anomaly detection in spending
@@ -208,10 +209,10 @@ export const costAnomaliesTable = pgTable(
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [
+  (t) => extraConfig(
     index('idx_cost_anomalies_org').on(t.organizationId),
     index('idx_cost_anomalies_severity').on(t.severity),
-  ]
+  )
 );
 
 // Per-user/workspace/feature cost attribution
@@ -248,10 +249,10 @@ export const usageAccountingTable = pgTable(
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [
+  (t) => extraConfig(
     index('idx_usage_accounting_org').on(t.organizationId),
     index('idx_usage_accounting_entity').on(t.accountingLevel, t.attributedEntityId),
-  ]
+  )
 );
 
 // Unit economics (revenue vs cost)
@@ -294,10 +295,10 @@ export const unitEconomicsTable = pgTable(
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [
+  (t) => extraConfig(
     index('idx_unit_economics_org').on(t.organizationId),
     index('idx_unit_economics_period').on(t.periodDate),
-  ]
+  )
 );
 
 // Reserved capacity optimization recommendations
@@ -344,10 +345,10 @@ export const reservedCapacityOptimizationTable = pgTable(
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [
+  (t) => extraConfig(
     index('idx_reserved_cap_org').on(t.organizationId),
     index('idx_reserved_cap_type').on(t.recommendationType),
-  ]
+  )
 );
 
 // Cost optimization opportunities
@@ -391,11 +392,11 @@ export const costOptimizationOpportunitiesTable = pgTable(
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
-  (t) => [
+  (t) => extraConfig(
     index('idx_cost_opp_org').on(t.organizationId),
     index('idx_cost_opp_status').on(t.status),
     index('idx_cost_opp_priority').on(t.priority),
-  ]
+  )
 );
 
 // Monthly billing records
@@ -442,10 +443,10 @@ export const monthlyBillingRecordTable = pgTable(
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [
+  (t) => extraConfig(
     index('idx_billing_record_org').on(t.organizationId),
     index('idx_billing_record_month').on(t.billingMonth),
-  ]
+  )
 );
 
 // Real-time spending alerts
@@ -485,11 +486,11 @@ export const costAlertsTable = pgTable(
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [
+  (t) => extraConfig(
     index('idx_cost_alerts_org').on(t.organizationId),
     index('idx_cost_alerts_severity').on(t.severity),
     index('idx_cost_alerts_triggered').on(t.alertTriggeredAt),
-  ]
+  )
 );
 
 // Cost forecasting and projections
@@ -536,10 +537,10 @@ export const costProjectionsTable = pgTable(
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [
+  (t) => extraConfig(
     index('idx_cost_projections_org').on(t.organizationId),
     index('idx_cost_projections_period').on(t.forecastStartDate, t.forecastEndDate),
-  ]
+  )
 );
 
 // Resource wastage analysis
@@ -581,11 +582,11 @@ export const wastageAnalysisTable = pgTable(
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [
+  (t) => extraConfig(
     index('idx_wastage_org').on(t.organizationId),
     index('idx_wastage_type').on(t.wastageType),
     index('idx_wastage_severity').on(t.severity),
-  ]
+  )
 );
 
 /**

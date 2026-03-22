@@ -6,8 +6,6 @@
 
 import { pgTable, text, boolean, timestamp, uuid, decimal, jsonb, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { usersTable } from './schema'; // Adjust based on your existing schema
-
 /**
  * LLM Models Table
  * Stores configured LLM providers for each workspace

@@ -7,6 +7,10 @@
 import { pgTable, text, boolean, timestamp, uuid, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
+export const workspacesTable = pgTable('workspaces', {
+    id: uuid('id').primaryKey(),
+});
+
 /**
  * Roles Table
  * Define custom roles with specific permissions
@@ -294,7 +298,7 @@ export const permissionAuditTable = pgTable(
  * Relations
  */
 export const rolesRelations = relations(rolesTable, ({ one, many }) => ({
-    workspace: one({ ref: () => workspacesTable }, {
+    workspace: one(workspacesTable, {
         fields: [rolesTable.workspaceId],
         references: [workspacesTable.id],
     }),
@@ -318,7 +322,7 @@ export const rolePermissionsRelations = relations(rolePermissionsTable, ({ one }
 }));
 
 export const userRolesRelations = relations(userRolesTable, ({ one }) => ({
-    workspace: one({ ref: () => workspacesTable }, {
+    workspace: one(workspacesTable, {
         fields: [userRolesTable.workspaceId],
         references: [workspacesTable.id],
     }),
@@ -329,34 +333,29 @@ export const userRolesRelations = relations(userRolesTable, ({ one }) => ({
 }));
 
 export const resourcePermissionsRelations = relations(resourcePermissionsTable, ({ one }) => ({
-    workspace: one({ ref: () => workspacesTable }, {
+    workspace: one(workspacesTable, {
         fields: [resourcePermissionsTable.workspaceId],
         references: [workspacesTable.id],
     }),
 }));
 
 export const attributesRelations = relations(attributesTable, ({ one }) => ({
-    workspace: one({ ref: () => workspacesTable }, {
+    workspace: one(workspacesTable, {
         fields: [attributesTable.workspaceId],
         references: [workspacesTable.id],
     }),
 }));
 
 export const policiesRelations = relations(policiesTable, ({ one }) => ({
-    workspace: one({ ref: () => workspacesTable }, {
+    workspace: one(workspacesTable, {
         fields: [policiesTable.workspaceId],
         references: [workspacesTable.id],
     }),
 }));
 
 export const permissionAuditRelations = relations(permissionAuditTable, ({ one }) => ({
-    workspace: one({ ref: () => workspacesTable }, {
+    workspace: one(workspacesTable, {
         fields: [permissionAuditTable.workspaceId],
         references: [workspacesTable.id],
     }),
 }));
-
-// Forward reference for workspace table
-export const workspacesTable = pgTable('workspaces', {
-    id: uuid('id').primaryKey(),
-});
