@@ -91,7 +91,8 @@ def analyze_file(file_path):
             
             # Only search for a header row if columns look auto-generated (e.g. 'Unnamed: 0')
             unnamed_count = sum(1 for c in df.columns if 'unnamed' in str(c).lower())
-            if unnamed_count > len(df.columns) * 0.5:
+            if unnamed_count > len(df.columns) * 0.5 and len(df.columns) > 0:
+                header_found = False
                 for i in range(min(15, len(df))):
                     row = df.iloc[i]
                     non_null_count = row.notnull().sum()
@@ -100,10 +101,37 @@ def analyze_file(file_path):
                         new_header = df.iloc[i]
                         # Clean the header names (remove \n and excess spaces)
                         new_header = [str(h).replace('\n', ' ').strip() for h in new_header]
-                        df = df.iloc[i+1:]
-                        df.columns = new_header
-                        df = df.dropna(how='all').dropna(axis=1, how='all')
+                        candidate_df = df.iloc[i+1:].copy()
+                        candidate_df.columns = new_header
+                        candidate_df = candidate_df.dropna(how='all').dropna(axis=1, how='all')
+                        # Only accept the new header if it leaves data rows
+                        if len(candidate_df) > 0:
+                            df = candidate_df
+                            header_found = True
                         break
+                
+                # If no header found and current df has data, keep it as-is (better than 0 rows)
+                if not header_found and len(df) > 0:
+                    # Assign generic column names instead of "Unnamed: X"
+                    df.columns = [f'Column_{i+1}' for i in range(len(df.columns))]
+            
+            # Fallback: if cleaning left 0 rows, re-read the best sheet with header=None
+            if len(df) == 0 and sheet_scores:
+                raw_df = pd.read_excel(file_path, sheet_name=sheet_scores[0][1], header=None)
+                raw_df = raw_df.dropna(how='all').dropna(axis=1, how='all')
+                if len(raw_df) > 0:
+                    # Use first row as header
+                    new_header = [str(h).replace('\n', ' ').strip() for h in raw_df.iloc[0]]
+                    df = raw_df.iloc[1:]
+                    df.columns = new_header
+                    df = df.dropna(how='all').dropna(axis=1, how='all')
+                    # If still empty, just use the raw data
+                    if len(df) == 0:
+                        df = raw_df.reset_index(drop=True)
+            
+            # Final safety: reset the index
+            if len(df) > 0:
+                df = df.reset_index(drop=True)
         elif ext == '.json':
             df = read_json_flexible(file_path)
         elif ext == '.parquet':
