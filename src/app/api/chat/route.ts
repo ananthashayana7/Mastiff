@@ -160,6 +160,63 @@ export async function POST(req: NextRequest) {
                 dataQualityContext,
                 dataIntelligenceContext
             );
+
+            /* ---- Data recovery preamble for 0-row files ---- */
+            const zeroRowFiles = sessionFiles.filter(
+                (f) => (f.metadata as any)?.row_count === 0
+            );
+            if (zeroRowFiles.length > 0) {
+                const recoverySnippets = zeroRowFiles.map((f) => {
+                    const safeName = f.filename.replace(/'/g, "\\'");
+                    const safePath = f.filePath.replace(/\\/g, '/').replace(/'/g, "\\'");
+                    const ext = f.filename.split('.').pop()?.toLowerCase() || '';
+                    if (['xlsx', 'xls'].includes(ext)) {
+                        return [
+                            `# Auto-recovery: metadata reported 0 rows for '${safeName}'`,
+                            `try:`,
+                            `    _rdf = pd.read_excel('${safePath}')`,
+                            `    _rdf = _rdf.dropna(how='all').dropna(axis=1, how='all')`,
+                            `    if len(_rdf) == 0:`,
+                            `        _rdf = pd.read_excel('${safePath}', header=None)`,
+                            `        _rdf = _rdf.dropna(how='all').dropna(axis=1, how='all')`,
+                            `        if len(_rdf) > 0:`,
+                            `            _rdf.columns = [str(c).strip() for c in _rdf.iloc[0]]`,
+                            `            _rdf = _rdf.iloc[1:].reset_index(drop=True)`,
+                            `    if len(_rdf) > 0:`,
+                            `        dfs['${safeName}'] = _rdf`,
+                            `        df = _rdf`,
+                            `        print(f"Recovered {len(_rdf)} rows from ${safeName}")`,
+                            `except Exception as _e:`,
+                            `    print(f"Recovery failed for ${safeName}: {_e}")`,
+                        ].join('\n');
+                    } else if (['csv', 'tsv', 'txt'].includes(ext)) {
+                        const sep = ext === 'tsv' ? '\\t' : ',';
+                        return [
+                            `# Auto-recovery: metadata reported 0 rows for '${safeName}'`,
+                            `try:`,
+                            `    for _enc in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:`,
+                            `        try:`,
+                            `            _rdf = pd.read_csv('${safePath}', sep='${sep}', encoding=_enc)`,
+                            `            _rdf = _rdf.dropna(how='all')`,
+                            `            if len(_rdf) > 0:`,
+                            `                dfs['${safeName}'] = _rdf`,
+                            `                df = _rdf`,
+                            `                print(f"Recovered {len(_rdf)} rows from ${safeName}")`,
+                            `                break`,
+                            `        except Exception:`,
+                            `            continue`,
+                            `except Exception as _e:`,
+                            `    print(f"Recovery failed for ${safeName}: {_e}")`,
+                        ].join('\n');
+                    }
+                    return '';
+                }).filter(Boolean);
+
+                if (recoverySnippets.length > 0 && analysis.code) {
+                    analysis.code = recoverySnippets.join('\n\n') + '\n\n' + analysis.code;
+                }
+            }
+
             let executionResult = await kernelService.execute(sessionId, analysis.code, executorFiles);
 
             if (executionResult?.error) {
