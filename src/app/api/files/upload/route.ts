@@ -6,7 +6,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import mammoth from 'mammoth';
-import xlsx from 'xlsx';
+import * as xlsx from 'xlsx';
 
 export const dynamic = 'force-dynamic';
 
@@ -167,7 +167,24 @@ function buildColumnMetadata(
     return columns;
 }
 
-async function buildTabularMetadataFallback(
+function hasNonEmptyCell(cell: unknown): boolean {
+    return cell !== null && cell !== undefined && String(cell).trim() !== '';
+}
+
+function mapGridRowsToObjects(headers: string[], dataRows: any[][]): Record<string, any>[] {
+    return dataRows
+        .filter((line) => Array.isArray(line) && line.some((cell) => hasNonEmptyCell(cell)))
+        .map((line) => {
+            const row: Record<string, any> = {};
+            headers.forEach((header, index) => {
+                const value = line[index];
+                row[header] = value === undefined || value === '' ? null : value;
+            });
+            return row;
+        });
+}
+
+export async function buildTabularMetadataFallback(
     filePath: string,
     originalName: string,
     ext: string
@@ -222,18 +239,18 @@ async function buildTabularMetadataFallback(
                 }
             }
 
-            const [headerRow = [], ...dataRows] = bestGrid;
+            const nonEmptyRows = bestGrid.filter(
+                (line) => Array.isArray(line) && line.some((cell) => hasNonEmptyCell(cell))
+            );
+            const [headerRow = [], ...dataRows] = nonEmptyRows;
             headers = headerRow.map((cell, index) => normalizeHeader(String(cell ?? ''), index));
-            rows = dataRows
-                .filter((line) => Array.isArray(line) && line.some((cell) => cell !== null && String(cell).trim() !== ''))
-                .map((line) => {
-                    const row: Record<string, any> = {};
-                    headers.forEach((header, index) => {
-                        const value = line[index];
-                        row[header] = value === undefined || value === '' ? null : value;
-                    });
-                    return row;
-                });
+            rows = mapGridRowsToObjects(headers, dataRows);
+
+            if (rows.length === 0 && nonEmptyRows.length > 0) {
+                const widestRow = Math.max(...nonEmptyRows.map((line) => line.length), 0);
+                headers = Array.from({ length: widestRow }, (_, index) => normalizeHeader('', index));
+                rows = mapGridRowsToObjects(headers, nonEmptyRows);
+            }
         } else if (ext === '.parquet') {
             return {
                 row_count: 0,
