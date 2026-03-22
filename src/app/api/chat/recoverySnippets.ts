@@ -3,13 +3,13 @@ type RecoveryFile = {
     filePath: string;
 };
 
-function toPythonStringLiteral(value: string): string {
+function toJsonStringLiteral(value: string): string {
     return JSON.stringify(value);
 }
 
 export function buildRecoverySnippet(file: RecoveryFile): string {
-    const fileNameLiteral = toPythonStringLiteral(file.filename);
-    const filePathLiteral = toPythonStringLiteral(file.filePath.replace(/\\/g, '/'));
+    const fileNameLiteral = toJsonStringLiteral(file.filename);
+    const filePathLiteral = toJsonStringLiteral(file.filePath.replace(/\\/g, '/'));
     const ext = file.filename.split('.').pop()?.toLowerCase() || '';
 
     if (['xlsx', 'xls'].includes(ext)) {
