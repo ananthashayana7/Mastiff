@@ -167,8 +167,11 @@ export async function POST(req: NextRequest) {
             );
             if (zeroRowFiles.length > 0) {
                 const recoverySnippets = zeroRowFiles.map((f) => {
-                    const safeName = f.filename.replace(/'/g, "\\'");
-                    const safePath = f.filePath.replace(/\\/g, '/').replace(/'/g, "\\'");
+                    // Filenames are already sanitized during upload (alphanumeric, dots, hyphens, underscores)
+                    // File paths are server-generated (uploads/<timestamp>-<safename>)
+                    // Extra escaping for safety in generated Python string literals
+                    const safeName = f.filename.replace(/[\\'\n\r]/g, '_');
+                    const safePath = f.filePath.replace(/\\/g, '/').replace(/['\n\r]/g, '_');
                     const ext = f.filename.split('.').pop()?.toLowerCase() || '';
                     if (['xlsx', 'xls'].includes(ext)) {
                         return [
@@ -190,13 +193,12 @@ export async function POST(req: NextRequest) {
                             `    print(f"Recovery failed for ${safeName}: {_e}")`,
                         ].join('\n');
                     } else if (['csv', 'tsv', 'txt'].includes(ext)) {
-                        const sep = ext === 'tsv' ? '\\t' : ',';
                         return [
                             `# Auto-recovery: metadata reported 0 rows for '${safeName}'`,
                             `try:`,
                             `    for _enc in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:`,
                             `        try:`,
-                            `            _rdf = pd.read_csv('${safePath}', sep='${sep}', encoding=_enc)`,
+                            `            _rdf = pd.read_csv('${safePath}', encoding=_enc)`,
                             `            _rdf = _rdf.dropna(how='all')`,
                             `            if len(_rdf) > 0:`,
                             `                dfs['${safeName}'] = _rdf`,
