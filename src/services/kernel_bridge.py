@@ -11,6 +11,7 @@ import json
 import os
 import traceback
 import base64
+from datetime import date, datetime, time
 from io import BytesIO
 
 # Preload common libraries for faster execution
@@ -71,8 +72,14 @@ except ImportError:
 class SafeJSONEncoder(json.JSONEncoder):
     """JSON encoder that handles pandas/numpy types safely."""
     def default(self, obj):
-        if isinstance(obj, (pd.Timestamp, np.datetime64)):
+        if obj is pd.NaT:
+            return None
+        if isinstance(obj, np.datetime64):
+            return None if np.isnat(obj) else str(obj)
+        if isinstance(obj, pd.Timestamp):
             return str(obj)
+        if isinstance(obj, (datetime, date, time)):
+            return obj.isoformat()
         if isinstance(obj, pd.Timedelta):
             return str(obj)
         if isinstance(obj, (np.integer,)):
@@ -352,7 +359,7 @@ def execute_request(request: dict) -> dict:
         for k, v in namespace.items():
             if k not in skip_keys and not k.startswith('__'):
                 try:
-                    json.dumps(v)  # Only persist serializable objects
+                    json.dumps(v, cls=SafeJSONEncoder)  # Only persist serializable objects
                     session_state['variables'][k] = v
                 except (TypeError, ValueError):
                     pass  # Skip non-serializable objects (but they stay in namespace)
