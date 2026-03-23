@@ -66,7 +66,7 @@ export const tenantRegistry = pgTable(
 
     // API Access
     has_api_access: boolean("has_api_access").notNull().default(false),
-    api_rate_limit: decimal("api_rate_limit", { precision: 10, scale: 0 }).default(1000), // requests per minute
+    api_rate_limit: decimal("api_rate_limit", { precision: 10, scale: 0 }).default("1000"), // requests per minute
 
     // Support and Contacts
     support_tier: text("support_tier").default("community"), // 'community' | 'standard' | 'premium' | 'enterprise'
@@ -82,12 +82,12 @@ export const tenantRegistry = pgTable(
     updated_at: timestamp("updated_at").notNull().defaultNow(),
     onboarded_at: timestamp("onboarded_at"),
   },
-  (table) => [
-    index("tenant_slug_idx").on(table.slug),
-    index("tenant_org_id_idx").on(table.organization_id),
-    index("tenant_tier_idx").on(table.tier),
-    index("tenant_region_idx").on(table.data_region),
-  ]
+  (table) => ({
+    slugIdx: index("tenant_slug_idx").on(table.slug),
+    organizationIdIdx: index("tenant_org_id_idx").on(table.organization_id),
+    tierIdx: index("tenant_tier_idx").on(table.tier),
+    regionIdx: index("tenant_region_idx").on(table.data_region),
+  })
 );
 
 /**
@@ -112,8 +112,8 @@ export const tenantDatabases = pgTable(
     is_replicated: boolean("is_replicated").default(false),
 
     // Connection Pool
-    max_connections: decimal("max_connections", { precision: 10, scale: 0 }).default(100),
-    current_connections: decimal("current_connections", { precision: 10, scale: 0 }).default(0),
+    max_connections: decimal("max_connections", { precision: 10, scale: 0 }).default("100"),
+    current_connections: decimal("current_connections", { precision: 10, scale: 0 }).default("0"),
 
     // Status
     is_active: boolean("is_active").notNull().default(true),
@@ -121,10 +121,10 @@ export const tenantDatabases = pgTable(
 
     created_at: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [
-    index("tenant_db_org_idx").on(table.organization_id),
-    index("tenant_db_schema_idx").on(table.schema_name),
-  ]
+  (table) => ({
+    organizationIdIdx: index("tenant_db_org_idx").on(table.organization_id),
+    schemaNameIdx: index("tenant_db_schema_idx").on(table.schema_name),
+  })
 );
 
 /**
@@ -152,10 +152,10 @@ export const tenantIsolationPolicies = pgTable(
 
     created_at: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [
-    index("isolation_policy_org_idx").on(table.organization_id),
-    index("isolation_policy_table_idx").on(table.table_name),
-  ]
+  (table) => ({
+    organizationIdIdx: index("isolation_policy_org_idx").on(table.organization_id),
+    tableNameIdx: index("isolation_policy_table_idx").on(table.table_name),
+  })
 );
 
 /**
@@ -171,14 +171,14 @@ export const tenantResources = pgTable(
     period_end: timestamp("period_end").notNull(),
 
     // Compute Usage
-    total_api_calls: decimal("total_api_calls", { precision: 20, scale: 0 }).default(0),
-    total_tokens_processed: decimal("total_tokens_processed", { precision: 20, scale: 0 }).default(0),
-    total_compute_seconds: decimal("total_compute_seconds", { precision: 20, scale: 2 }).default(0),
+    total_api_calls: decimal("total_api_calls", { precision: 20, scale: 0 }).default("0"),
+    total_tokens_processed: decimal("total_tokens_processed", { precision: 20, scale: 0 }).default("0"),
+    total_compute_seconds: decimal("total_compute_seconds", { precision: 20, scale: 2 }).default("0"),
 
     // Storage Usage
-    database_size_gb: decimal("database_size_gb", { precision: 15, scale: 2 }).default(0),
-    file_storage_gb: decimal("file_storage_gb", { precision: 15, scale: 2 }).default(0),
-    backup_storage_gb: decimal("backup_storage_gb", { precision: 15, scale: 2 }).default(0),
+    database_size_gb: decimal("database_size_gb", { precision: 15, scale: 2 }).default("0"),
+    file_storage_gb: decimal("file_storage_gb", { precision: 15, scale: 2 }).default("0"),
+    backup_storage_gb: decimal("backup_storage_gb", { precision: 15, scale: 2 }).default("0"),
 
     // Peak Metrics
     peak_concurrent_connections: decimal("peak_concurrent_connections", { precision: 10, scale: 0 }),
@@ -186,15 +186,15 @@ export const tenantResources = pgTable(
     peak_daily_tokens: decimal("peak_daily_tokens", { precision: 20, scale: 0 }),
 
     // Cost Calculation
-    estimated_cost_usd: decimal("estimated_cost_usd", { precision: 10, scale: 2 }).default(0),
-    actual_cost_usd: decimal("actual_cost_usd", { precision: 10, scale: 2 }).default(0),
+    estimated_cost_usd: decimal("estimated_cost_usd", { precision: 10, scale: 2 }).default("0"),
+    actual_cost_usd: decimal("actual_cost_usd", { precision: 10, scale: 2 }).default("0"),
 
     created_at: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [
-    index("tenant_resources_org_idx").on(table.organization_id),
-    index("tenant_resources_period_idx").on(table.period_start, table.period_end),
-  ]
+  (table) => ({
+    organizationIdIdx: index("tenant_resources_org_idx").on(table.organization_id),
+    periodIdx: index("tenant_resources_period_idx").on(table.period_start, table.period_end),
+  })
 );
 
 /**
@@ -237,12 +237,12 @@ export const tenantComplianceLogs = pgTable(
 
     timestamp: timestamp("timestamp").notNull().defaultNow(),
   },
-  (table) => [
-    index("compliance_log_org_idx").on(table.organization_id),
-    index("compliance_log_type_idx").on(table.event_type),
-    index("compliance_log_timestamp_idx").on(table.timestamp),
-    index("compliance_log_pii_idx").on(table.is_pii_accessed),
-  ]
+  (table) => ({
+    organizationIdIdx: index("compliance_log_org_idx").on(table.organization_id),
+    eventTypeIdx: index("compliance_log_type_idx").on(table.event_type),
+    timestampIdx: index("compliance_log_timestamp_idx").on(table.timestamp),
+    piiIdx: index("compliance_log_pii_idx").on(table.is_pii_accessed),
+  })
 );
 
 /**
@@ -263,7 +263,7 @@ export const tenantDataExport = pgTable(
 
     // Processing
     status: text("status").notNull().default("pending"), // 'pending' | 'processing' | 'ready' | 'expired'
-    progress_percent: decimal("progress_percent", { precision: 5, scale: 2 }).default(0),
+    progress_percent: decimal("progress_percent", { precision: 5, scale: 2 }).default("0"),
     download_url: text("download_url"),
 
     // Size and Timing
@@ -276,11 +276,11 @@ export const tenantDataExport = pgTable(
     requested_at: timestamp("requested_at").notNull().defaultNow(),
     completed_at: timestamp("completed_at"),
   },
-  (table) => [
-    index("data_export_org_idx").on(table.organization_id),
-    index("data_export_user_idx").on(table.user_id),
-    index("data_export_status_idx").on(table.status),
-  ]
+  (table) => ({
+    organizationIdIdx: index("data_export_org_idx").on(table.organization_id),
+    userIdIdx: index("data_export_user_idx").on(table.user_id),
+    statusIdx: index("data_export_status_idx").on(table.status),
+  })
 );
 
 /**
@@ -309,7 +309,7 @@ export const tenantSuspensionHistory = pgTable(
 
     // Data Handling
     data_backup_created: boolean("data_backup_created").default(true),
-    backup_retention_days: decimal("backup_retention_days", { precision: 5, scale: 0 }).default(30),
+    backup_retention_days: decimal("backup_retention_days", { precision: 5, scale: 0 }).default("30"),
 
     // Audit
     suspended_by: uuid("suspended_by"),
@@ -317,10 +317,10 @@ export const tenantSuspensionHistory = pgTable(
 
     created_at: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [
-    index("suspension_org_idx").on(table.organization_id),
-    index("suspension_type_idx").on(table.suspension_type),
-  ]
+  (table) => ({
+    organizationIdIdx: index("suspension_org_idx").on(table.organization_id),
+    suspensionTypeIdx: index("suspension_type_idx").on(table.suspension_type),
+  })
 );
 
 /**
@@ -348,7 +348,7 @@ export const tenantMigrations = pgTable(
 
     // Progress
     total_records: decimal("total_records", { precision: 20, scale: 0 }),
-    migrated_records: decimal("migrated_records", { precision: 20, scale: 0 }).default(0),
+    migrated_records: decimal("migrated_records", { precision: 20, scale: 0 }).default("0"),
     duration_seconds: decimal("duration_seconds", { precision: 10, scale: 2 }),
 
     // Validation
@@ -362,10 +362,10 @@ export const tenantMigrations = pgTable(
 
     created_at: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [
-    index("migration_org_idx").on(table.organization_id),
-    index("migration_status_idx").on(table.status),
-  ]
+  (table) => ({
+    organizationIdIdx: index("migration_org_idx").on(table.organization_id),
+    statusIdx: index("migration_status_idx").on(table.status),
+  })
 );
 
 // Relations

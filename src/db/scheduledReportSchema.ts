@@ -16,6 +16,7 @@ import {
     index,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import { users } from './schema';
 
 /**
  * Scheduled Reports Table
@@ -236,7 +237,10 @@ export const reportExecutionsRelations = relations(reportExecutions, ({ one, man
 }));
 
 export const reportRecipientsRelations = relations(reportRecipients, ({ one }) => ({
-    user: one({ schema: undefined, name: 'users' }), // Reference to users table
+    user: one(users, {
+        fields: [reportRecipients.userId],
+        references: [users.id],
+    }),
 }));
 
 export const reportDistributionLogRelations = relations(reportDistributionLog, ({ one }) => ({
