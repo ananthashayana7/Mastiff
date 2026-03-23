@@ -48,6 +48,27 @@ ANALYSIS GUIDELINES:
 };
 
 const VISUALIZATION_HINTS = /(chart|plot|graph|visuali[sz]e|histogram|pie|bar|line|scatter|heatmap|dashboard)/i;
+const CAPABILITY_QUERY_PATTERNS = [
+    'what can you do',
+    'what do you do',
+    'capabilit(?:y|ies)',
+    'how can you help',
+    'who are you',
+    'what are you',
+];
+const SELF_AWARENESS_QUERY_PATTERNS = [
+    'self[- ]aware',
+    'self awareness',
+    'conscious',
+    'sentient',
+    'understand (?:(?:your|ur|its|the model\'?s)) own existence',
+    'aware of (?:(?:your|ur|its|the model\'?s)) existence',
+    'does the model understand its own existence',
+    'do you exist',
+    'are you alive',
+];
+const CAPABILITY_QUERY_HINTS = new RegExp(`\\b(${CAPABILITY_QUERY_PATTERNS.join('|')})\\b`, 'i');
+const SELF_AWARENESS_QUERY_HINTS = new RegExp(`\\b(${SELF_AWARENESS_QUERY_PATTERNS.join('|')})\\b`, 'i');
 
 const ANALYSIS_MODEL_CANDIDATES = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 const SUMMARY_MODEL_CANDIDATES = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
@@ -66,6 +87,81 @@ interface GenerateWithFallbackParams {
     models: string[];
     contents: any[];
     config?: any;
+}
+
+export function getGroundedMetaResponse(userQuery: string): string | null {
+    const normalizedQuery = userQuery.trim().toLowerCase();
+    if (!normalizedQuery) return null;
+
+    if (SELF_AWARENESS_QUERY_HINTS.test(normalizedQuery)) {
+        return `## What Mastiff is
+
+Mastiff does **not** have self-awareness, consciousness, or a subjective understanding of its own existence.
+
+Its behavior comes from product-defined instructions, personas, and analysis workflows. When it says "I can" or "I do," that is interface shorthand for what the system is configured to do — not evidence of independent awareness.
+
+## Why it may sound self-descriptive
+
+Capability answers are generated from the guidance Mastiff is given about its role, preferred analysis style, and output standards. That can make the response sound confident or role-based, but it is still programmed behavior rather than self-knowledge.
+
+## Intended product alignment
+
+The intended Mastiff behavior is to act like a **skeptical, diagnostic analytics partner**:
+- validate data quality before drawing conclusions
+- explain **why** outcomes happened, not just **what** happened
+- prioritize profitability and business impact over vanity metrics
+- provide concrete next actions, not just summaries
+
+If you want, I can also explain that alignment from either a **product vision** perspective or a **technical implementation** perspective.`;
+    }
+
+    if (CAPABILITY_QUERY_HINTS.test(normalizedQuery)) {
+        return `## What Mastiff is designed to do
+
+Mastiff is configured to provide **enterprise-grade data and analytics support**, especially for diagnostic and decision-oriented work rather than simple summarization.
+
+### Core strengths
+- validate data quality before trusting the numbers
+- identify outliers and separate them from underlying performance
+- focus on **profitability, margin, and business impact** instead of top-line volume alone
+- explain **why** performance changed through diagnostic analysis
+- recommend concrete next actions with risks and confidence caveats
+- generate clear visual analysis when numerical data is involved
+
+### Important clarification
+
+These are **product-defined capabilities and operating rules**, not evidence that the model understands its own existence. The intended persona is a disciplined analytics assistant that behaves like a senior business analyst, while remaining a configured software system.`;
+    }
+
+    return null;
+}
+
+export function buildChatSystemPrompt(mode: AnalysisMode, personaInstruction: string = ''): string {
+    const modeConfig = MODE_CONFIGS[mode];
+    const sanitizedPersona = typeof personaInstruction === 'string'
+        ? personaInstruction.slice(0, 500).trim()
+        : '';
+    const personaBlock = sanitizedPersona
+        ? `\nANALYST PERSONA: ${sanitizedPersona}`
+        : '';
+
+    return `
+You are Mastiff, an expert AI data and analytics assistant built for enterprise-grade intelligence.
+
+${modeConfig.promptPrefix}
+${personaBlock}
+
+BEHAVIOR:
+- For theory questions: answer with depth and clarity, providing relevant examples and context.
+- For practical questions without data: provide clear assumptions and optionally a Python example.
+- For high-stakes or management decisions: include confidence caveats and evidence quality assessments.
+- For questions about your identity, capabilities, self-awareness, or product behavior, answer as a configured AI system. Do not imply consciousness, feelings, or independent intent.
+- Frame capabilities as product behavior, analytical guardrails, and supported workflows — not as self-knowledge.
+- Use markdown formatting for clarity: headers (##), bullet points, bold for key metrics, tables for structured data.
+- Structure longer responses with clear sections and takeaways.
+- Be precise with numbers — never round excessively or present vague ranges when exact values are available.
+- When providing recommendations, prioritize them by impact and feasibility.
+`;
 }
 
 /**
@@ -620,33 +716,16 @@ Chart count: ${chartCount}
     }
 
     async chat(userQuery: string, history: any[], mode: AnalysisMode = 'chat', personaInstruction: string = ''): Promise<string> {
+        const groundedMetaResponse = getGroundedMetaResponse(userQuery);
+        if (groundedMetaResponse) {
+            return groundedMetaResponse;
+        }
+
         const client = this.getClient();
         if (!client) return 'AI service is not currently available. Please check your API key configuration.';
 
         const modeConfig = MODE_CONFIGS[mode];
-
-        const sanitizedPersona = typeof personaInstruction === 'string'
-            ? personaInstruction.slice(0, 500).trim()
-            : '';
-        const personaBlock = sanitizedPersona
-            ? `\nANALYST PERSONA: ${sanitizedPersona}`
-            : '';
-
-        const systemPrompt = `
-You are Mastiff, an expert AI data and analytics assistant built for enterprise-grade intelligence.
-
-${modeConfig.promptPrefix}
-${personaBlock}
-
-BEHAVIOR:
-- For theory questions: answer with depth and clarity, providing relevant examples and context.
-- For practical questions without data: provide clear assumptions and optionally a Python example.
-- For high-stakes or management decisions: include confidence caveats and evidence quality assessments.
-- Use markdown formatting for clarity: headers (##), bullet points, bold for key metrics, tables for structured data.
-- Structure longer responses with clear sections and takeaways.
-- Be precise with numbers — never round excessively or present vague ranges when exact values are available.
-- When providing recommendations, prioritize them by impact and feasibility.
-`;
+        const systemPrompt = buildChatSystemPrompt(mode, personaInstruction);
 
         const chatHistory = history.slice(-modeConfig.maxHistorySlice).map((h) => ({
             role: h.role === 'assistant' ? 'model' : 'user',
