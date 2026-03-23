@@ -83,7 +83,7 @@ export const conversionFunnels = pgTable(
     // Metrics
     totalUsers: integer('total_users').default(0),
     totalConversions: integer('total_conversions').default(0),
-    conversionRate: decimal('conversion_rate', { precision: 5, scale: 2 }).default(0),
+    conversionRate: decimal('conversion_rate', { precision: 5, scale: 2 }).default('0'),
     
     // Step breakdown
     stepMetrics: jsonb('step_metrics'), // { step_1: { users: 1000 }, step_2: { users: 800 }, ... }
@@ -250,7 +250,7 @@ export const featureAdoption = pgTable(
     // Adoption metrics
     totalUsersExposed: integer('total_users_exposed').default(0),
     adoptingUsers: integer('adopting_users').default(0),
-    adoptionRate: decimal('adoption_rate', { precision: 5, scale: 2 }).default(0),
+    adoptionRate: decimal('adoption_rate', { precision: 5, scale: 2 }).default('0'),
     
     // Time to adoption
     avgDaysToFirstUse: decimal('avg_days_to_first_use', { precision: 8, scale: 2 }),

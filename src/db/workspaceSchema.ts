@@ -78,7 +78,7 @@ export const workspacesTable = pgTable(
     (table) => {
         return {
             orgIdIdx: index('workspaces_organization_id_idx').on(table.organizationId),
-            slugIdx: uniqueIndex('workspaces_slug_idx').on(table.slugIdx, table.slug),
+            slugIdx: uniqueIndex('workspaces_slug_idx').on(table.organizationId, table.slug),
             isArchivedIdx: index('workspaces_is_archived_idx').on(table.isArchived),
         };
     }
