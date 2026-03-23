@@ -7,6 +7,10 @@ const schemaFiles = [
   'src/db/observabilitySchema.ts',
   'src/db/performanceSchema.ts',
   'src/db/rbacSchema.ts',
+  'src/db/scheduledReportSchema.ts',
+  'src/db/tenantSchema.ts',
+  'src/db/usageAnalyticsSchema.ts',
+  'src/db/workspaceSchema.ts',
 ];
 
 describe('database schema TypeScript compatibility', () => {
