@@ -149,6 +149,15 @@ describe('LLMService multi-key fallback', () => {
         expect(keys).toEqual(['primary1', 'primary2', 'gemini1', 'google1']);
     });
 
+    it('supports more than three comma-separated keys for higher concurrency', async () => {
+        process.env.API_KEY = 'key1,key2,key3,key4,key5,key6';
+        const { LLMService } = await import('../src/services/llm');
+        const svc = new LLMService();
+
+        const keys = (svc as any).resolveApiKeys();
+        expect(keys).toEqual(['key1', 'key2', 'key3', 'key4', 'key5', 'key6']);
+    });
+
     it('getClient returns null in dev mode with no keys', async () => {
         process.env.NODE_ENV = 'development';
         const { LLMService } = await import('../src/services/llm');
@@ -164,6 +173,6 @@ describe('LLMService multi-key fallback', () => {
         const { LLMService } = await import('../src/services/llm');
         const svc = new LLMService();
 
-        expect(() => (svc as any).getClient()).toThrow('API_KEY must be set');
+        expect(() => (svc as any).getClient()).toThrow('At least one Gemini API key must be set');
     });
 });

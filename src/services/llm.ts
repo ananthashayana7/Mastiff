@@ -243,7 +243,9 @@ export class LLMService {
             if (process.env.NEXT_PHASE === 'phase-production-build' || process.env.NODE_ENV === 'development') {
                 return null;
             }
-            throw new Error('API_KEY must be set when using the Gemini API.');
+            throw new Error(
+                'At least one Gemini API key must be set via API_KEY, GEMINI_API_KEY, or GOOGLE_API_KEY. Multiple comma-separated keys are supported.'
+            );
         }
         return this.getClientForKey(keys[this.currentKeyIndex]);
     }
