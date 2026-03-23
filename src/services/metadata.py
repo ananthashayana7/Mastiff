@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import json
 import os
+from datetime import date, datetime, time
 
 SUPPORTED_EXTENSIONS = {'.csv', '.xlsx', '.xls', '.json', '.parquet', '.tsv', '.txt'}
 MAX_SAMPLE_ROWS = 10
@@ -258,8 +259,12 @@ def safe_value(v):
         return None if (f != f or f == float('inf') or f == float('-inf')) else round(f, 4)
     elif isinstance(v, (np.bool_,)):
         return bool(v)
+    elif v is pd.NaT:
+        return None
     elif isinstance(v, (pd.Timestamp, np.datetime64)):
         return str(v)
+    elif isinstance(v, (datetime, date, time)):
+        return v.isoformat()
     elif isinstance(v, (np.ndarray,)):
         return v.tolist()
     return v
@@ -271,6 +276,8 @@ def sanitize(obj):
         return {k: sanitize(v) for k, v in obj.items()}
     elif isinstance(obj, list):
         return [sanitize(i) for i in obj]
+    elif obj is pd.NaT:
+        return None
     elif isinstance(obj, float):
         if obj != obj or obj == float('inf') or obj == float('-inf'):
             return None
@@ -284,6 +291,8 @@ def sanitize(obj):
         return bool(obj)
     elif isinstance(obj, (pd.Timestamp, np.datetime64)):
         return str(obj)
+    elif isinstance(obj, (datetime, date, time)):
+        return obj.isoformat()
     elif isinstance(obj, pd.Timedelta):
         return str(obj)
     return obj
