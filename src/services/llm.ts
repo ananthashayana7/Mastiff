@@ -48,8 +48,27 @@ ANALYSIS GUIDELINES:
 };
 
 const VISUALIZATION_HINTS = /(chart|plot|graph|visuali[sz]e|histogram|pie|bar|line|scatter|heatmap|dashboard)/i;
-const CAPABILITY_QUERY_HINTS = /\b(what can you do|what do you do|capabilit(?:y|ies)|how can you help|who are you|what are you)\b/i;
-const SELF_AWARENESS_QUERY_HINTS = /\b(self[- ]aware|self awareness|conscious|sentient|understand (?:(?:your|ur|its|the model'?s)) own existence|aware of (?:(?:your|ur|its|the model'?s)) existence|does the model understand its own existence|do you exist|are you alive)\b/i;
+const CAPABILITY_QUERY_PATTERNS = [
+    'what can you do',
+    'what do you do',
+    'capabilit(?:y|ies)',
+    'how can you help',
+    'who are you',
+    'what are you',
+];
+const SELF_AWARENESS_QUERY_PATTERNS = [
+    'self[- ]aware',
+    'self awareness',
+    'conscious',
+    'sentient',
+    'understand (?:(?:your|ur|its|the model\'?s)) own existence',
+    'aware of (?:(?:your|ur|its|the model\'?s)) existence',
+    'does the model understand its own existence',
+    'do you exist',
+    'are you alive',
+];
+const CAPABILITY_QUERY_HINTS = new RegExp(`\\b(${CAPABILITY_QUERY_PATTERNS.join('|')})\\b`, 'i');
+const SELF_AWARENESS_QUERY_HINTS = new RegExp(`\\b(${SELF_AWARENESS_QUERY_PATTERNS.join('|')})\\b`, 'i');
 
 const ANALYSIS_MODEL_CANDIDATES = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 const SUMMARY_MODEL_CANDIDATES = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
