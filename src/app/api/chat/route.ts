@@ -7,6 +7,7 @@ import { llm } from '@/services/llm';
 import { kernelService } from '@/services/kernel';
 import { generateDataIntelligenceReport, formatWarningsForPrompt, analyseFile, formatForPrompt, DataIntelligenceReport } from '@/services/dataIntelligenceService';
 import { AnalysisMode } from '@/src/types';
+import { buildRecoverySnippet } from './recoverySnippets';
 
 export const dynamic = 'force-dynamic';
 
@@ -166,53 +167,9 @@ export async function POST(req: NextRequest) {
                 (f) => (f.metadata as any)?.row_count === 0
             );
             if (zeroRowFiles.length > 0) {
-                const recoverySnippets = zeroRowFiles.map((f) => {
-                    // Filenames are already sanitized during upload (alphanumeric, dots, hyphens, underscores)
-                    // File paths are server-generated (uploads/<timestamp>-<safename>)
-                    // Extra escaping for safety in generated Python string literals
-                    const safeName = f.filename.replace(/[\\'\n\r]/g, '_');
-                    const safePath = f.filePath.replace(/\\/g, '/').replace(/['\n\r]/g, '_');
-                    const ext = f.filename.split('.').pop()?.toLowerCase() || '';
-                    if (['xlsx', 'xls'].includes(ext)) {
-                        return [
-                            `# Auto-recovery: metadata reported 0 rows for '${safeName}'`,
-                            `try:`,
-                            `    _rdf = pd.read_excel('${safePath}')`,
-                            `    _rdf = _rdf.dropna(how='all').dropna(axis=1, how='all')`,
-                            `    if len(_rdf) == 0:`,
-                            `        _rdf = pd.read_excel('${safePath}', header=None)`,
-                            `        _rdf = _rdf.dropna(how='all').dropna(axis=1, how='all')`,
-                            `        if len(_rdf) > 0:`,
-                            `            _rdf.columns = [str(c).strip() for c in _rdf.iloc[0]]`,
-                            `            _rdf = _rdf.iloc[1:].reset_index(drop=True)`,
-                            `    if len(_rdf) > 0:`,
-                            `        dfs['${safeName}'] = _rdf`,
-                            `        df = _rdf`,
-                            `        print(f"Recovered {len(_rdf)} rows from ${safeName}")`,
-                            `except Exception as _e:`,
-                            `    print(f"Recovery failed for ${safeName}: {_e}")`,
-                        ].join('\n');
-                    } else if (['csv', 'tsv', 'txt'].includes(ext)) {
-                        return [
-                            `# Auto-recovery: metadata reported 0 rows for '${safeName}'`,
-                            `try:`,
-                            `    for _enc in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:`,
-                            `        try:`,
-                            `            _rdf = pd.read_csv('${safePath}', encoding=_enc)`,
-                            `            _rdf = _rdf.dropna(how='all')`,
-                            `            if len(_rdf) > 0:`,
-                            `                dfs['${safeName}'] = _rdf`,
-                            `                df = _rdf`,
-                            `                print(f"Recovered {len(_rdf)} rows from ${safeName}")`,
-                            `                break`,
-                            `        except Exception:`,
-                            `            continue`,
-                            `except Exception as _e:`,
-                            `    print(f"Recovery failed for ${safeName}: {_e}")`,
-                        ].join('\n');
-                    }
-                    return '';
-                }).filter(Boolean);
+                const recoverySnippets = zeroRowFiles
+                    .map((f) => buildRecoverySnippet({ filename: f.filename, filePath: f.filePath }))
+                    .filter(Boolean);
 
                 if (recoverySnippets.length > 0 && analysis.code) {
                     analysis.code = recoverySnippets.join('\n\n') + '\n\n' + analysis.code;
