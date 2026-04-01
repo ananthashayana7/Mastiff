@@ -24,11 +24,11 @@ describe('grounded meta responses', () => {
 });
 
 describe('chat system prompt', () => {
-  it('tells the model not to imply consciousness for identity questions', () => {
+  it('includes core behavior guidelines and persona', () => {
     const prompt = buildChatSystemPrompt('chat', 'Focus on business impact.');
 
-    expect(prompt).toContain('Do not imply consciousness, feelings, or independent intent.');
-    expect(prompt).toContain('Frame capabilities as product behavior');
+    expect(prompt).toContain('BE CONCISE');
+    expect(prompt).toContain('LEAD WITH ACTIONS');
     expect(prompt).toContain('ANALYST PERSONA: Focus on business impact.');
   });
 });
