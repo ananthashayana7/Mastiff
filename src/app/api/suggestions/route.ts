@@ -24,18 +24,30 @@ export async function POST(req: NextRequest) {
         if (!process.env.API_KEY || process.env.API_KEY === 'your_gemini_api_key_here') {
             return NextResponse.json([
                 'What patterns exist in this dataset?',
-                'Show me a summary of key statistics',
-                'Identify any outliers or anomalies',
-                'Create a visualization of the trends',
+                'Show key statistics with charts',
+                'Identify outliers and anomalies — why do they exist?',
+                'Forecast the next period trend',
+                'What are the top 5 concerns and actions?',
+                'Create an interactive dashboard of this data',
             ]);
         }
 
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
         const systemInstruction = `
-          You are an AI Data Scientist. Given the following data schema, suggest 4 short, actionable analysis questions the user could ask.
-          Return ONLY a JSON array of strings. Max 12 words per suggestion. Make them specific to the data.
-          Example: ["Show revenue trends by region", "Find correlation between sales and growth"]
+          You are an elite AI Data Strategist. Given the following data schema, suggest 6 short, actionable analysis questions the user could ask.
+          
+          RULES:
+          - Return ONLY a JSON array of strings.
+          - Max 15 words per suggestion.
+          - Make them SPECIFIC to the actual columns and data types present.
+          - Include at least ONE forecast/prediction question.
+          - Include at least ONE chart/visualization question.
+          - Include at least ONE anomaly/outlier detection question.
+          - Focus on management-level questions that drive decisions.
+          - If assembly line, production, or manufacturing data is detected, include shift-wise and operator-wise questions.
+          
+          Example: ["Forecast next month revenue trend with confidence bands", "Show top 5 underperforming segments and why", "What anomalies exist in the last quarter data?"]
         `;
 
         let lastError: any = null;
@@ -62,10 +74,12 @@ export async function POST(req: NextRequest) {
     } catch (error: any) {
         console.error('Suggestions API Error:', error);
         return NextResponse.json([
-            'Summarize the key statistics',
-            'Find patterns and correlations',
-            'Create a trend visualization',
-            'Identify data quality issues',
+            'Summarize key statistics with charts',
+            'Identify anomalies and their root causes',
+            'Forecast the next period trend',
+            'Show top 5 concerns and recommended actions',
+            'Create an interactive data dashboard',
+            'What gaps exist in this data?',
         ]);
     }
 }

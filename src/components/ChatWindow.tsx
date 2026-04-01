@@ -41,11 +41,12 @@ interface ChatWindowProps {
     onCopy: (text: string, id: string) => void;
 }
 
-// Feature cards removed for cleaner Julius-style UI
+// Unified analysis mode — Chat and Deep Analysis buttons removed per management directive.
+// Single mode: always 'analysis' for maximum capability.
 
 const MODE_CONFIG: Record<AnalysisMode, { label: string; desc: string; icon: string }> = {
-    chat: { label: 'CHAT', desc: 'Conversational logic & reasoning', icon: '💬' },
-    analysis: { label: 'DEEP ANALYSIS', desc: 'Agentic Data Science & Visualization', icon: '🧠' },
+    chat: { label: 'ANALYSIS', desc: 'Intelligent reasoning & data science', icon: '🧠' },
+    analysis: { label: 'ANALYSIS', desc: 'Agentic Data Science & Visualization', icon: '🧠' },
 };
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -136,22 +137,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         <Menu size={18} />
                     </button>
 
-                    {/* Analysis Mode Selector */}
-                    <div className="hidden sm:flex items-center gap-0.5 p-1 rounded-xl glass">
-                        {(['chat', 'analysis'] as AnalysisMode[]).map(mode => (
-                            <button
-                                key={mode}
-                                onClick={() => onSetAnalysisMode(mode)}
-                                className={`px-4 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-widest transition-all duration-200 flex items-center gap-2 ${analysisMode === mode
-                                    ? 'bg-[#E50914] text-white shadow-lg glow-accent'
-                                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'
-                                    }`}
-                                title={MODE_CONFIG[mode].desc}
-                            >
-                                <span className="opacity-80">{MODE_CONFIG[mode].icon}</span>
-                                {MODE_CONFIG[mode].label}
-                            </button>
-                        ))}
+                    {/* Unified Engine Badge */}
+                    <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 glass rounded-xl">
+                        <span className="w-2 h-2 rounded-full bg-[#E50914] animate-pulse" />
+                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-zinc-300">
+                            Mastiff Engine
+                        </span>
                     </div>
 
                     {/* Persona Selector */}
@@ -291,7 +282,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-lg mx-auto">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-w-2xl mx-auto">
                                         {suggestions.map((s, i) => (
                                             <button
                                                 key={i}
@@ -378,7 +369,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         {showCodeId === m.id && (
                                             <div className="space-y-2 animate-scale-in">
                                                 <div className="relative">
-                                                    <pre className="p-4 bg-[#0a0a0a] rounded-xl border border-zinc-800 font-mono text-[10px] text-green-400 overflow-x-auto leading-relaxed">
+                                                    <pre className="p-4 bg-[#0a0a0a] rounded-xl border border-zinc-800 font-mono text-[10px] text-green-400 overflow-x-auto leading-relaxed whitespace-pre-wrap break-words max-h-[600px] overflow-y-auto custom-scrollbar">
                                                         {m.code}
                                                     </pre>
                                                     <button
@@ -414,7 +405,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                                         <div className="flex gap-4 overflow-x-auto pb-3 pt-1 snap-x custom-scrollbar">
                                             {m.result?.plotly_charts?.map((pChart, idx) => (
-                                                <div key={`${m.id}-plotly-${idx}`} className="flex-none w-[320px] sm:w-[500px] snap-center">
+                                                <div key={`${m.id}-plotly-${idx}`} className="flex-none w-[90%] sm:w-[600px] lg:w-[700px] snap-center">
                                                     <PlotlyRenderer data={pChart} />
                                                 </div>
                                             ))}

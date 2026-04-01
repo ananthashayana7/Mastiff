@@ -366,7 +366,7 @@ def execute_request(request: dict) -> dict:
 
         return {
             'success': True,
-            'result': result_str[:5000],  # Cap result length
+            'result': result_str[:15000],  # Cap result length (increased for full output)
             'charts': charts,
             'plotly_charts': plotly_charts,
             'updated_df_sample': updated_df_sample
