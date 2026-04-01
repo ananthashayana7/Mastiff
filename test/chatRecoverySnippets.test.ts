@@ -2,8 +2,31 @@ import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { buildRecoverySnippet } from '../src/app/api/chat/recoverySnippets';
 
+/**
+ * Resolve a working Python interpreter across Windows / Linux / macOS.
+ * Preference order: py (Windows launcher), python3, python.
+ * Returns null if none is found.
+ */
+function resolvePythonInterpreter(): string | null {
+  for (const candidate of ['py', 'python3', 'python']) {
+    const probe = spawnSync(candidate, ['--version'], {
+      encoding: 'utf8',
+      timeout: 5000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (probe.status === 0) return candidate;
+  }
+  return null;
+}
+
+const PYTHON = resolvePythonInterpreter();
+
 function expectPythonToCompile(code: string) {
-  const result = spawnSync('python3', ['-c', 'import sys; compile(sys.stdin.read(), "<generated>", "exec")'], {
+  if (!PYTHON) {
+    throw new Error('No Python interpreter found (tried py, python3, python). Cannot compile-check generated code.');
+  }
+
+  const result = spawnSync(PYTHON, ['-c', 'import sys; compile(sys.stdin.read(), "<generated>", "exec")'], {
     input: `import pandas as pd\n\ndfs = {}\ndf = None\n${code}\n`,
     encoding: 'utf8',
   });
