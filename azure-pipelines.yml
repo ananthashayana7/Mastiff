@@ -1,0 +1,85 @@
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  NodeVersion: '20.x'
+  BuildConfiguration: 'production'
+  # Optional Docker controls (set in pipeline variables)
+  BuildDocker: 'false'
+  ContainerRepository: 'mastiff'
+
+stages:
+  - stage: Validate
+    displayName: Validate And Build
+    jobs:
+      - job: BuildAndTest
+        displayName: Install, Test, Build
+        steps:
+          - checkout: self
+            clean: true
+
+          - task: NodeTool@0
+            displayName: Use Node $(NodeVersion)
+            inputs:
+              versionSpec: $(NodeVersion)
+
+          - script: npm ci
+            displayName: Install dependencies
+
+          - script: npm run lint --if-present
+            displayName: Lint
+
+          # Note: Full type-check currently fails in this repo due unrelated pre-existing errors.
+          # Enable this as soon as the backlog is fixed.
+          # - script: npm run type-check
+          #   displayName: Type check
+
+          - script: npm run test -- --run
+            displayName: Run tests
+
+          - script: npm run build
+            displayName: Build Next.js app
+            env:
+              NODE_ENV: $(BuildConfiguration)
+
+          - task: PublishBuildArtifacts@1
+            displayName: Publish build artifact
+            inputs:
+              PathtoPublish: '$(Build.SourcesDirectory)'
+              ArtifactName: 'mastiff-source'
+              publishLocation: 'Container'
+
+  - stage: Docker
+    displayName: Build Docker Image
+    dependsOn: Validate
+    condition: and(succeeded(), eq(variables['BuildDocker'], 'true'))
+    jobs:
+      - job: DockerBuild
+        displayName: Docker Build
+        steps:
+          - checkout: self
+            clean: true
+
+          # Requires an Azure DevOps Docker Registry service connection.
+          - task: Docker@2
+            displayName: Build container image
+            inputs:
+              command: build
+              repository: $(ContainerRepository)
+              Dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
+              buildContext: '$(Build.SourcesDirectory)'
+              tags: |
+                $(Build.BuildId)
+                latest
