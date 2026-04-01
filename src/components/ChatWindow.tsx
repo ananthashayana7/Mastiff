@@ -42,10 +42,7 @@ interface ChatWindowProps {
 }
 
 // Unified analysis mode — Chat and Deep Analysis buttons removed per management directive.
-// Single mode: always 'analysis' for maximum capability.
-
-const MODE_CONFIG: Record<AnalysisMode, { label: string; desc: string; icon: string }> = {
-    chat: { label: 'ANALYSIS', desc: 'Intelligent reasoning & data science', icon: '🧠' },
+const MODE_CONFIG: Record<string, { label: string; desc: string; icon: string }> = {
     analysis: { label: 'ANALYSIS', desc: 'Agentic Data Science & Visualization', icon: '🧠' },
 };
 
@@ -89,7 +86,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             {isSearchEnabled ? 'Autonomous Research' : 'Engine Interrogation'}
                         </p>
                         <p className="text-[7px] font-bold text-zinc-600 uppercase tracking-widest mt-1">
-                            {activePersona.name} • {MODE_CONFIG[analysisMode].label}
+                            {activePersona.name} • {(MODE_CONFIG[analysisMode] || MODE_CONFIG.analysis).label}
                         </p>
                     </div>
                 </div>
@@ -97,7 +94,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 <div className="space-y-2.5">
                     {[
                         { label: 'Synthesizing Intelligence', active: true, done: true },
-                        { label: `${MODE_CONFIG[analysisMode].label} Environment Active`, active: true, done: false },
+                        { label: `${(MODE_CONFIG[analysisMode] || MODE_CONFIG.analysis).label} Environment Active`, active: true, done: false },
                         { label: 'Interrogating Python Sandbox', active: false, done: false },
                         { label: 'Formatting Forensic Insights', active: false, done: false },
                     ].map((step, i) => (
