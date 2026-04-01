@@ -39,6 +39,8 @@ export class ConnectorFactory {
         return new SnowflakeConnector(config);
       case 'google_sheets':
         return new GoogleSheetsConnector(config);
+      case 'sharepoint':
+        return new SharePointConnector(config);
       case 'bigquery':
         return new BigQueryConnector(config);
       default:
@@ -355,6 +357,100 @@ export class BigQueryConnector implements DataConnector {
   async getPreview(tableName: string, limit: number = 10): Promise<any[]> {
     const sql = `SELECT * FROM ${this.config.datasetId}.${tableName} LIMIT ${limit}`;
     return this.query(sql);
+  }
+}
+
+/**
+ * SharePoint Connector (legacy adapter)
+ */
+export class SharePointConnector implements DataConnector {
+  private config: any;
+  private client: any;
+  private token: string | null = null;
+
+  constructor(config: any) {
+    this.config = config;
+  }
+
+  private async ensureToken() {
+    if (this.token) return this.token;
+
+    const axios = require('axios');
+    const tenantId = this.config.tenantId;
+    const clientId = this.config.clientId;
+    const clientSecret = this.config.clientSecret;
+    const refreshToken = this.config.refreshToken;
+
+    const url = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+    const body = new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      scope: 'https://graph.microsoft.com/.default offline_access',
+    }).toString();
+
+    const response = await axios.post(url, body, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: 30000,
+    });
+
+    this.token = response?.data?.access_token;
+    if (!this.token) throw new Error('Failed to obtain SharePoint access token');
+    return this.token;
+  }
+
+  async connect(): Promise<void> {
+    const axios = require('axios');
+    const token = await this.ensureToken();
+    this.client = axios.create({
+      baseURL: 'https://graph.microsoft.com/v1.0',
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 30000,
+    });
+    await this.client.get(`/sites/${this.config.siteId}`);
+  }
+
+  async disconnect(): Promise<void> {
+    this.client = null;
+  }
+
+  async testConnection(): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+      await this.connect();
+      await this.disconnect();
+      return { success: true, message: 'Connection successful' };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getSchemas(): Promise<string[]> {
+    const drives = await this.client.get(`/sites/${this.config.siteId}/drives`);
+    return (drives?.data?.value || []).map((d: any) => d.name || d.id);
+  }
+
+  async getSchema(_name: string): Promise<Column[]> {
+    return [
+      { name: 'id', type: 'string', nullable: false },
+      { name: 'name', type: 'string', nullable: false },
+      { name: 'webUrl', type: 'string', nullable: true },
+    ];
+  }
+
+  async query(sql: string): Promise<any[]> {
+    const endpoint = sql.startsWith('/') ? sql : `/${sql}`;
+    const result = await this.client.get(endpoint);
+    return Array.isArray(result?.data?.value) ? result.data.value : [result.data];
+  }
+
+  async getPreview(sourceName: string, limit: number = 10): Promise<any[]> {
+    const drives = await this.client.get(`/sites/${this.config.siteId}/drives`);
+    const drive = (drives?.data?.value || []).find((d: any) => d.name === sourceName) || (drives?.data?.value || [])[0];
+    if (!drive?.id) return [];
+
+    const children = await this.client.get(`/drives/${drive.id}/root/children?$top=${Math.max(1, Math.min(limit, 100))}`);
+    return children?.data?.value || [];
   }
 }
 

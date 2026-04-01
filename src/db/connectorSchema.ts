@@ -13,6 +13,7 @@ import { users } from './schema';
  */
 export const connectorTypeEnum = pgEnum('connector_type', [
     'sheets',
+    'sharepoint',
     'snowflake',
     'bigquery',
     'postgres',

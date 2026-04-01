@@ -317,6 +317,30 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     <div className="text-sm leading-relaxed font-medium">{m.content}</div>
                                 )}
 
+                                {/* Executive Snapshot (structured response envelope) */}
+                                {m.role === 'assistant' && m.result?.responseEnvelope && (
+                                    <div className="pt-3 border-t border-zinc-800/50 space-y-2.5">
+                                        <p className="text-[8px] font-extrabold uppercase tracking-widest text-[#E50914] flex items-center gap-1.5">
+                                            <TrendingUp size={10} /> Executive Snapshot
+                                        </p>
+                                        <div className="p-3 rounded-xl border border-zinc-800/60 bg-zinc-950/70 space-y-2">
+                                            {m.result.responseEnvelope.insights.map((insight, idx) => (
+                                                <p key={`${m.id}-insight-${idx}`} className="text-[11px] text-zinc-200 leading-relaxed">
+                                                    <span className="text-zinc-500 font-extrabold mr-1">{idx + 1})</span>
+                                                    {insight}
+                                                </p>
+                                            ))}
+                                            <p className="text-[11px] text-zinc-300 leading-relaxed pt-1 border-t border-zinc-800/50">
+                                                <span className="font-extrabold text-zinc-400 mr-1">Forecast:</span>
+                                                {m.result.responseEnvelope.forecast}
+                                            </p>
+                                            <p className="text-[8px] text-zinc-600 font-bold uppercase tracking-widest">
+                                                Chart: {m.result.responseEnvelope.hasChart ? 'yes' : 'no'} | Code: {m.result.responseEnvelope.hasCode ? 'yes' : 'no'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Grounding Sources */}
                                 {m.sources && m.sources.length > 0 && (
                                     <div className="pt-3 border-t border-white/10 space-y-2">

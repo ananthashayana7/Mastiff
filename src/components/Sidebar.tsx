@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Plus, X, FileUp, Trash2, Settings, Clock, Database,
     FileText, FileSpreadsheet, File, Loader2, MessageSquare,
@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { DataFile, User, Session, ConnectorSummary } from '../types';
 
-type ConnectorType = 'sheets' | 'snowflake' | 'bigquery' | 'postgres' | 'api';
+type ConnectorType = 'sheets' | 'sharepoint' | 'snowflake' | 'bigquery' | 'postgres' | 'api';
 
 interface ConnectorCreatePayload {
     name: string;
@@ -30,6 +30,7 @@ interface ConnectorActionResult {
     success: boolean;
     message: string;
     sources?: any[];
+    files?: any[];
 }
 
 interface SidebarProps {
@@ -44,6 +45,7 @@ interface SidebarProps {
     onDeleteConnector?: (connectorId: string) => Promise<any>;
     onTestConnector?: (connectorId: string) => Promise<ConnectorActionResult>;
     onLoadConnectorSources?: (connectorId: string) => Promise<ConnectorActionResult>;
+    onImportConnectorSources?: (connectorId: string, sources: any[]) => Promise<ConnectorActionResult>;
     onToggleLinkedConnector?: (connectorId: string) => void;
     isSidebarOpen: boolean;
     currentUser: User;
@@ -88,6 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onDeleteConnector,
     onTestConnector,
     onLoadConnectorSources,
+    onImportConnectorSources,
     onToggleLinkedConnector,
     onLogout
 }) => {
@@ -97,11 +100,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const [activeConnectorActionId, setActiveConnectorActionId] = useState<string | null>(null);
     const [expandedSourcesConnectorId, setExpandedSourcesConnectorId] = useState<string | null>(null);
     const [sourcesByConnector, setSourcesByConnector] = useState<Record<string, any[]>>({});
+    const [selectedSourceIdsByConnector, setSelectedSourceIdsByConnector] = useState<Record<string, string[]>>({});
     const [connectorFeedback, setConnectorFeedback] = useState<{
         kind: 'success' | 'error';
         text: string;
     } | null>(null);
     const [isCredentialHelpOpen, setIsCredentialHelpOpen] = useState(false);
+    const [sharepointAuthCode, setSharepointAuthCode] = useState('');
+    const [sharepointOAuthState, setSharepointOAuthState] = useState('');
+    const [sharepointOAuthUrl, setSharepointOAuthUrl] = useState('');
+    const [isSharepointOauthBusy, setIsSharepointOauthBusy] = useState(false);
     const [connectorForm, setConnectorForm] = useState<{
         name: string;
         type: ConnectorType;
@@ -118,6 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const connectorCredentialTemplates: Record<ConnectorType, string> = {
         sheets: '{\n  "refreshToken": "",\n  "spreadsheetId": ""\n}',
+        sharepoint: '{\n  "tenantId": "",\n  "clientId": "",\n  "clientSecret": "",\n  "refreshToken": "",\n  "siteId": "",\n  "driveId": ""\n}',
         snowflake: '{\n  "account": "",\n  "username": "",\n  "password": "",\n  "database": "",\n  "schema": "",\n  "warehouse": ""\n}',
         bigquery: '{\n  "projectId": "",\n  "datasetId": "",\n  "serviceAccountKey": "{}"\n}',
         postgres: '{\n  "host": "",\n  "port": 5432,\n  "database": "",\n  "username": "",\n  "password": "",\n  "ssl": false\n}',
@@ -138,6 +147,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 'Use the generated Client ID and Client Secret to complete the OAuth consent flow.',
                 'After authorizing, you will receive a refresh token — paste it into the "refreshToken" field above.',
                 'To find your Spreadsheet ID, open the Google Sheet and copy the ID from the URL between /d/ and /edit.',
+            ],
+        },
+        sharepoint: {
+            fields: [
+                { name: 'tenantId', description: 'Azure AD tenant ID (GUID) for your Microsoft 365 organization.' },
+                { name: 'clientId', description: 'Application (client) ID from your Azure App Registration used for Graph API access.' },
+                { name: 'clientSecret', description: 'Client secret generated for your Azure App Registration.' },
+                { name: 'refreshToken', description: 'OAuth refresh token for delegated Graph access to SharePoint resources.' },
+                { name: 'siteId', description: 'SharePoint Site ID in Microsoft Graph format used as the root source for document libraries.' },
+                { name: 'driveId', description: 'Optional specific document library drive ID. If omitted, all site drives are listed.' },
+            ],
+            steps: [
+                'Create an app registration in Azure Portal and grant Microsoft Graph delegated permissions: Files.Read, Sites.Read.All, offline_access.',
+                'Create a client secret and copy tenantId, clientId, and clientSecret from the app registration overview.',
+                'Run OAuth consent flow to obtain a refresh token for the SharePoint user context.',
+                'Get your Site ID from Graph Explorer (GET /sites/{hostname}:/sites/{site-path}) and paste it as siteId.',
+                'Optionally provide driveId to lock Mastiff to one document library; otherwise all available libraries are listed.',
             ],
         },
         snowflake: {
@@ -201,12 +227,166 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const connectorTypeLabels: Record<string, string> = {
         sheets: 'Google Sheets',
+        sharepoint: 'SharePoint',
         snowflake: 'Snowflake',
         bigquery: 'BigQuery',
         postgres: 'Postgres',
         api: 'API',
     };
-    const availableConnectorTypes: ConnectorType[] = ['sheets', 'snowflake', 'bigquery', 'postgres', 'api'];
+    const availableConnectorTypes: ConnectorType[] = ['sheets', 'sharepoint', 'snowflake', 'bigquery', 'postgres', 'api'];
+
+    const parseCredentialsSafe = (): Record<string, any> => {
+        try {
+            const parsed = JSON.parse(connectorForm.credentialsJson || '{}');
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                return parsed;
+            }
+            return {};
+        } catch {
+            return {};
+        }
+    };
+
+    const getSharepointRedirectUri = useCallback(() => {
+        if (typeof window === 'undefined') return '';
+        return `${window.location.origin}/connectors/sharepoint/callback`;
+    }, []);
+
+    useEffect(() => {
+        const onMessage = (event: MessageEvent) => {
+            if (typeof window === 'undefined') return;
+            if (event.origin !== window.location.origin) return;
+
+            const payload = event.data;
+            if (!payload || payload.type !== 'mastiff:sharepoint-oauth-callback') return;
+
+            if (payload.error) {
+                setConnectorFeedback({ kind: 'error', text: `SharePoint OAuth failed: ${payload.error}` });
+                return;
+            }
+
+            if (sharepointOAuthState && payload.state !== sharepointOAuthState) {
+                setConnectorFeedback({
+                    kind: 'error',
+                    text: 'SharePoint OAuth state mismatch. Please retry authorization.',
+                });
+                return;
+            }
+
+            if (payload.code && typeof payload.code === 'string') {
+                setSharepointAuthCode(payload.code);
+                setConnectorFeedback({
+                    kind: 'success',
+                    text: 'Authorization code received from SharePoint callback. Exchanging tokens automatically...',
+                });
+                handleExchangeSharepointCode(payload.code);
+            }
+        };
+
+        window.addEventListener('message', onMessage);
+        return () => window.removeEventListener('message', onMessage);
+    }, [sharepointOAuthState]);
+
+    const handleGenerateSharepointOAuthUrl = async () => {
+        try {
+            setIsSharepointOauthBusy(true);
+            setConnectorFeedback(null);
+
+            const creds = parseCredentialsSafe();
+            const tenantId = String(creds.tenantId || '').trim();
+            const clientId = String(creds.clientId || '').trim();
+
+            if (!tenantId || !clientId) {
+                throw new Error('SharePoint OAuth requires tenantId and clientId in credentials JSON.');
+            }
+
+            const state = crypto.randomUUID();
+            const redirectUri = getSharepointRedirectUri();
+            const url = `/api/connectors/sharepoint/oauth?tenantId=${encodeURIComponent(tenantId)}&clientId=${encodeURIComponent(clientId)}&redirectUri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`;
+
+            const response = await fetch(url);
+            const payload = await response.json();
+            if (!response.ok || payload?.success === false || !payload?.authUrl) {
+                throw new Error(payload?.error || 'Failed to generate SharePoint OAuth URL');
+            }
+
+            setSharepointOAuthState(payload.state || state);
+            setSharepointOAuthUrl(payload.authUrl);
+            window.open(payload.authUrl, '_blank', 'popup=yes,width=720,height=760');
+
+            setConnectorFeedback({
+                kind: 'success',
+                text: 'SharePoint auth URL generated and opened. Complete consent; the code will be captured automatically (manual paste still works).',
+            });
+        } catch (error: any) {
+            setConnectorFeedback({ kind: 'error', text: error?.message || 'Failed to start SharePoint OAuth flow.' });
+        } finally {
+            setIsSharepointOauthBusy(false);
+        }
+    };
+
+    const handleExchangeSharepointCode = async (codeOverride?: string) => {
+        try {
+            setIsSharepointOauthBusy(true);
+            setConnectorFeedback(null);
+
+            const code = (codeOverride || sharepointAuthCode).trim();
+            if (!code) throw new Error('Paste the SharePoint authorization code first.');
+
+            const creds = parseCredentialsSafe();
+            const tenantId = String(creds.tenantId || '').trim();
+            const clientId = String(creds.clientId || '').trim();
+            const clientSecret = String(creds.clientSecret || '').trim();
+            const redirectUri = getSharepointRedirectUri();
+
+            if (!tenantId || !clientId || !clientSecret) {
+                throw new Error('Exchange requires tenantId, clientId, and clientSecret in credentials JSON.');
+            }
+
+            const response = await fetch('/api/connectors/sharepoint/oauth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mode: 'exchange',
+                    tenantId,
+                    clientId,
+                    clientSecret,
+                    redirectUri,
+                    code,
+                }),
+            });
+
+            const payload = await response.json();
+            if (!response.ok || payload?.success === false) {
+                throw new Error(payload?.error || 'Failed to exchange SharePoint auth code');
+            }
+
+            const updatedCreds = {
+                ...creds,
+                accessToken: payload.accessToken,
+                refreshToken: payload.refreshToken || creds.refreshToken,
+                tokenExpiry: payload.expiresIn ? Date.now() + Number(payload.expiresIn) * 1000 : creds.tokenExpiry,
+            };
+
+            setConnectorForm((prev) => ({
+                ...prev,
+                credentialsJson: JSON.stringify(updatedCreds, null, 2),
+            }));
+
+            setConnectorFeedback({
+                kind: 'success',
+                text: 'SharePoint tokens exchanged successfully. Credentials JSON has been updated.',
+            });
+
+            if (codeOverride) {
+                setSharepointAuthCode(codeOverride);
+            }
+        } catch (error: any) {
+            setConnectorFeedback({ kind: 'error', text: error?.message || 'Failed to exchange SharePoint code.' });
+        } finally {
+            setIsSharepointOauthBusy(false);
+        }
+    };
 
     const resetConnectorForm = (type: ConnectorType = 'sheets') => {
         setConnectorForm({
@@ -216,6 +396,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             credentialsJson: connectorCredentialTemplates[type],
             isActive: true,
         });
+        setSharepointAuthCode('');
+        setSharepointOAuthState('');
+        setSharepointOAuthUrl('');
     };
 
     const openCreateConnectorModal = () => {
@@ -351,6 +534,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ...prev,
                 [connectorId]: sources,
             }));
+            setSelectedSourceIdsByConnector((prev) => ({
+                ...prev,
+                [connectorId]: [],
+            }));
             setExpandedSourcesConnectorId((prev) => (prev === connectorId ? null : connectorId));
 
             setConnectorFeedback({
@@ -363,6 +550,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
             setConnectorFeedback({
                 kind: 'error',
                 text: error?.message || 'Failed to load connector sources.',
+            });
+        } finally {
+            setActiveConnectorActionId(null);
+        }
+    };
+
+    const toggleSourceSelection = (connectorId: string, sourceId: string) => {
+        setSelectedSourceIdsByConnector((prev) => {
+            const current = prev[connectorId] || [];
+            const next = current.includes(sourceId)
+                ? current.filter((id) => id !== sourceId)
+                : [...current, sourceId];
+            return {
+                ...prev,
+                [connectorId]: next,
+            };
+        });
+    };
+
+    const handleImportSelectedSources = async (connectorId: string) => {
+        if (!onImportConnectorSources) return;
+
+        const selectedIds = selectedSourceIdsByConnector[connectorId] || [];
+        const allSources = sourcesByConnector[connectorId] || [];
+        const selectedSources = allSources.filter((source: any) => selectedIds.includes(String(source?.id || '')));
+
+        if (selectedSources.length === 0) {
+            setConnectorFeedback({
+                kind: 'error',
+                text: 'Select at least one source to import.',
+            });
+            return;
+        }
+
+        setActiveConnectorActionId(connectorId);
+        setConnectorFeedback(null);
+        try {
+            const result = await onImportConnectorSources(connectorId, selectedSources);
+            setConnectorFeedback({
+                kind: result.success ? 'success' : 'error',
+                text: result.message,
+            });
+        } catch (error: any) {
+            setConnectorFeedback({
+                kind: 'error',
+                text: error?.message || 'Failed to import selected connector sources.',
             });
         } finally {
             setActiveConnectorActionId(null);
@@ -435,6 +668,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const connectorsByType = useMemo(() => {
         const counter: Record<string, number> = {
             sheets: 0,
+            sharepoint: 0,
             snowflake: 0,
             bigquery: 0,
             postgres: 0,
@@ -688,12 +922,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         {expandedSourcesConnectorId === connector.id && (
                                             <div className="mt-2.5 p-2.5 rounded-lg bg-zinc-950/70 border border-zinc-800/70 max-h-32 overflow-y-auto custom-scrollbar">
                                                 {(sourcesByConnector[connector.id] || []).length > 0 ? (
-                                                    <div className="space-y-1">
-                                                        {(sourcesByConnector[connector.id] || []).slice(0, 12).map((source: any, index: number) => (
-                                                            <p key={`${connector.id}-source-${index}`} className="text-[10px] text-zinc-400 truncate">
-                                                                {source?.name || source?.id || source?.tableName || `Source ${index + 1}`}
-                                                            </p>
-                                                        ))}
+                                                    <div className="space-y-1.5">
+                                                        {(sourcesByConnector[connector.id] || []).slice(0, 12).map((source: any, index: number) => {
+                                                            const sourceId = String(source?.id || `source-${index}`);
+                                                            const isSelected = (selectedSourceIdsByConnector[connector.id] || []).includes(sourceId);
+                                                            const isFileLike = source?.type === 'file' || source?.metadata?.itemId;
+
+                                                            return (
+                                                                <label key={`${connector.id}-source-${sourceId}`} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${isFileLike ? 'cursor-pointer hover:bg-zinc-900/60' : 'opacity-70'}`}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        className="accent-[#E50914]"
+                                                                        disabled={!isFileLike}
+                                                                        checked={isSelected}
+                                                                        onChange={() => toggleSourceSelection(connector.id, sourceId)}
+                                                                    />
+                                                                    <span className="text-[10px] text-zinc-400 truncate">
+                                                                        {source?.name || source?.id || source?.tableName || `Source ${index + 1}`}
+                                                                    </span>
+                                                                </label>
+                                                            );
+                                                        })}
+
+                                                        {connector.type === 'sharepoint' && (
+                                                            <button
+                                                                onClick={() => handleImportSelectedSources(connector.id)}
+                                                                className="w-full mt-1 px-2.5 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider border border-[#E50914]/40 bg-[#E50914]/10 text-[#ff6b6b] hover:text-white transition-colors disabled:opacity-60"
+                                                                disabled={activeConnectorActionId === connector.id || (selectedSourceIdsByConnector[connector.id] || []).length === 0}
+                                                            >
+                                                                Import Selected To Session
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 ) : (
                                                     <p className="text-[10px] text-zinc-600">No sources returned.</p>
@@ -817,6 +1076,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     disabled={Boolean(editingConnector)}
                                     onChange={(e) => {
                                         const nextType = e.target.value as ConnectorType;
+                                        setSharepointAuthCode('');
+                                        setSharepointOAuthState('');
+                                        setSharepointOAuthUrl('');
                                         setConnectorForm((prev) => ({
                                             ...prev,
                                             type: nextType,
@@ -887,6 +1149,53 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     className="mt-1 w-full min-h-36 px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-[10px] text-zinc-300 font-mono"
                                     placeholder={connectorCredentialTemplates[connectorForm.type]}
                                 />
+
+                                {connectorForm.type === 'sharepoint' && (
+                                    <div className="mt-2.5 p-3 rounded-xl border border-zinc-800 bg-zinc-950/60 space-y-2">
+                                        <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">SharePoint OAuth Helper</p>
+                                        <p className="text-[10px] text-zinc-500">
+                                            Use this helper to generate the Microsoft consent URL and exchange the returned code into tokens.
+                                        </p>
+                                        <div className="flex flex-wrap gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleGenerateSharepointOAuthUrl}
+                                                disabled={isSharepointOauthBusy}
+                                                className="px-2.5 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-widest border border-zinc-700 text-zinc-300 hover:text-white disabled:opacity-60"
+                                            >
+                                                {isSharepointOauthBusy ? 'Working...' : 'Generate Auth URL'}
+                                            </button>
+                                            {sharepointOAuthUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => window.open(sharepointOAuthUrl, '_blank', 'popup=yes,width=720,height=760')}
+                                                    className="px-2.5 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-widest border border-zinc-700 text-zinc-300 hover:text-white"
+                                                >
+                                                    Open Consent Page
+                                                </button>
+                                            )}
+                                        </div>
+                                        {sharepointOAuthState && (
+                                            <p className="text-[9px] text-zinc-600 break-all">State: {sharepointOAuthState}</p>
+                                        )}
+                                        <div className="flex gap-2">
+                                            <input
+                                                value={sharepointAuthCode}
+                                                onChange={(e) => setSharepointAuthCode(e.target.value)}
+                                                className="flex-1 px-2.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-[10px] text-zinc-200"
+                                                placeholder="Paste authorization code here"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleExchangeSharepointCode}
+                                                disabled={isSharepointOauthBusy || !sharepointAuthCode.trim()}
+                                                className="px-2.5 py-2 rounded-lg text-[9px] font-extrabold uppercase tracking-widest bg-[#E50914] text-white disabled:opacity-60"
+                                            >
+                                                Exchange Code
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {editingConnector && (

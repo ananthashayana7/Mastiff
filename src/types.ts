@@ -85,6 +85,18 @@ export interface ChatMessage {
     plotly_charts?: any[];
     traceback?: string;
     updated_df_sample?: any[];
+    responseEnvelope?: {
+      insights: string[];
+      forecast: string;
+      hasChart: boolean;
+      hasCode: boolean;
+    };
+    responseEnvelopeMeta?: {
+      usedFallback: boolean;
+      contractRepairAttempted: boolean;
+      contractRepaired: boolean;
+      initialViolations: string[];
+    };
   };
   status?: 'thinking' | 'done' | 'error';
   mode?: AnalysisMode;

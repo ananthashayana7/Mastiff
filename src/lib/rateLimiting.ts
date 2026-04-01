@@ -4,15 +4,30 @@
  * Configurable rate limiting for API endpoints
  */
 
-import { Ratelimit } from '@upstash/ratelimit';
-import { Redis } from '@upstash/redis';
+type LimiterResult = { success: boolean; remaining: number; reset: number };
+type RuntimeLimiter = { limit: (key: string) => Promise<LimiterResult> };
+
+let UpstashRatelimit: any = null;
+let UpstashRedis: any = null;
+
+try {
+    // Keep Upstash optional at runtime; if loading fails, we transparently fall back to in-memory limits.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const ratelimitPkg = require('@upstash/ratelimit');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const redisPkg = require('@upstash/redis');
+    UpstashRatelimit = ratelimitPkg?.Ratelimit || null;
+    UpstashRedis = redisPkg?.Redis || null;
+} catch (error) {
+    console.warn('Upstash rate limiting modules unavailable; using in-memory fallback.');
+}
 
 const hasUpstashConfig = Boolean(
     process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
 );
 
-const redis = hasUpstashConfig
-    ? new Redis({
+const redis = hasUpstashConfig && UpstashRedis
+    ? new UpstashRedis({
           url: process.env.UPSTASH_REDIS_REST_URL as string,
           token: process.env.UPSTASH_REDIS_REST_TOKEN as string,
       })
@@ -48,12 +63,12 @@ function checkMemoryLimit(
     };
 }
 
-function createLimiter(maxRequests: number, window: string, prefix: string): Ratelimit | null {
-    if (!redis) return null;
+function createLimiter(maxRequests: number, window: string, prefix: string): RuntimeLimiter | null {
+    if (!redis || !UpstashRatelimit) return null;
 
-    return new Ratelimit({
+    return new UpstashRatelimit({
         redis,
-        limiter: Ratelimit.slidingWindow(maxRequests, window),
+        limiter: UpstashRatelimit.slidingWindow(maxRequests, window),
         analytics: true,
         prefix,
     });
@@ -80,7 +95,7 @@ export const rateLimits = {
  * Check rate limit
  */
 export async function checkRateLimit(
-    limiter: Ratelimit | null,
+    limiter: RuntimeLimiter | null,
     key: string,
     maxRequests = 100,
     windowMs = 60 * 1000

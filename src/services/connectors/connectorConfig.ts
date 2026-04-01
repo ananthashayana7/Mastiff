@@ -11,6 +11,7 @@ import { BaseDataConnector, ConnectorConfig } from './BaseConnector';
  */
 export enum ConnectorType {
     GOOGLE_SHEETS = 'sheets',
+    SHAREPOINT = 'sharepoint',
     SNOWFLAKE = 'snowflake',
     BIGQUERY = 'bigquery',
     POSTGRESQL = 'postgres',
@@ -24,6 +25,10 @@ export const connectorSchemas = {
     [ConnectorType.GOOGLE_SHEETS]: {
         required: ['refreshToken'],
         optional: ['accessToken', 'tokenExpiry', 'spreadsheetId', 'clientId', 'clientSecret'],
+    },
+    [ConnectorType.SHAREPOINT]: {
+        required: ['tenantId', 'clientId', 'clientSecret', 'refreshToken', 'siteId'],
+        optional: ['accessToken', 'tokenExpiry', 'driveId'],
     },
     [ConnectorType.SNOWFLAKE]: {
         required: ['account', 'username', 'password', 'database', 'schema'],
@@ -124,6 +129,11 @@ export async function createConnector(config: ConnectorConfig): Promise<BaseData
         case ConnectorType.GOOGLE_SHEETS: {
             const { GoogleSheetsConnector } = await import('./GoogleSheetsConnector');
             connector = new GoogleSheetsConnector(runtimeConfig as any);
+            break;
+        }
+        case ConnectorType.SHAREPOINT: {
+            const { SharePointConnector } = await import('./SharePointConnector');
+            connector = new SharePointConnector(runtimeConfig as any);
             break;
         }
         case ConnectorType.SNOWFLAKE: {

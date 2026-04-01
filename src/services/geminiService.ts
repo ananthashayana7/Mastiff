@@ -1,10 +1,91 @@
-
 import { GoogleGenAI, Modality } from "@google/genai";
 import { AnalysisMode, GroundingSource } from "../types";
 
+function parseApiKeys(...envValues: (string | undefined)[]): string[] {
+  const keys: string[] = [];
+  for (const raw of envValues) {
+    if (!raw) continue;
+    for (const part of raw.split(',')) {
+      const trimmed = part.trim();
+      if (trimmed) keys.push(trimmed);
+    }
+  }
+  return keys;
+}
+
+function isKeyExhaustedError(error: any): boolean {
+  const status = error?.status ?? error?.statusCode ?? error?.code;
+  if (status === 429 || status === 403 || status === 401) return true;
+
+  const msg = String(error?.message || error || '').toLowerCase();
+  return (
+    msg.includes('resource_exhausted') ||
+    msg.includes('rate limit') ||
+    msg.includes('rate_limit') ||
+    msg.includes('quota') ||
+    msg.includes('permission_denied') ||
+    msg.includes('api key not valid') ||
+    msg.includes('api_key_invalid') ||
+    msg.includes('invalid api key') ||
+    msg.includes('unauthorized')
+  );
+}
+
 export class GeminiService {
+  private clients: Map<string, GoogleGenAI> = new Map();
+  private apiKeys: string[] = [];
+  private currentKeyIndex = 0;
+
+  private resolveApiKeys(): string[] {
+    if (this.apiKeys.length > 0) return this.apiKeys;
+
+    this.apiKeys = parseApiKeys(
+      process.env.API_KEY,
+      process.env.GEMINI_API_KEY,
+      process.env.GOOGLE_API_KEY
+    );
+
+    return this.apiKeys;
+  }
+
+  private getClientForKey(apiKey: string): GoogleGenAI {
+    let client = this.clients.get(apiKey);
+    if (!client) {
+      client = new GoogleGenAI({ apiKey });
+      this.clients.set(apiKey, client);
+    }
+    return client;
+  }
+
+  private async generateWithFallback(call: (ai: GoogleGenAI) => Promise<any>): Promise<any> {
+    const keys = this.resolveApiKeys();
+    if (keys.length === 0) {
+      throw new Error('No API keys configured. Set API_KEY/GEMINI_API_KEY/GOOGLE_API_KEY.');
+    }
+
+    let lastError: any = null;
+
+    for (let keyOffset = 0; keyOffset < keys.length; keyOffset++) {
+      const keyIndex = (this.currentKeyIndex + keyOffset) % keys.length;
+      const client = this.getClientForKey(keys[keyIndex]);
+
+      try {
+        const response = await call(client);
+        this.currentKeyIndex = keyIndex;
+        return response;
+      } catch (error: any) {
+        lastError = error;
+        if (isKeyExhaustedError(error)) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw lastError || new Error('All configured API keys are exhausted. Retry shortly.');
+  }
+
   async getSuggestions(dataContext: string) {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const model = 'gemini-2.0-flash';
 
     const systemInstruction = `
@@ -14,11 +95,11 @@ export class GeminiService {
     `;
 
     try {
-      const response = await ai.models.generateContent({
+      const response = await this.generateWithFallback((ai) => ai.models.generateContent({
         model,
         contents: [{ role: 'user', parts: [{ text: `DATA CONTEXT:\n${dataContext}` }] }],
-        config: { systemInstruction, responseMimeType: "application/json" }
-      });
+        config: { systemInstruction, responseMimeType: "application/json", temperature: 0.1 }
+      }));
       return JSON.parse(response.text || "[]");
     } catch (error) {
       console.error("Suggestions Error:", error);
@@ -34,11 +115,9 @@ export class GeminiService {
     personaInstruction?: string,
     useSearch: boolean = false
   ) {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
     let model = 'gemini-2.0-flash';
     let config: any = {
-      temperature: 0.2,
+      temperature: 0.15,
       responseMimeType: "application/json",
     };
 
@@ -48,7 +127,7 @@ export class GeminiService {
       delete config.responseMimeType;
     } else {
       if (mode === 'fast') {
-        config.temperature = 0.4;
+        config.temperature = 0.25;
       } else if (mode === 'deep' || mode === 'ml') {
         config.temperature = 0.1;
       }
@@ -87,11 +166,11 @@ export class GeminiService {
     });
 
     try {
-      const response = await ai.models.generateContent({
+      const response = await this.generateWithFallback((ai) => ai.models.generateContent({
         model,
         contents,
         config: { ...config, systemInstruction }
-      });
+      }));
 
       const text = response.text;
       if (!text) throw new Error("Empty response");
@@ -120,16 +199,15 @@ export class GeminiService {
   }
 
   async speak(text: string) {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     try {
-      const response = await ai.models.generateContent({
+      const response = await this.generateWithFallback((ai) => ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ parts: [{ text: text.slice(0, 500) }] }],
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } }
         }
-      });
+      }));
 
       const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (base64Audio) {

@@ -10,8 +10,9 @@ import {
 import { DataFile, ChatMessage, AnalysisMode, User as UserType, AnalystPersona, Session, ConnectorSummary } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { ChatWindow } from '../components/ChatWindow';
+import { buildSharePointImportAutoPrompt, buildUploadAutoPrompt } from '../lib/analysisPrompts';
 
-type ConnectorType = 'sheets' | 'snowflake' | 'bigquery' | 'postgres' | 'api';
+type ConnectorType = 'sheets' | 'sharepoint' | 'snowflake' | 'bigquery' | 'postgres' | 'api';
 
 interface ConnectorCreatePayload {
   name: string;
@@ -26,6 +27,11 @@ interface ConnectorUpdatePayload {
   description?: string;
   credentials?: Record<string, any>;
   isActive?: boolean;
+}
+
+interface SilentAnalysisOptions {
+  targetFileIds?: string[];
+  personaLabel?: string;
 }
 
 const PERSONAS: AnalystPersona[] = [
@@ -196,6 +202,111 @@ const App: React.FC = () => {
       payload: data,
     };
   }, [buildAuthHeaders, currentUser]);
+
+  const runSilentAnalysis = useCallback(async (prompt: string, options?: SilentAnalysisOptions) => {
+    if (!sessionId) return;
+
+    setIsAnalyzing(true);
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          content: prompt,
+          mode: analysisMode,
+          silent: true,
+          activeFileIds: options?.targetFileIds ?? activeFileIds,
+          linkedConnectorIds,
+          persona: activePersona.instruction,
+        })
+      });
+
+      const assistantMsg = await res.json();
+      const responseContent = assistantMsg.content
+        || assistantMsg.error
+        || 'No response received. Please try again.';
+
+      setMessages(prev => [...prev, {
+        id: assistantMsg.id || `msg-${Date.now()}`,
+        role: 'assistant',
+        content: responseContent,
+        code: assistantMsg.code,
+        visualization: assistantMsg.visualizationUrl,
+        result: assistantMsg.result,
+        timestamp: Date.now(),
+        persona: options?.personaLabel || 'System Analysis'
+      }]);
+    } catch (err) {
+      console.error('Silent analysis error:', err);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [activeFileIds, activePersona.instruction, analysisMode, linkedConnectorIds, sessionId]);
+
+  const importConnectorSources = useCallback(async (connectorId: string, sources: any[]) => {
+    if (!currentUser) throw new Error('No authenticated user');
+    if (!sessionId) throw new Error('No active session');
+
+    const response = await fetch(`/api/connectors/${connectorId}/import`, {
+      method: 'POST',
+      headers: buildAuthHeaders(currentUser.id, true),
+      body: JSON.stringify({
+        sessionId,
+        sources,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data?.success === false) {
+      return {
+        success: false,
+        message: data?.error || data?.message || 'Failed to import sources',
+      };
+    }
+
+    const importedFiles = Array.isArray(data?.files) ? data.files : [];
+    if (importedFiles.length > 0) {
+      const importedFileNames = importedFiles.map((file: any) => String(file?.filename || 'Imported source')).filter(Boolean);
+
+      const normalized: DataFile[] = importedFiles.map((dbFile: any) => ({
+        id: dbFile.id,
+        name: dbFile.filename,
+        type: dbFile.fileType,
+        content: '',
+        preview: dbFile.metadata?.sample || [],
+        columns: Object.keys(dbFile.metadata?.columns || {}),
+        metadata: dbFile.metadata,
+      }));
+
+      setFiles((prev) => {
+        const existingIds = new Set(prev.map((file) => file.id));
+        const deduped = normalized.filter((file) => !existingIds.has(file.id));
+        return [...prev, ...deduped];
+      });
+
+      setActiveFileIds((prev) => {
+        const merged = new Set(prev);
+        for (const file of normalized) merged.add(file.id);
+        return Array.from(merged);
+      });
+
+      const autoPrompt = buildSharePointImportAutoPrompt(importedFileNames);
+
+      await runSilentAnalysis(autoPrompt, {
+        targetFileIds: importedFiles.map((f: any) => f.id),
+        personaLabel: 'SharePoint Auto Analysis',
+      });
+    }
+
+    return {
+      success: true,
+      message: data?.message || `Imported ${importedFiles.length} file(s) from SharePoint.`,
+      files: importedFiles,
+      skipped: data?.skipped || [],
+    };
+  }, [buildAuthHeaders, currentUser, runSilentAnalysis, sessionId]);
 
   const toggleLinkedConnector = useCallback((connectorId: string) => {
     setLinkedConnectorIds((prev) => {
@@ -441,64 +552,14 @@ const App: React.FC = () => {
       lastUploadTime.current = Date.now();
       // Auto-trigger initial analysis after upload
       if (uploadedFileNames.length > 0) {
-        const autoPrompt = `Upload successful: ${uploadedFileNames.join(', ')}.
-      STRICT RULE: NO introductory text, greetings, or parsing summaries. Start IMMEDIATELY with insights.
-
-      Provide EXACTLY 3 crisp, actionable bullet points:
-      1. **Most significant pattern/anomaly** — with the specific numbers.
-      2. **Data quality verdict** — one sentence: is this data reliable for decisions?
-      3. **Top business action** — one boardroom-ready recommendation with projected impact.
-
-      Then provide a FORECAST: Based on detected trends, what is the projected direction? Show it visually.
-
-      MANDATORY: Generate at least ONE high-fidelity interactive Plotly chart with professional styling.
-      - If time-series data exists, show trend + forecast projection.
-      - If categorical data, show distribution or comparison.
-      - Use vivid colors, clear labels, and hover tooltips.
-
-      Keep total text under 150 words. Charts speak louder than text.`;
+        const autoPrompt = buildUploadAutoPrompt(uploadedFileNames);
         setTimeout(() => handleAutoAnalysis(autoPrompt), 300);
       }
     }
   };
 
   const handleAutoAnalysis = async (prompt: string) => {
-    if (!sessionId) return;
-    setIsAnalyzing(true);
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          content: prompt,
-          mode: analysisMode,
-          silent: true,
-          linkedConnectorIds,
-          persona: activePersona.instruction,
-        })
-      });
-      const assistantMsg = await res.json();
-
-      const responseContent = assistantMsg.content
-        || assistantMsg.error
-        || 'No response received. Please try again.';
-
-      setMessages(prev => [...prev, {
-        id: assistantMsg.id || `msg-${Date.now()}`,
-        role: 'assistant',
-        content: responseContent,
-        code: assistantMsg.code,
-        visualization: assistantMsg.visualizationUrl,
-        result: assistantMsg.result,
-        timestamp: Date.now(),
-        persona: 'System Analysis'
-      }]);
-    } catch (err) {
-      console.error("Auto-analysis error:", err);
-    } finally {
-      setIsAnalyzing(false);
-    }
+    await runSilentAnalysis(prompt, { personaLabel: 'System Analysis' });
   };
 
   // ===== DRAG & DROP =====
@@ -543,6 +604,7 @@ const App: React.FC = () => {
           sessionId,
           content: promptToUse,
           mode: analysisMode,  // ← NOW SENT TO BACKEND
+          activeFileIds,
           linkedConnectorIds,
           persona: activePersona.instruction,
         })
@@ -677,6 +739,7 @@ const App: React.FC = () => {
         onDeleteConnector={deleteConnectorById}
         onTestConnector={testConnector}
         onLoadConnectorSources={loadConnectorSources}
+        onImportConnectorSources={importConnectorSources}
         onToggleLinkedConnector={toggleLinkedConnector}
         isSidebarOpen={isSidebarOpen}
         currentUser={currentUser}

@@ -21,7 +21,7 @@ import { eq, desc } from 'drizzle-orm';
 const createConnectorSchema = z.object({
     userId: z.string().uuid().optional(),
     name: z.string().min(1).max(255),
-    type: z.enum(['sheets', 'snowflake', 'bigquery', 'postgres', 'api']),
+    type: z.enum(['sheets', 'sharepoint', 'snowflake', 'bigquery', 'postgres', 'api']),
     description: z.string().optional(),
     credentials: z.record(z.any()),
     metadata: z.record(z.any()).optional(),
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             success: true,
             connectors: connectorList,
-            supportedTypes: ['sheets', 'snowflake', 'bigquery', 'postgres', 'api'],
+            supportedTypes: ['sheets', 'sharepoint', 'snowflake', 'bigquery', 'postgres', 'api'],
             limit,
             offset,
         });
