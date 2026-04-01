@@ -56,15 +56,9 @@ const App: React.FC = () => {
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('analysis');
   const lastUploadTime = useRef<number>(0);
 
-  const handleSetAnalysisMode = (mode: AnalysisMode) => {
-    setAnalysisMode(mode);
-    // If user changes mode within 10s of an upload, re-trigger auto-analysis
-    const now = Date.now();
-    if (now - lastUploadTime.current < 10000 && files.length > 0) {
-      const lastFiles = files.slice(-1).map(f => f.name);
-      const autoPrompt = `Switching to ${mode.toUpperCase()} engine. Re-scanning current data for high-fidelity insights...`;
-      handleAutoAnalysis(autoPrompt);
-    }
+  // Unified mode — always analysis. Handler kept for interface compatibility.
+  const handleSetAnalysisMode = (_mode: AnalysisMode) => {
+    // No-op: unified analysis mode
   };
 
   const [activePersona, setActivePersona] = useState<AnalystPersona>(PERSONAS[0]);
@@ -448,22 +442,21 @@ const App: React.FC = () => {
       // Auto-trigger initial analysis after upload
       if (uploadedFileNames.length > 0) {
         const autoPrompt = `Upload successful: ${uploadedFileNames.join(', ')}.
-      STRICT RULE: DO NOT provide any introductory text, greetings, or parsing-process summaries.
-      Begin IMMEDIATELY with:
-      ### 1. Significant Trends & Anomalies
-      ...and provide exactly **3 crisp, professional insights**.
+      STRICT RULE: NO introductory text, greetings, or parsing summaries. Start IMMEDIATELY with insights.
 
-      Focus on:
-      1. Significant trends, correlations, or high-impact anomalies.
-      2. Data quality integrity.
-      3. One boardroom-ready business fact.
+      Provide EXACTLY 3 crisp, actionable bullet points:
+      1. **Most significant pattern/anomaly** — with the specific numbers.
+      2. **Data quality verdict** — one sentence: is this data reliable for decisions?
+      3. **Top business action** — one boardroom-ready recommendation with projected impact.
 
-      MANDATORY: Generate exactly ONE high-fidelity interactive chart (Plotly) with professional styling and assign it to 'result'.
-      Chart selection guidance:
-      - Prefer pie/donut for part-to-whole with few categories.
-      - Prefer heatmap for correlation/pivot intensity comparisons.
-      Use an accessible, professional color palette.
-      All numerical conclusions must come from executable Python calculations.`;
+      Then provide a FORECAST: Based on detected trends, what is the projected direction? Show it visually.
+
+      MANDATORY: Generate at least ONE high-fidelity interactive Plotly chart with professional styling.
+      - If time-series data exists, show trend + forecast projection.
+      - If categorical data, show distribution or comparison.
+      - Use vivid colors, clear labels, and hover tooltips.
+
+      Keep total text under 150 words. Charts speak louder than text.`;
         setTimeout(() => handleAutoAnalysis(autoPrompt), 300);
       }
     }

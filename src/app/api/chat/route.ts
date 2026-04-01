@@ -35,11 +35,9 @@ function shouldRunDataAnalysis(content: string, mode: AnalysisMode, hasFiles: bo
 
     if (isTheoryOnlyQuery(content, hasFiles)) return false;
 
-    if (VISUALIZATION_PATTERNS.test(content) || ANALYSIS_PATTERNS.test(content)) {
-        return true;
-    }
-
-    return mode === 'analysis';
+    // Unified mode: always run data analysis when files are present
+    // unless it's a pure theory question
+    return true;
 }
 
 export async function POST(req: NextRequest) {
