@@ -11,7 +11,11 @@ pr:
       - develop
 
 pool:
-  vmImage: ubuntu-latest
+  # Using self-hosted agent pool (free, no parallelism purchase required).
+  # Register an agent at: https://dev.azure.com/{org}/_settings/agentpools
+  # To use Microsoft-hosted agents instead, replace with: vmImage: ubuntu-latest
+  # (requires purchasing parallelism or submitting https://aka.ms/azpipelines-parallelism-request)
+  name: Default
 
 variables:
   NodeVersion: '20.x'
