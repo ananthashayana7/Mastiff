@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Download, Maximize2, Minimize2 } from 'lucide-react';
+import { Download, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
 
 interface PlotlyRendererProps {
     data: any;
@@ -86,7 +86,8 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     gridcolor: '#1a1a1a',
                     zerolinecolor: '#222',
                     linecolor: '#1a1a1a',
-                    tickfont: { color: '#555', size: 10 }
+                    tickfont: { color: '#555', size: 10 },
+                    rangeslider: parsedData.layout?.xaxis?.rangeslider ?? { visible: false },
                 },
                 yaxis: {
                     ...(parsedData.layout?.yaxis || {}),
@@ -145,8 +146,10 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 (window as any).Plotly.newPlot(chartRef.current, traces, layout, {
                     responsive: true,
                     displayModeBar: true,
-                    modeBarButtonsToRemove: ['lasso2d', 'select2d', 'autoScale2d'],
+                    modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                    modeBarButtonsToAdd: ['hoverclosest', 'hovercompare'],
                     displaylogo: false,
+                    scrollZoom: true,
                     toImageButtonOptions: {
                         format: 'png',
                         filename: `mastiff-plotly-${Date.now()}`,
@@ -183,6 +186,23 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
         });
     };
 
+    const handleResetZoom = () => {
+        if (!chartRef.current || !(window as any).Plotly) return;
+        (window as any).Plotly.relayout(chartRef.current, {
+            'xaxis.autorange': true,
+            'yaxis.autorange': true,
+        });
+    };
+
+    const calculateChartHeight = (chartData: any): string => {
+        try {
+            const p = typeof chartData === 'string' ? JSON.parse(chartData) : chartData;
+            return p?.layout?.height ? `${Math.max(Number(p.layout.height), 400)}px` : '560px';
+        } catch {
+            return '560px';
+        }
+    };
+
     return (
         <div className={`w-full rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-900/20 shadow-xl animate-fade-in transition-all ${isExpanded ? 'fixed inset-4 z-50' : ''}`}>
             {/* Header */}
@@ -192,6 +212,9 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     <span className="text-[8px] font-extrabold text-zinc-600 uppercase tracking-[2.5px]">Interactive Chart</span>
                 </div>
                 <div className="flex gap-1.5">
+                    <button onClick={handleResetZoom} title="Reset zoom" className="p-1.5 rounded-lg text-zinc-600 hover:text-white hover:bg-zinc-800 transition-all">
+                        <RotateCcw size={12} />
+                    </button>
                     <button onClick={() => setIsExpanded(!isExpanded)} className="p-1.5 rounded-lg text-zinc-600 hover:text-white hover:bg-zinc-800 transition-all">
                         {isExpanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
                     </button>
@@ -203,7 +226,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
 
             {/* Chart Area — height driven by chart's own layout.height, else 560px default */}
             <div className={`w-full ${isExpanded ? 'h-[calc(100vh-120px)]' : ''}`}
-                style={!isExpanded ? { height: (() => { try { const p = typeof data === 'string' ? JSON.parse(data) : data; return p?.layout?.height ? `${p.layout.height}px` : '560px'; } catch { return '560px'; } })() } : {}}>
+                style={!isExpanded ? { height: calculateChartHeight(data) } : {}}>
                 {!isLoaded && (
                     <div className="w-full h-full flex items-center justify-center">
                         <div className="flex items-center gap-3">

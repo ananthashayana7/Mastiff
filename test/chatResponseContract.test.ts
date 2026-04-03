@@ -50,9 +50,9 @@ describe('chat response contract helpers', () => {
     );
 
     expect(fallback.split(/\r?\n/)).toHaveLength(3);
-    expect(fallback).toContain('1) Key insight');
-    expect(fallback).toContain('2) Reliability');
-    expect(fallback).toContain('3) Recommended action');
+    expect(fallback).toContain('charts are available');
+    expect(fallback).toContain('Analysis backed');
+    expect(fallback).toContain('Action');
   });
 
   it('flags python/code-heavy summaries as technical artifacts', () => {

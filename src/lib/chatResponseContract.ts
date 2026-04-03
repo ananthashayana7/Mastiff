@@ -82,20 +82,20 @@ export function validateSummaryContract(
 
 export function buildContractFallbackSummary(inputPrompt: string, hasCharts: boolean, hasAnalysisCode: boolean): string {
   const chartStatus = hasCharts
-    ? 'Interactive visuals are available below for drill-down.'
-    : 'Visual output is unavailable in this pass and should be retried immediately.';
+    ? '📊 Interactive charts are available below — drill down for details.'
+    : '⚠️ Charts were not generated in this pass. Try a more specific data question.';
 
   const reliabilityStatus = hasAnalysisCode
-    ? 'Numerical conclusions are backed by executable analysis.'
-    : 'Numerical confidence is limited until analysis regeneration succeeds.';
+    ? '✅ Analysis backed by executable Python code (click "View Code" to inspect).'
+    : '⚠️ Analysis code was incomplete — retry with a narrower question for deterministic results.';
 
   if (/exactly\s*3/i.test((inputPrompt || '').toLowerCase())) {
     return [
-      `1) Key insight: ${chartStatus}`,
-      `2) Reliability: ${reliabilityStatus}`,
-      '3) Recommended action: Prioritize top cost/profit drivers and run immediate corrective actions with owner + deadline.',
+      `→ ${chartStatus}`,
+      `→ ${reliabilityStatus}`,
+      '→ Action: Prioritize top cost/profit drivers and assign corrective actions with owner + deadline.',
     ].join('\n');
   }
 
-  return `Executive fallback summary:\n- ${chartStatus}\n- ${reliabilityStatus}`;
+  return `**📊 Executive Summary**\n\n- ${chartStatus}\n- ${reliabilityStatus}\n- → Action: Focus on the highest-impact finding and assign follow-up actions.`;
 }

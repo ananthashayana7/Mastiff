@@ -516,6 +516,7 @@ const App: React.FC = () => {
 
         const res = await fetch('/api/files/upload', {
           method: 'POST',
+          headers: buildAuthHeaders(currentUser.id),
           body: formData
         });
 
@@ -584,7 +585,7 @@ const App: React.FC = () => {
     if (droppedFiles.length > 0) {
       uploadFiles(droppedFiles);
     }
-  }, [sessionId]);
+  }, [sessionId, currentUser?.id]);
 
   // ===== SEND MESSAGE (with analysis mode) =====
   const handleSend = async (overridePrompt?: string) => {
