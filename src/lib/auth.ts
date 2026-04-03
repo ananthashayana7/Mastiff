@@ -96,9 +96,10 @@ export async function getSession(): Promise<SessionInfo | null> {
 export async function getCookies(): Promise<{ userId: string | null; organizationId: string | null }> {
     const headerStore = await headers();
     const cookieStore = await cookies();
+    const headerUserId = shouldAllowHeaderIdentityFallback() ? headerStore.get('x-user-id') : null;
 
     return {
-        userId: headerStore.get('x-user-id') || cookieStore.get('userId')?.value || null,
+        userId: headerUserId || cookieStore.get('userId')?.value || null,
         organizationId: headerStore.get('x-organization-id') || cookieStore.get('organizationId')?.value || null,
     };
 }
