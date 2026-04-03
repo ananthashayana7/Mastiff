@@ -4,6 +4,10 @@ import path from 'path';
 const KERNEL_TIMEOUT_MS = 60000; // 60s max per execution
 const MAX_RETRIES = 2;
 
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 class KernelService {
     private processes: Map<string, ChildProcess> = new Map();
     private dependencyCheckedCommands: Set<string> = new Set();
@@ -64,6 +68,9 @@ class KernelService {
                         plotly_charts: []
                     };
                 }
+
+                const backoffMs = (100 * (2 ** (retries - 1))) + Math.floor(Math.random() * 50);
+                await sleep(backoffMs);
             }
         }
     }

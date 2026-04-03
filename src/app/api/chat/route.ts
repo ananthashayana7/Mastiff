@@ -7,6 +7,7 @@ import { llm } from '@/services/llm';
 import { kernelService } from '@/services/kernel';
 import { generateDataIntelligenceReport, formatWarningsForPrompt, analyseFile, formatForPrompt, DataIntelligenceReport } from '@/services/dataIntelligenceService';
 import { AnalysisMode } from '@/src/types';
+import { authenticateRequest } from '@/lib/auth';
 import { buildRecoverySnippet } from './recoverySnippets';
 import { buildContractFallbackSummary, containsTechnicalArtifacts, validateSummaryContract } from '../../../lib/chatResponseContract';
 import { buildAnalysisResponseEnvelope, renderEnvelopeAsSummary } from '../../../lib/chatResponseEnvelope';
@@ -271,6 +272,16 @@ async function emitResponseQualityEvent(data: {
 
 export async function POST(req: NextRequest) {
     try {
+        const user = await authenticateRequest(req);
+        if (!user?.id) {
+            return NextResponse.json({
+                error: 'Unauthorized',
+                content: 'You are not authorized. Please sign in and try again.',
+                role: 'assistant',
+                id: `error-${Date.now()}`,
+            }, { status: 401 });
+        }
+
         const {
             sessionId,
             content,
@@ -294,7 +305,7 @@ export async function POST(req: NextRequest) {
         const analysisMode: AnalysisMode = validModes.includes(mode) ? mode : 'analysis';
 
         const session = await db.query.sessions.findFirst({
-            where: eq(sessions.id, sessionId),
+            where: and(eq(sessions.id, sessionId), eq(sessions.userId, user.id)),
             with: {
                 files: true,
                 messages: {
@@ -764,13 +775,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(assistantMsg);
     } catch (error: any) {
         console.error('Chat API Error:', error);
-        let errorMessage = error?.message || '';
-        if (!errorMessage && error?.code === 'ECONNREFUSED') {
-            errorMessage = 'Database connection refused. Please ensure the database is running.';
-        }
-        if (!errorMessage) {
-            errorMessage = 'An unexpected error occurred during analysis';
-        }
+        const errorMessage = 'An unexpected error occurred during analysis';
         return NextResponse.json(
             {
                 error: errorMessage,

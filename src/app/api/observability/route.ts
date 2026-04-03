@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObservabilityService } from '@/src/services/observabilityService';
 import { RBACService } from '@/src/services/rbacService';
+import { authenticateRequest } from '@/lib/auth';
 
 /**
  * OBSERVABILITY API ROUTES - Phase 4.1
@@ -11,14 +12,24 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
   const organizationId = searchParams.get('organizationId') as string;
-  const userId = request.headers.get('x-user-id');
 
   try {
+    const user = await authenticateRequest(request);
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = user.id;
+
     // GET /api/observability?action=trace&traceId=...
     if (action === 'trace') {
       const traceId = searchParams.get('traceId');
-      if (!traceId) {
-        return NextResponse.json({ error: 'traceId required' }, { status: 400 });
+      if (!traceId || !organizationId) {
+        return NextResponse.json({ error: 'traceId and organizationId required' }, { status: 400 });
+      }
+
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'view_analytics');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
       const trace = await ObservabilityService.getTrace(traceId);
@@ -166,13 +177,27 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { action, organizationId } = body;
-  const userId = request.headers.get('x-user-id');
 
   try {
+    const user = await authenticateRequest(request);
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = user.id;
+
     // POST /api/observability - Record metric
     if (action === 'record-metric') {
+      const orgId = organizationId || body.organizationId;
+      if (!orgId) {
+        return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
+      }
+      const hasPermission = await RBACService.hasPermission(userId, orgId, 'view_analytics');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const metric = await ObservabilityService.recordMetric({
-        organizationId: organizationId || body.organizationId,
+        organizationId: orgId,
         metricName: body.metricName,
         metricType: body.metricType,
         value: body.value,
@@ -180,7 +205,7 @@ export async function POST(request: NextRequest) {
         endpoint: body.endpoint,
         method: body.method,
         statusCode: body.statusCode,
-        userId: body.userId,
+        userId,
         modelId: body.modelId,
         workspaceId: body.workspaceId,
         tags: body.tags,
@@ -196,6 +221,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
       }
 
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'view_analytics');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const inserted = await ObservabilityService.recordMetricsBatch(
         organizationId,
         body.metrics || []
@@ -206,15 +236,24 @@ export async function POST(request: NextRequest) {
 
     // POST /api/observability - Record log
     if (action === 'record-log') {
+      const orgId = organizationId || body.organizationId;
+      if (!orgId) {
+        return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
+      }
+      const hasPermission = await RBACService.hasPermission(userId, orgId, 'view_analytics');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const log = await ObservabilityService.recordLog({
-        organizationId: body.organizationId,
+        organizationId: orgId,
         logLevel: body.logLevel,
         message: body.message,
         service: body.service,
         endpoint: body.endpoint,
         requestId: body.requestId,
         traceId: body.traceId,
-        userId: body.userId,
+        userId,
         workspaceId: body.workspaceId,
         errorCode: body.errorCode,
         errorType: body.errorType,
@@ -234,9 +273,18 @@ export async function POST(request: NextRequest) {
 
     // POST /api/observability - Start trace
     if (action === 'start-trace') {
+      const orgId = organizationId || body.organizationId;
+      if (!orgId) {
+        return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
+      }
+      const hasPermission = await RBACService.hasPermission(userId, orgId, 'view_analytics');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const result = await ObservabilityService.startTrace({
-        organizationId: body.organizationId,
-        userId: body.userId,
+        organizationId: orgId,
+        userId,
         workspaceId: body.workspaceId,
         service: body.service,
         endpoint: body.endpoint,
@@ -286,15 +334,24 @@ export async function POST(request: NextRequest) {
 
     // POST /api/observability - Record event
     if (action === 'record-event') {
+      const orgId = organizationId || body.organizationId;
+      if (!orgId) {
+        return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
+      }
+      const hasPermission = await RBACService.hasPermission(userId, orgId, 'view_analytics');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const event = await ObservabilityService.recordEvent({
-        organizationId: body.organizationId,
+        organizationId: orgId,
         eventType: body.eventType,
         eventCategory: body.eventCategory,
         actorId: body.actorId,
         actorType: body.actorType,
         targetId: body.targetId,
         targetType: body.targetType,
-        userId: body.userId,
+        userId,
         workspaceId: body.workspaceId,
         sessionId: body.sessionId,
         traceId: body.traceId,
@@ -312,8 +369,17 @@ export async function POST(request: NextRequest) {
 
     // POST /api/observability - Detect anomaly
     if (action === 'detect-anomaly') {
+      const orgId = organizationId || body.organizationId;
+      if (!orgId) {
+        return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
+      }
+      const hasPermission = await RBACService.hasPermission(userId, orgId, 'view_analytics');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const anomaly = await ObservabilityService.detectAnomaly({
-        organizationId: body.organizationId,
+        organizationId: orgId,
         anomalyType: body.anomalyType,
         severity: body.severity,
         metricName: body.metricName,
@@ -321,7 +387,7 @@ export async function POST(request: NextRequest) {
         anomalousValue: body.anomalousValue,
         service: body.service,
         endpoint: body.endpoint,
-        userId: body.userId,
+        userId,
         workspaceId: body.workspaceId,
         detectionRule: body.detectionRule,
         confidenceScore: body.confidenceScore,

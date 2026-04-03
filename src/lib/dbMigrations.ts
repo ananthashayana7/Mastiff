@@ -7,6 +7,7 @@
 
 import { db } from '@/db/index';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import { sql } from 'drizzle-orm';
 import path from 'path';
 
 /**
@@ -59,7 +60,7 @@ export async function createIndexes(): Promise<void> {
 export async function verifyDatabaseConnection(): Promise<boolean> {
     try {
         // Try a simple query
-        const result = await db.execute('SELECT 1');
+        await db.execute(sql`SELECT 1`);
         console.log('✅ Database connection verified');
         return true;
     } catch (err) {

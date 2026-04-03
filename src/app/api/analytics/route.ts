@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PerformanceAnalyticsService } from '@/src/services/performanceAnalyticsService';
 import { RBACService } from '@/src/services/rbacService';
+import { authenticateRequest } from '@/lib/auth';
 
 /**
  * PERFORMANCE ANALYTICS API ROUTES - Phase 4.2
@@ -11,9 +12,14 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
   const organizationId = searchParams.get('organizationId') as string;
-  const userId = request.headers.get('x-user-id');
 
   try {
+    const user = await authenticateRequest(request);
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = user.id;
+
     // GET /api/analytics?action=performance&organizationId=...&days=7
     if (action === 'performance') {
       if (!organizationId) {
@@ -111,6 +117,11 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
       }
 
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'view_analytics');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const templates = await PerformanceAnalyticsService.getSystemTemplates(organizationId);
 
       return NextResponse.json({ templates }, { status: 200 });
@@ -126,13 +137,23 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { action, organizationId } = body;
-  const userId = request.headers.get('x-user-id');
 
   try {
+    const user = await authenticateRequest(request);
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = user.id;
+
     // POST /api/analytics - Record performance snapshot
     if (action === 'record-snapshot') {
       if (!organizationId) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
+      }
+
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'manage_settings');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
       const snapshot = await PerformanceAnalyticsService.recordPerformanceSnapshot({
@@ -227,6 +248,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
       }
 
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'manage_settings');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const health = await PerformanceAnalyticsService.updateServiceHealth({
         organizationId,
         serviceName: body.serviceName,
@@ -252,6 +278,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
       }
 
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'manage_settings');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const recommendation = await PerformanceAnalyticsService.createRecommendation({
         organizationId,
         workspaceId: body.workspaceId,
@@ -274,6 +305,14 @@ export async function POST(request: NextRequest) {
       const recommendationId = body.recommendationId;
       if (!recommendationId) {
         return NextResponse.json({ error: 'recommendationId required' }, { status: 400 });
+      }
+
+      if (!organizationId) {
+        return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
+      }
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'manage_settings');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
       const implemented = await PerformanceAnalyticsService.implementRecommendation(recommendationId);
@@ -314,6 +353,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'sloId required' }, { status: 400 });
       }
 
+      if (!organizationId) {
+        return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
+      }
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'manage_settings');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const updated = await PerformanceAnalyticsService.updateSLOProgress(sloId, {
         currentPercentage: body.currentPercentage,
         errorBudgetRemaining: body.errorBudgetRemaining,
@@ -327,6 +374,11 @@ export async function POST(request: NextRequest) {
     if (action === 'record-comparison') {
       if (!organizationId) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
+      }
+
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'manage_settings');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
       const comparison = await PerformanceAnalyticsService.recordPerformanceComparison({

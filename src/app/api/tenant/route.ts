@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TenantService } from '@/src/services/tenantService';
 import { RBACService } from '@/src/services/rbacService';
+import { authenticateRequest } from '@/lib/auth';
 
 /**
  * MULTI-TENANT API ROUTES
@@ -11,9 +12,14 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
   const organizationId = searchParams.get('organizationId') as string;
-  const userId = request.headers.get('x-user-id');
 
   try {
+    const user = await authenticateRequest(request);
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = user.id;
+
     // GET /api/tenant?action=get&organizationId=...
     if (action === 'get') {
       if (!organizationId) {
@@ -33,7 +39,7 @@ export async function GET(request: NextRequest) {
     // GET /api/tenant?action=list
     if (action === 'list') {
       // Admin-only: check system admin role
-      const isSystemAdmin = userId === 'system-admin'; // Would be verified via RBAC
+      const isSystemAdmin = Boolean(user.isAdmin) || userId === 'system-admin';
       if (!isSystemAdmin) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
@@ -128,13 +134,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { action, organizationId } = body;
-  const userId = request.headers.get('x-user-id');
 
   try {
+    const user = await authenticateRequest(request);
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = user.id;
+
     // POST /api/tenant - Onboard new tenant
     if (action === 'onboard') {
       // System admin only
-      const isSystemAdmin = userId === 'system-admin';
+      const isSystemAdmin = Boolean(user.isAdmin) || userId === 'system-admin';
       if (!isSystemAdmin) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
@@ -203,11 +214,16 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
       }
 
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'manage_settings');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const log = await TenantService.logComplianceEvent(organizationId, {
         eventType: body.eventType,
         resourceType: body.resourceType,
         resourceId: body.resourceId,
-        actorId: body.actorId,
+        actorId: body.actorId || userId,
         action: body.action,
         isPiiAccessed: body.isPiiAccessed,
         isPhiAccessed: body.isPhiAccessed,
@@ -226,8 +242,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
       }
 
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'view_billing');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const exportRecord = await TenantService.requestDataExport(organizationId, {
-        userId: body.userId,
+        userId,
         exportType: body.exportType,
         format: body.format,
         scope: body.scope,
@@ -237,7 +258,7 @@ export async function POST(request: NextRequest) {
       await TenantService.logComplianceEvent(organizationId, {
         eventType: 'data_export',
         resourceType: 'organization',
-        actorId: body.userId,
+        actorId: userId,
         action: 'export',
         status: 'success',
       });
@@ -252,7 +273,7 @@ export async function POST(request: NextRequest) {
       }
 
       // System admin only
-      const isSystemAdmin = userId === 'system-admin';
+      const isSystemAdmin = Boolean(user.isAdmin) || userId === 'system-admin';
       if (!isSystemAdmin) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
@@ -282,7 +303,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
       }
 
-      const isSystemAdmin = userId === 'system-admin';
+      const isSystemAdmin = Boolean(user.isAdmin) || userId === 'system-admin';
       if (!isSystemAdmin) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
@@ -326,7 +347,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
       }
 
-      const isSystemAdmin = userId === 'system-admin';
+      const isSystemAdmin = Boolean(user.isAdmin) || userId === 'system-admin';
       if (!isSystemAdmin) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
@@ -370,9 +391,14 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   const body = await request.json();
   const { organizationId } = body;
-  const userId = request.headers.get('x-user-id');
 
   try {
+    const user = await authenticateRequest(request);
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = user.id;
+
     if (!organizationId) {
       return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
     }

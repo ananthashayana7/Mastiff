@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { files as dbFiles, sessions as dbSessions } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import mammoth from 'mammoth';
 import * as xlsx from 'xlsx';
+import { authenticateRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -433,11 +434,14 @@ async function runMetadataExtraction(filePath: string): Promise<any> {
 
 export async function POST(req: NextRequest) {
     try {
+        const user = await authenticateRequest(req);
+        if (!user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const formData = await req.formData();
         const file = formData.get('file') as File;
-        const formUserId = formData.get('userId') as string;
         const sessionId = formData.get('sessionId') as string;
-        const headerUserId = req.headers.get('x-user-id') || '';
 
         if (!file) {
             return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
@@ -448,21 +452,14 @@ export async function POST(req: NextRequest) {
         }
 
         const session = await db.query.sessions.findFirst({
-            where: eq(dbSessions.id, sessionId),
+            where: and(eq(dbSessions.id, sessionId), eq(dbSessions.userId, user.id)),
         });
 
         if (!session) {
             return NextResponse.json({ error: 'Session not found' }, { status: 404 });
         }
 
-        const effectiveUserId = formUserId || headerUserId || session.userId || '';
-        if (!effectiveUserId) {
-            return NextResponse.json({ error: 'Missing userId for upload session' }, { status: 400 });
-        }
-
-        if (session.userId && effectiveUserId !== session.userId) {
-            return NextResponse.json({ error: 'Upload user/session mismatch' }, { status: 403 });
-        }
+        const effectiveUserId = session.userId;
 
         const ext = path.extname(file.name).toLowerCase();
         if (!ACCEPTED_TYPES.includes(ext)) {
@@ -532,6 +529,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(dbFile);
     } catch (error: any) {
         console.error('Upload Route Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'File upload failed' }, { status: 500 });
     }
 }

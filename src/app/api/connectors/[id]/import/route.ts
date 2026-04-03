@@ -179,8 +179,16 @@ export async function POST(
       return NextResponse.json({ error: 'Import is currently supported for SharePoint connectors only' }, { status: 400 });
     }
 
-    const decrypted = encryptionService.decryptFromString(String(connector.encryptedCredentials || ''));
-    const creds = JSON.parse(decrypted || '{}');
+    let creds: Record<string, unknown>;
+    try {
+      const decrypted = encryptionService.decryptFromString(String(connector.encryptedCredentials || ''));
+      creds = JSON.parse(decrypted || '{}');
+    } catch (credentialError: any) {
+      return NextResponse.json(
+        { error: 'Credential decryption failed for this connector' },
+        { status: 400 }
+      );
+    }
 
     const accessToken = await getSharePointAccessToken(creds);
 

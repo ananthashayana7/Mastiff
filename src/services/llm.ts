@@ -91,6 +91,199 @@ interface GenerateWithFallbackParams {
     config?: any;
 }
 
+interface AnalysisCodePayload {
+    explanation: string;
+    code: string;
+    requires_visualization?: boolean;
+}
+
+function stripMarkdownCodeFences(text: string): string {
+    return text.replace(/```json/g, '').replace(/```python/g, '').replace(/```/g, '').trim();
+}
+
+function extractJsonObjectCandidate(text: string): string | null {
+    const source = text.trim();
+    if (!source) return null;
+
+    const start = source.indexOf('{');
+    if (start === -1) return null;
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = start; i < source.length; i++) {
+        const ch = source[i];
+
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (ch === '\\') {
+                escaped = true;
+            } else if (ch === '"') {
+                inString = false;
+            }
+            continue;
+        }
+
+        if (ch === '"') {
+            inString = true;
+            continue;
+        }
+        if (ch === '{') {
+            depth++;
+        } else if (ch === '}') {
+            depth--;
+            if (depth === 0) {
+                return source.slice(start, i + 1);
+            }
+        }
+    }
+
+    return null;
+}
+
+function extractPythonFence(text: string): string | null {
+    const match = text.match(/```(?:python)?\s*([\s\S]*?)```/i);
+    if (!match?.[1]) return null;
+    const code = match[1].trim();
+    return code || null;
+}
+
+function sanitizeJsonForParse(text: string): string {
+    return text.replace(/"([^"\\]|\\.)*"/g, (match) =>
+        match.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t')
+    );
+}
+
+function parseAnalysisPayloadObject(parsed: any): AnalysisCodePayload | null {
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (typeof parsed.code !== 'string' || !parsed.code.trim()) return null;
+
+    return {
+        explanation: typeof parsed.explanation === 'string' && parsed.explanation.trim()
+            ? parsed.explanation.trim()
+            : 'Generated analysis code from model output.',
+        code: parsed.code,
+        requires_visualization: typeof parsed.requires_visualization === 'boolean'
+            ? parsed.requires_visualization
+            : undefined,
+    };
+}
+
+export function parseAnalysisPayloadFromText(rawText: string): AnalysisCodePayload | null {
+    const text = (rawText || '').trim();
+    if (!text) return null;
+
+    const directAttempts = [
+        text,
+        stripMarkdownCodeFences(text),
+        extractJsonObjectCandidate(text) || '',
+    ].filter(Boolean);
+
+    for (const attempt of directAttempts) {
+        try {
+            const parsed = JSON.parse(attempt);
+            const payload = parseAnalysisPayloadObject(parsed);
+            if (payload) return payload;
+        } catch {
+            try {
+                const parsed = JSON.parse(sanitizeJsonForParse(attempt));
+                const payload = parseAnalysisPayloadObject(parsed);
+                if (payload) return payload;
+            } catch {
+                // Try next representation.
+            }
+        }
+    }
+
+    // Salvage plain code-fence output into a valid payload.
+    const fencedCode = extractPythonFence(text);
+    if (fencedCode) {
+        return {
+            explanation: 'Recovered analysis code from fenced model output.',
+            code: fencedCode,
+        };
+    }
+
+    // Last-resort salvage for raw code responses with no JSON wrapper.
+    if (/(^|\n)\s*(import\s+|from\s+\w+\s+import\s+|df\s*=|result\s*=)/.test(text)) {
+        return {
+            explanation: 'Recovered analysis code from raw model response.',
+            code: text,
+        };
+    }
+
+    return null;
+}
+
+export function buildDeterministicAnalysisFallbackCode(wantsVisualization: boolean): string {
+    return `import numpy as np
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+
+# Deterministic fallback to keep analysis pipeline operational when LLM output is malformed.
+df = df.copy()
+if df.empty:
+    result = "Data is empty after loading. Please upload a file with at least one data row."
+else:
+    numeric_cols = []
+    for col in df.columns:
+        s = pd.to_numeric(df[col], errors='coerce')
+        if s.notna().sum() > 0:
+            numeric_cols.append(col)
+            df[col] = s
+
+    if numeric_cols:
+        value_col = numeric_cols[0]
+        category_candidates = [c for c in df.columns if c not in numeric_cols]
+        if category_candidates:
+            cat_col = category_candidates[0]
+            chart_df = df[[cat_col, value_col]].dropna().copy()
+            if chart_df.empty:
+                chart_df = pd.DataFrame({
+                    cat_col: ["All Rows"],
+                    value_col: [float(df[value_col].fillna(0).sum())],
+                })
+            else:
+                chart_df = chart_df.groupby(cat_col, as_index=False)[value_col].sum().sort_values(value_col, ascending=False).head(12)
+            fig = px.bar(
+                chart_df,
+                x=cat_col,
+                y=value_col,
+                title=f"Fallback Analysis: {value_col} by {cat_col}",
+                color=value_col,
+                color_continuous_scale='Viridis'
+            )
+            fig.update_layout(template='plotly_dark', margin=dict(l=40, r=20, t=70, b=40), height=520)
+            result = fig
+        else:
+            summary_df = pd.DataFrame({
+                'metric': ['rows', 'columns', f'sum_{value_col}', f'mean_{value_col}'],
+                'value': [
+                    int(len(df)),
+                    int(len(df.columns)),
+                    float(df[value_col].fillna(0).sum()),
+                    float(df[value_col].fillna(0).mean()),
+                ],
+            })
+            fig = px.bar(summary_df, x='metric', y='value', title='Fallback Analysis Summary', text='value')
+            fig.update_layout(template='plotly_dark', margin=dict(l=40, r=20, t=70, b=40), height=500)
+            result = fig
+    else:
+        preview = df.head(10).astype(str)
+        fig = go.Figure(
+            data=[go.Table(
+                header=dict(values=list(preview.columns)),
+                cells=dict(values=[preview[col].tolist() for col in preview.columns]),
+            )]
+        )
+        fig.update_layout(title='Fallback Data Preview (no numeric columns detected)', height=520)
+        result = fig if ${wantsVisualization ? 'True' : 'False'} else "No numeric columns detected for quantitative analysis."
+`;
+}
+
 export function getGroundedMetaResponse(userQuery: string): string | null {
     const normalizedQuery = userQuery.trim().toLowerCase();
     if (!normalizedQuery) return null;
@@ -548,13 +741,16 @@ IMPORTANT:
             parts: [{ text: h.content }],
         }));
 
+        const requestContents = [
+            ...chatHistory,
+            { role: 'user', parts: [{ text: userQuery }] },
+        ];
+
         try {
+            // Attempt 1: strict JSON contract.
             const { response } = await this.generateWithFallback({
                 models: ANALYSIS_MODEL_CANDIDATES,
-                contents: [
-                    ...chatHistory,
-                    { role: 'user', parts: [{ text: userQuery }] },
-                ],
+                contents: requestContents,
                 config: {
                     systemInstruction: systemPrompt,
                     responseMimeType: 'application/json',
@@ -562,20 +758,45 @@ IMPORTANT:
                 },
             });
 
-            let text = this.normalizeResponseText(response) || '{}';
-            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            const initialText = this.normalizeResponseText(response) || '';
+            const parsed = parseAnalysisPayloadFromText(initialText);
+            if (parsed) return parsed;
 
-            try {
-                return JSON.parse(text);
-            } catch {
-                const cleanedText = text.replace(/"([^"\\]|\\.)*"/g, (match) =>
-                    match.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t')
-                );
-                return JSON.parse(cleanedText);
-            }
-        } catch (error) {
+            // Attempt 2: retry with a stronger formatting directive if model produced malformed JSON.
+            const { response: retryResponse } = await this.generateWithFallback({
+                models: ANALYSIS_MODEL_CANDIDATES,
+                contents: [
+                    ...requestContents,
+                    {
+                        role: 'user',
+                        parts: [{ text: 'FORMAT FIX: Return ONLY strict JSON with keys: explanation, code, requires_visualization. No markdown, no prose before/after JSON.' }],
+                    },
+                ],
+                config: {
+                    systemInstruction: systemPrompt,
+                    responseMimeType: 'application/json',
+                    temperature: 0.05,
+                },
+            });
+
+            const retryText = this.normalizeResponseText(retryResponse) || '';
+            const retryParsed = parseAnalysisPayloadFromText(retryText);
+            if (retryParsed) return retryParsed;
+
+            console.warn('LLM analysis response malformed after retries. Using deterministic fallback code.');
+            return {
+                explanation: 'Applied deterministic analysis fallback because model output format was invalid.',
+                code: buildDeterministicAnalysisFallbackCode(wantsVisualization),
+                requires_visualization: wantsVisualization,
+            };
+        } catch (error: any) {
             console.error('LLM Analysis Error:', error);
-            throw new Error('Failed to generate analysis code');
+            // Keep analysis operational even if model call fails.
+            return {
+                explanation: 'Applied deterministic analysis fallback due to model generation failure.',
+                code: buildDeterministicAnalysisFallbackCode(wantsVisualization),
+                requires_visualization: wantsVisualization,
+            };
         }
     }
 
@@ -652,10 +873,8 @@ ${traceback || ''}
                 },
             });
 
-            let text = this.normalizeResponseText(response) || '{}';
-            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-
-            const parsed = JSON.parse(text);
+            const text = this.normalizeResponseText(response) || '';
+            const parsed = parseAnalysisPayloadFromText(text);
             if (!parsed?.code || typeof parsed.code !== 'string') {
                 return null;
             }

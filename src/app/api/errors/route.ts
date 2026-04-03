@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ErrorTrackingService } from '@/src/services/errorTrackingService';
 import { RBACService } from '@/src/services/rbacService';
+import { authenticateRequest } from '@/lib/auth';
 
 /**
  * ERROR TRACKING API ROUTES - Phase 4.3
@@ -11,9 +12,14 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
   const organizationId = searchParams.get('organizationId') as string;
-  const userId = request.headers.get('x-user-id');
 
   try {
+    const user = await authenticateRequest(request);
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = user.id;
+
     // GET /api/errors?action=list&organizationId=...
     if (action === 'list') {
       if (!organizationId) {
@@ -73,13 +79,23 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { action, organizationId } = body;
-  const userId = request.headers.get('x-user-id');
 
   try {
+    const user = await authenticateRequest(request);
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = user.id;
+
     // POST /api/errors - Record error
     if (action === 'record-error') {
       if (!organizationId) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
+      }
+
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'view_errors');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
       const result = await ErrorTrackingService.recordError({
@@ -269,6 +285,14 @@ export async function POST(request: NextRequest) {
           { error: 'notificationId and escalationPolicyId required' },
           { status: 400 }
         );
+      }
+
+      if (!organizationId) {
+        return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
+      }
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'manage_errors');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
       await ErrorTrackingService.escalateAlert(notificationId, escalationPolicyId);

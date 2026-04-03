@@ -19,21 +19,18 @@ function parseBearerToken(request: NextRequest): string | null {
 }
 
 export function getUserIdFromRequest(request: NextRequest): string | null {
-    const userIdHeader = request.headers.get('x-user-id');
-    if (userIdHeader) return userIdHeader;
-
     const token = parseBearerToken(request);
     if (token) {
         try {
             const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
             if (payload?.userId) return payload.userId;
         } catch {
-            // Ignore token parsing failures and fall through to query param fallback.
+            // Ignore token parsing failures and fall through to header fallback.
         }
     }
 
-    const userIdParam = request.nextUrl.searchParams.get('userId');
-    if (userIdParam) return userIdParam;
+    const userIdHeader = request.headers.get('x-user-id');
+    if (userIdHeader) return userIdHeader;
 
     return null;
 }

@@ -23,6 +23,7 @@ export class SharePointConnector extends BaseDataConnector {
     private client: AxiosInstance | null = null;
     private accessToken: string | null = null;
     private tokenExpiry: number | null = null;
+    private refreshInFlight: Promise<void> | null = null;
 
     constructor(config: SharePointConfig) {
         super(config);
@@ -64,7 +65,14 @@ export class SharePointConnector extends BaseDataConnector {
                 this.accessToken = cfg.accessToken;
                 this.tokenExpiry = cfg.tokenExpiry;
             } else {
-                await this.refreshAccessToken();
+                // Prevent concurrent refresh races across parallel requests.
+                if (!this.refreshInFlight) {
+                    this.refreshInFlight = this.refreshAccessToken()
+                        .finally(() => {
+                            this.refreshInFlight = null;
+                        });
+                }
+                await this.refreshInFlight;
             }
         }
 

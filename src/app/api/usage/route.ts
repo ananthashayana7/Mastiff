@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { UsageAnalyticsService } from '@/src/services/usageAnalyticsService';
 import { RBACService } from '@/src/services/rbacService';
+import { authenticateRequest } from '@/lib/auth';
 
 /**
  * USAGE ANALYTICS API ROUTES - Phase 4.4
@@ -11,9 +12,14 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
   const organizationId = searchParams.get('organizationId') as string;
-  const userId = request.headers.get('x-user-id');
 
   try {
+    const user = await authenticateRequest(request);
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = user.id;
+
     // GET /api/usage?action=dashboard&organizationId=...
     if (action === 'dashboard') {
       if (!organizationId) {
@@ -33,8 +39,13 @@ export async function GET(request: NextRequest) {
     // GET /api/usage?action=funnel&funnelId=...
     if (action === 'funnel') {
       const funnelId = searchParams.get('funnelId') as string;
-      if (!funnelId) {
-        return NextResponse.json({ error: 'funnelId required' }, { status: 400 });
+      if (!funnelId || !organizationId) {
+        return NextResponse.json({ error: 'funnelId and organizationId required' }, { status: 400 });
+      }
+
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'view_analytics');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
       const report = await UsageAnalyticsService.getFunnelReport(funnelId);
@@ -101,19 +112,29 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { action, organizationId } = body;
-  const userId = request.headers.get('x-user-id');
 
   try {
+    const user = await authenticateRequest(request);
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = user.id;
+
     // POST /api/usage - Record event
     if (action === 'record-event') {
       if (!organizationId) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
       }
 
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'view_analytics');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const eventId = await UsageAnalyticsService.recordEvent({
         organizationId,
         workspaceId: body.workspaceId,
-        userId: body.userId,
+        userId,
         sessionId: body.sessionId,
         eventName: body.eventName,
         eventCategory: body.eventCategory,
@@ -209,6 +230,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
       }
 
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'manage_settings');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const adoptionId = await UsageAnalyticsService.trackFeatureAdoption({
         organizationId,
         featureName: body.featureName,
@@ -251,9 +277,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
       }
 
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'view_analytics');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const sessionId = await UsageAnalyticsService.startSession({
         organizationId,
-        userId: body.userId,
+        userId,
         deviceType: body.deviceType,
         osName: body.osName,
         browserName: body.browserName,
@@ -289,13 +320,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
       }
 
-      const userId_param = body.userId;
-      if (!userId_param) {
-        return NextResponse.json({ error: 'userId required' }, { status: 400 });
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'view_analytics');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
       const patterns = await UsageAnalyticsService.detectBehaviorPatterns(
-        userId_param,
+        userId,
         organizationId
       );
 
@@ -306,6 +337,11 @@ export async function POST(request: NextRequest) {
     if (action === 'build-heatmap') {
       if (!organizationId) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
+      }
+
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'view_analytics');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
       const eventName = body.eventName;
@@ -328,6 +364,11 @@ export async function POST(request: NextRequest) {
     if (action === 'record-growth') {
       if (!organizationId) {
         return NextResponse.json({ error: 'organizationId required' }, { status: 400 });
+      }
+
+      const hasPermission = await RBACService.hasPermission(userId, organizationId, 'manage_settings');
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
       const metricsId = await UsageAnalyticsService.recordGrowthMetrics({

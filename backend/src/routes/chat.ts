@@ -4,7 +4,12 @@ import { llm } from '../services/llm';
 import { executor } from '../services/executor';
 
 const router = express.Router();
-const prisma = new PrismaClient();
+
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+const prisma = globalForPrisma.prisma ?? new PrismaClient();
+if (process.env.NODE_ENV !== 'production') {
+    globalForPrisma.prisma = prisma;
+}
 
 // Send message and get analysis
 router.post('/message', async (req, res) => {

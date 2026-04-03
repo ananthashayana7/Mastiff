@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { sessions, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { authenticateRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
     try {
-        const userId = req.nextUrl.searchParams.get("userId");
-        if (!userId) return NextResponse.json({ error: "No userId" }, { status: 400 });
+        const user = await authenticateRequest(req);
+        const userId = user?.id;
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
         console.log("Fetching sessions for user:", userId);
 
@@ -24,16 +26,18 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(userSessions);
     } catch (error: any) {
         console.error("Session GET Error:", error);
-        const errorMessage = error?.message
-            || (error?.code === 'ECONNREFUSED' ? 'Database connection refused. Please ensure the database is running.' : 'Failed to fetch sessions');
-        return NextResponse.json({ error: errorMessage }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 });
     }
 }
 
 export async function POST(req: NextRequest) {
     try {
+        const user = await authenticateRequest(req);
+        const userId = user?.id;
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
         const body = await req.json();
-        const { userId, title } = body;
+        const { title } = body;
 
         console.log("POST /api/sessions - UserID:", userId);
 
@@ -67,6 +71,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(inserted[0]);
     } catch (error: any) {
         console.error("Session POST Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to create session' }, { status: 500 });
     }
 }
