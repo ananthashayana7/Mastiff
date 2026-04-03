@@ -7,7 +7,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Notebook from '@/src/components/Notebook';
 import Link from 'next/link';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -23,14 +23,18 @@ interface NotebookData {
 
 export default function NotebookPage() {
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const notebookId = searchParams.get('id');
+    const [notebookId, setNotebookId] = useState<string | null>(null);
 
     const [notebook, setNotebook] = useState<NotebookData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [title, setTitle] = useState('Untitled Notebook');
     const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        setNotebookId(params.get('id'));
+    }, []);
 
     /**
      * Load notebook

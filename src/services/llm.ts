@@ -147,6 +147,10 @@ export function buildChatSystemPrompt(mode: AnalysisMode, personaInstruction: st
         ? `\nANALYST PERSONA: ${sanitizedPersona}`
         : '';
 
+    const codeBlockRule = mode === 'analysis'
+        ? `- ABSOLUTELY NO PYTHON, SQL, OR CODE BLOCKS. Do not output fenced code blocks (\`\`\`python, \`\`\`sql, etc.) under any circumstances. Your audience is non-technical leadership.`
+        : `- Use markdown formatting: ### headers, bullet points, **bold** for key metrics, tables for structured data.`;
+
     return `
 You are Mastiff, an expert AI data and analytics assistant built for enterprise-grade intelligence.
 
@@ -156,11 +160,10 @@ ${personaBlock}
 BEHAVIOR:
 - BE CONCISE. Management reads bullet points, not essays.
 - For theory questions: answer with depth but be concise — max 200 words.
-- For practical questions without data: provide clear assumptions and a Python example if relevant.
 - For management decisions: include confidence caveats and rank recommendations by impact.
-- Use markdown formatting: ### headers, bullet points, **bold** for key metrics, tables for structured data.
+- ${codeBlockRule}
 - Be precise with numbers — never round excessively.
-- When asked about data, ALWAYS generate charts/visualizations alongside text.
+- When asked about data, LEAD WITH ACTIONS and insights, not code.
 - LEAD WITH ACTIONS, not descriptions. What should the user do?
 `;
 }
@@ -439,6 +442,32 @@ ASSEMBLY LINE DATA DETECTION:
   - Make it visually compelling with distinct colors per section.
   - The template must be management-ready: focus on gaps, anomalies, and actionable insights.
 
+INLINE / PASTED DATA HANDLING:
+- If the user's message contains tabular data (markdown tables, pipe-delimited rows, or dense numbers),
+  parse that data DIRECTLY into a DataFrame using pd.read_csv(io.StringIO(...)) or by constructing
+  the dict manually. Do NOT rely on the file system for pasted data.
+- Use the import: import io
+- Example: df = pd.read_csv(io.StringIO("""col1,col2\n1,2\n3,4"""))
+- For tab-separated pasted statements with mixed sections (e.g., Monthly + YTD in one line), rows are often ragged.
+    You MUST normalize row widths before DataFrame construction:
+    1) split each line by '\\t'
+    2) trim cells
+    3) choose exact target width per section
+    4) slice extra cells and pad short rows with ''
+    5) only then build DataFrame with fixed columns
+- Skip non-data section labels like 'A- Total Income' and 'B- Total Expenses' if they don't carry numeric cells.
+- Never create DataFrame(columns=...) from unnormalized ragged rows.
+
+NUMERIC CLEANING RULES (MANDATORY FOR PASTED TABLES):
+- NEVER use direct '.astype(float)' on raw string columns from pasted data.
+- Treat '', '-', '\u2014', 'N/A', 'NA', 'null', and whitespace as missing values.
+- Normalize numeric text first, then coerce safely:
+    series = (series.astype(str).str.replace(',', '', regex=False).str.strip())
+    series = series.replace({'': np.nan, '-': np.nan, '\u2014': np.nan, 'N/A': np.nan, 'NA': np.nan, 'null': np.nan})
+    series = pd.to_numeric(series, errors='coerce').fillna(0)
+- Use errors='coerce' for numeric/date parsing and continue execution.
+- If parsing creates all-null series, set a defensive fallback and proceed (do not crash).
+
 DATA LOADING & VERIFICATION (CRITICAL — always include this logic):
 - ALWAYS start your code by checking len(df) and printing the shape.
 - If df has 0 rows, DO NOT give up or create placeholder charts. Instead, recover the data:
@@ -474,6 +503,11 @@ VISUALIZATION RULES (MANDATORY — CHARTS ARE NON-NEGOTIABLE):
     - Add gridlines subtly, set balanced margins, and ensure responsive layout.
     - For multiple traces, use distinct colors per trace and a clear legend.
     - Add dropdown menus or range sliders for drill-down interactivity where applicable.
+    - Plotly subplot compatibility is mandatory:
+        - If you use go.Pie, the target subplot cell spec must be {"type": "domain"}.
+        - If you use go.Table, the target subplot cell spec must be {"type": "table"}.
+        - Use {"type": "xy"} only for bar/line/scatter/histogram/box/violin style traces.
+        - Never place pie/table traces in an "xy" subplot cell.
 
 DIAGNOSTIC ANALYSIS RULES:
 - If the dataset has fewer than 30 rows, never call any pattern "Universal" or "Consistent". Use "tentative" or "preliminary".
@@ -562,6 +596,13 @@ RULES:
 - Keep the same intent and output contract.
 - Preserve visualization intent if requested.
 - Add robust guards for missing columns, bad types, empty data, and divide-by-zero.
+- For conversion errors (e.g., "could not convert string to float"), replace direct casts with safe coercion:
+    pd.to_numeric(..., errors='coerce').fillna(0) and sanitize '', '-', 'N/A', whitespace before conversion.
+- Never leave '.astype(float)' on uncleaned string columns.
+- For Plotly subplot errors (e.g., "Trace type 'pie' is not compatible with subplot type 'xy'"),
+    repair make_subplots specs so pie traces use type='domain' and table traces use type='table'.
+- For pandas column-shape errors (e.g., "X columns passed, passed data had Y columns"),
+    repair parsing logic by normalizing each split row to the target column count before DataFrame creation.
 - Return only valid JSON.
 
 RESPONSE FORMAT (JSON ONLY):
@@ -654,12 +695,17 @@ CRITICAL OUTPUT RULES:
 - NO FILLER TEXT: Remove "Let me analyze...", "Based on the data...", "It's worth noting..." — skip preamble entirely.
 - USE BULLET POINTS over paragraphs. Every bullet must be a standalone, actionable insight.
 - TOTAL RESPONSE LENGTH: Aim for 150-300 words maximum. Quality over quantity.
+- ABSOLUTELY NO TECHNICAL ARTIFACTS: do not include Python, SQL, JSON, code snippets, pseudo-code, stack traces, or fenced code blocks.
+- NEVER return markdown code fences like \`\`\`python, \`\`\`plotly, or \`\`\`json.
+- NEVER explain implementation steps like "import pandas", "create dataframe", or "run regression". Only business meaning and decisions.
+- Assume audience is non-technical leadership; write in plain business language.
 
 RULES:
 - Never fabricate values, percentages, or trends not present in the execution output.
 - If evidence is insufficient, state it in one sentence and suggest what data would help.
 - If execution failed, explain the failure in 1-2 sentences and suggest a concrete fix.
 - If charts were generated, mention their key takeaway in one sentence — don't describe the chart structure.
+- If charts were generated, reference outcomes from visuals and explicitly state "See interactive visuals below" once.
 - Use markdown: **bold** for key metrics, bullet points for findings, ### for sections.
 
 DIAGNOSTIC RULES:
@@ -682,18 +728,23 @@ AVOID:
 
 OUTPUT STRUCTURE (CONCISE — adapt headers to content):
 1. **📊 Executive Summary** — 2 sentences max. The "so what" of the entire analysis.
-2. **🚨 Top Concerns & Actions** — Max 5 bullet points. Each: Finding → Action.
+2. **🚨 Top Concerns & Actions** — 4-6 bullet points. Each: Finding → Action.
 3. **📈 Forecast & Trends** — What will happen next? 2-3 bullets with projected direction.
-4. **💡 Quick Wins** — 2-3 immediately actionable opportunities.
+4. **💡 Quick Wins** — exactly 3 immediately actionable opportunities.
 5. **⚡ Data Quality** — One-line reliability rating.
 `;
+
+        // Summarize the code intent in one line so the LLM understands context without seeing
+        // implementation details that might be reproduced in the business summary.
+        const codeIntent = code
+            ? `[Python analysis executed — ${code.split('\n').length} lines, ${chartCount > 0 ? chartCount + ' chart(s) generated' : 'no charts'}]`
+            : '[No code executed]';
 
         const prompt = `
 User question:
 ${userQuery}
 
-Executed code:
-${code}
+Analysis performed: ${codeIntent}
 
 Execution success: ${execution.success ? 'true' : 'false'}
 Execution result text:

@@ -11,9 +11,11 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
     const chartRef = useRef<HTMLDivElement>(null);
     const [isLoaded, setIsLoaded] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
+    const [renderError, setRenderError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!chartRef.current || !data) return;
+        setRenderError(null);
 
         // Load Plotly from CDN if not present
         if (!(window as any).Plotly) {
@@ -24,6 +26,9 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 setIsLoaded(true);
                 renderChart();
             };
+            script.onerror = () => {
+                setRenderError('Failed to load Plotly runtime. Check network or ad-block settings.');
+            };
             document.head.appendChild(script);
         } else {
             setIsLoaded(true);
@@ -33,9 +38,35 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
         function renderChart() {
             if (!(window as any).Plotly || !chartRef.current) return;
 
+            let parsedData: any = data;
+            try {
+                if (typeof parsedData === 'string') {
+                    parsedData = JSON.parse(parsedData);
+                }
+            } catch {
+                setRenderError('Received invalid chart payload.');
+                return;
+            }
+
+            if (!parsedData) {
+                setRenderError('No chart payload found.');
+                return;
+            }
+
+            const rawTraces = Array.isArray(parsedData)
+                ? parsedData
+                : Array.isArray(parsedData.data)
+                    ? parsedData.data
+                    : [];
+
+            if (rawTraces.length === 0) {
+                setRenderError('Chart payload has no plottable traces.');
+                return;
+            }
+
             // Deep merge layout for Mastiff dark theme
             const layout = {
-                ...data.layout,
+                ...(parsedData.layout || {}),
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: 'rgba(10,10,10,0.5)',
                 font: {
@@ -43,24 +74,29 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     family: 'IBM Plex Sans, system-ui, sans-serif',
                     size: 11
                 },
-                margin: { t: 40, r: 20, l: 50, b: 50 },
+                margin: {
+                    t: parsedData.layout?.margin?.t ?? (parsedData.layout?.title ? 48 : 24),
+                    r: parsedData.layout?.margin?.r ?? 24,
+                    l: parsedData.layout?.margin?.l ?? 56,
+                    b: parsedData.layout?.margin?.b ?? 48,
+                },
                 autosize: true,
                 xaxis: {
-                    ...(data.layout?.xaxis || {}),
+                    ...(parsedData.layout?.xaxis || {}),
                     gridcolor: '#1a1a1a',
                     zerolinecolor: '#222',
                     linecolor: '#1a1a1a',
                     tickfont: { color: '#555', size: 10 }
                 },
                 yaxis: {
-                    ...(data.layout?.yaxis || {}),
+                    ...(parsedData.layout?.yaxis || {}),
                     gridcolor: '#1a1a1a',
                     zerolinecolor: '#222',
                     linecolor: '#1a1a1a',
                     tickfont: { color: '#555', size: 10 }
                 },
                 legend: {
-                    ...(data.layout?.legend || {}),
+                    ...(parsedData.layout?.legend || {}),
                     font: { color: '#888', size: 10 },
                     bgcolor: 'rgba(0,0,0,0)'
                 },
@@ -73,7 +109,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
             };
 
             // Respect intrinsic colorscales and categorical color maps (e.g., heatmaps, pies).
-            const traces = (data.data || []).map((trace: any, i: number) => {
+            const traces = rawTraces.map((trace: any, i: number) => {
                 const colors = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52'];
                 const traceType = String(trace?.type || '').toLowerCase();
                 const keepIntrinsicColor = [
@@ -105,17 +141,21 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 };
             });
 
-            (window as any).Plotly.newPlot(chartRef.current, traces, layout, {
-                responsive: true,
-                displayModeBar: true,
-                modeBarButtonsToRemove: ['lasso2d', 'select2d', 'autoScale2d'],
-                displaylogo: false,
-                toImageButtonOptions: {
-                    format: 'png',
-                    filename: `mastiff-plotly-${Date.now()}`,
-                    scale: 2
-                }
-            });
+            try {
+                (window as any).Plotly.newPlot(chartRef.current, traces, layout, {
+                    responsive: true,
+                    displayModeBar: true,
+                    modeBarButtonsToRemove: ['lasso2d', 'select2d', 'autoScale2d'],
+                    displaylogo: false,
+                    toImageButtonOptions: {
+                        format: 'png',
+                        filename: `mastiff-plotly-${Date.now()}`,
+                        scale: 2
+                    }
+                });
+            } catch (error: any) {
+                setRenderError(error?.message || 'Plotly render failed');
+            }
         }
 
         return () => {
@@ -144,31 +184,37 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
     };
 
     return (
-        <div className={`glass rounded-2xl overflow-hidden shadow-2xl animate-fade-in transition-all ${isExpanded ? 'fixed inset-4 z-50' : ''}`}>
+        <div className={`w-full rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-900/20 shadow-xl animate-fade-in transition-all ${isExpanded ? 'fixed inset-4 z-50' : ''}`}>
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800/30">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800/40">
                 <div className="flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#E50914] animate-pulse" />
-                    <span className="text-[8px] font-extrabold text-zinc-500 uppercase tracking-[2px]">Interactive Chart</span>
+                    <span className="text-[8px] font-extrabold text-zinc-600 uppercase tracking-[2.5px]">Interactive Chart</span>
                 </div>
                 <div className="flex gap-1.5">
-                    <button onClick={() => setIsExpanded(!isExpanded)} className="p-1.5 glass rounded-lg text-zinc-600 hover:text-white transition-all">
+                    <button onClick={() => setIsExpanded(!isExpanded)} className="p-1.5 rounded-lg text-zinc-600 hover:text-white hover:bg-zinc-800 transition-all">
                         {isExpanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
                     </button>
-                    <button onClick={handleExport} className="p-1.5 glass rounded-lg text-zinc-600 hover:text-white transition-all">
+                    <button onClick={handleExport} className="p-1.5 rounded-lg text-zinc-600 hover:text-white hover:bg-zinc-800 transition-all">
                         <Download size={12} />
                     </button>
                 </div>
             </div>
 
-            {/* Chart Area */}
-            <div className={`w-full ${isExpanded ? 'h-[calc(100vh-120px)]' : 'h-[400px]'} p-2`}>
+            {/* Chart Area — height driven by chart's own layout.height, else 560px default */}
+            <div className={`w-full ${isExpanded ? 'h-[calc(100vh-120px)]' : ''}`}
+                style={!isExpanded ? { height: (() => { try { const p = typeof data === 'string' ? JSON.parse(data) : data; return p?.layout?.height ? `${p.layout.height}px` : '560px'; } catch { return '560px'; } })() } : {}}>
                 {!isLoaded && (
                     <div className="w-full h-full flex items-center justify-center">
                         <div className="flex items-center gap-3">
                             <div className="w-4 h-4 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin" />
-                            <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">Loading Plotly...</span>
+                            <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">Loading chart...</span>
                         </div>
+                    </div>
+                )}
+                {renderError && (
+                    <div className="w-full h-full flex items-center justify-center p-4">
+                        <div className="text-[10px] text-red-400 font-semibold text-center">{renderError}</div>
                     </div>
                 )}
                 <div ref={chartRef} className="w-full h-full" />

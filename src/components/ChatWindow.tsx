@@ -212,7 +212,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </header>
 
             {/* Messages Area */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 custom-scrollbar messages-container">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5 custom-scrollbar messages-container">
                 {/* Welcome Screen */}
                 {messages.length === 0 && (
                     <div className="h-full flex flex-col items-center justify-center max-w-2xl mx-auto text-center animate-fade-in">
@@ -301,185 +301,143 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                 {/* Messages */}
                 {messages.map((m) => (
-                    <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
-                        <div className={`max-w-[85%] rounded-2xl px-5 py-4 shadow-lg ${m.role === 'user'
-                            ? 'bg-gradient-to-br from-[#E50914] to-[#b20710] text-white shadow-[0_4px_20px_rgba(229,9,20,0.2)]'
-                            : 'glass text-zinc-200'
-                            }`}>
-                            <div className="space-y-4">
-                                {/* Message Content with Markdown */}
-                                {m.role === 'assistant' ? (
-                                    <MarkdownRenderer
-                                        content={m.content}
-                                        className="text-[13px] leading-relaxed"
-                                    />
-                                ) : (
-                                    <div className="text-sm leading-relaxed font-medium">{m.content}</div>
-                                )}
+                    <div key={m.id} className={`animate-fade-in ${m.role === 'user' ? 'flex justify-end' : 'w-full'}`}>
+                        {m.role === 'user' ? (
+                            /* ── USER BUBBLE ── */
+                            <div className="max-w-[72%] rounded-2xl px-5 py-3.5 bg-gradient-to-br from-[#E50914] to-[#b20710] text-white shadow-[0_4px_24px_rgba(229,9,20,0.18)]">
+                                <div className="text-sm leading-relaxed font-medium">{m.content}</div>
+                            </div>
+                        ) : (
+                            /* ── ASSISTANT — Pretext document layout ── */
+                            <div className="w-full space-y-3">
 
-                                {/* Executive Snapshot (structured response envelope) */}
-                                {m.role === 'assistant' && m.result?.responseEnvelope && (
-                                    <div className="pt-3 border-t border-zinc-800/50 space-y-2.5">
-                                        <p className="text-[8px] font-extrabold uppercase tracking-widest text-[#E50914] flex items-center gap-1.5">
-                                            <TrendingUp size={10} /> Executive Snapshot
-                                        </p>
-                                        <div className="p-3 rounded-xl border border-zinc-800/60 bg-zinc-950/70 space-y-2">
-                                            {m.result.responseEnvelope.insights.map((insight, idx) => (
-                                                <p key={`${m.id}-insight-${idx}`} className="text-[11px] text-zinc-200 leading-relaxed">
-                                                    <span className="text-zinc-500 font-extrabold mr-1">{idx + 1})</span>
-                                                    {insight}
-                                                </p>
-                                            ))}
-                                            <p className="text-[11px] text-zinc-300 leading-relaxed pt-1 border-t border-zinc-800/50">
-                                                <span className="font-extrabold text-zinc-400 mr-1">Forecast:</span>
-                                                {m.result.responseEnvelope.forecast}
+                                {/* ── TEXT CARD ── */}
+                                <div className="w-full rounded-2xl border border-zinc-800/60 bg-zinc-900/30 overflow-hidden">
+
+                                    {/* Brand strip */}
+                                    <div className="flex items-center gap-2.5 px-4 py-2 border-b border-zinc-800/40">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#E50914] shrink-0" />
+                                        <span className="text-[8px] font-extrabold text-zinc-600 uppercase tracking-[2.5px]">Mastiff</span>
+                                        {m.persona && <span className="text-[8px] font-bold text-zinc-800 uppercase tracking-widest">· {m.persona}</span>}
+                                        <span className="ml-auto text-[8px] text-zinc-800 font-medium tabular-nums">
+                                            {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+
+                                    {/* Main text content */}
+                                    <div className="px-5 py-4">
+                                        <MarkdownRenderer content={m.content} className="text-[13px] leading-relaxed text-zinc-200" />
+                                    </div>
+
+                                    {/* Grounding Sources */}
+                                    {m.sources && m.sources.length > 0 && (
+                                        <div className="px-5 pb-4 space-y-2">
+                                            <p className="text-[8px] font-extrabold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
+                                                <Globe size={10} /> Sources
                                             </p>
-                                            <p className="text-[8px] text-zinc-600 font-bold uppercase tracking-widest">
-                                                Chart: {m.result.responseEnvelope.hasChart ? 'yes' : 'no'} | Code: {m.result.responseEnvelope.hasCode ? 'yes' : 'no'}
+                                            <div className="flex flex-wrap gap-2">
+                                                {m.sources.map((src, i) => (
+                                                    <a key={`src-${m.id}-${i}`} href={src.uri} target="_blank" rel="noopener noreferrer"
+                                                        className="flex items-center gap-1.5 px-2.5 py-1 glass rounded-lg text-[9px] font-bold text-zinc-400 hover:text-white transition-all">
+                                                        <span className="truncate max-w-[140px]">{src.title}</span>
+                                                        <ExternalLink size={8} />
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Execution result output */}
+                                    {m.result?.output && m.result.output !== 'Analysis complete' && m.result.output !== 'Execution successful' && (
+                                        <div className="px-5 pb-4 border-t border-zinc-800/40 pt-3">
+                                            <p className="text-[8px] font-extrabold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5 mb-2">
+                                                <Table size={10} /> Result
                                             </p>
+                                            <div className="p-3 bg-zinc-950/80 rounded-xl border border-zinc-800/50">
+                                                <pre className="font-mono text-[10px] text-zinc-300 whitespace-pre-wrap leading-relaxed overflow-x-auto custom-scrollbar">{m.result.output}</pre>
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
 
-                                {/* Grounding Sources */}
-                                {m.sources && m.sources.length > 0 && (
-                                    <div className="pt-3 border-t border-white/10 space-y-2">
-                                        <p className="text-[8px] font-extrabold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
-                                            <Globe size={10} /> Sources
-                                        </p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {m.sources.map((src, i) => (
-                                                <a
-                                                    key={`src-${m.id}-${i}`}
-                                                    href={src.uri}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center gap-1.5 px-2.5 py-1 glass rounded-lg text-[9px] font-bold text-zinc-400 hover:text-white transition-all"
-                                                >
-                                                    <span className="truncate max-w-[120px]">{src.title}</span>
-                                                    <ExternalLink size={8} />
-                                                </a>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Execution Result Output */}
-                                {m.result?.output && m.result.output !== 'Analysis complete' && m.result.output !== 'Execution successful' && (
-                                    <div className="pt-3 border-t border-zinc-800/50">
-                                        <p className="text-[8px] font-extrabold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5 mb-2">
-                                            <Table size={10} /> Result
-                                        </p>
-                                        <div className="p-3 bg-zinc-950/80 rounded-xl border border-zinc-800/50">
-                                            <pre className="font-mono text-[10px] text-zinc-300 whitespace-pre-wrap leading-relaxed overflow-x-auto">{m.result.output}</pre>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Code Block */}
-                                {m.code && (
-                                    <div className="space-y-1.5">
-                                        <button
-                                            onClick={() => onToggleCode(showCodeId === m.id ? null : m.id)}
-                                            className="flex items-center gap-2 text-[8px] font-extrabold text-zinc-600 hover:text-white uppercase tracking-widest transition-colors"
-                                        >
-                                            <Terminal size={11} />
-                                            {showCodeId === m.id ? 'Hide Code' : 'View Code'}
-                                            <Code2 size={9} className="text-zinc-700" />
+                                    {/* Footer actions */}
+                                    <div className="flex items-center gap-3 px-4 py-2.5 border-t border-zinc-800/30">
+                                        <button onClick={() => onCopy(m.content, m.id)}
+                                            className="flex items-center gap-1.5 text-[8px] font-extrabold text-zinc-600 hover:text-white uppercase tracking-widest transition-colors">
+                                            {copiedId === m.id ? <Check size={10} /> : <Copy size={10} />}
+                                            {copiedId === m.id ? 'Copied' : 'Copy'}
                                         </button>
-                                        {showCodeId === m.id && (
-                                            <div className="space-y-2 animate-scale-in">
-                                                <div className="relative">
-                                                    <pre className="p-4 bg-[#0a0a0a] rounded-xl border border-zinc-800 font-mono text-[10px] text-green-400 overflow-x-auto leading-relaxed whitespace-pre-wrap break-words max-h-[600px] overflow-y-auto custom-scrollbar">
-                                                        {m.code}
-                                                    </pre>
-                                                    <button
-                                                        onClick={() => onCopy(m.code || '', `code-${m.id}`)}
-                                                        className="absolute top-2 right-2 p-1.5 bg-zinc-900 rounded-lg text-zinc-600 hover:text-white transition-colors"
-                                                    >
-                                                        {copiedId === `code-${m.id}` ? <Check size={12} /> : <Copy size={12} />}
-                                                    </button>
-                                                </div>
-                                                {m.result?.error && (
-                                                    <pre className="p-3 bg-red-950/10 rounded-xl border border-red-900/20 font-mono text-[10px] text-red-400 overflow-x-auto">
-                                                        {m.result.error}{m.result.traceback ? `\n\n${m.result.traceback}` : ''}
-                                                    </pre>
+                                        {m.code && (
+                                            <button onClick={() => onToggleCode(showCodeId === m.id ? null : m.id)}
+                                                className="flex items-center gap-1.5 text-[8px] font-extrabold text-zinc-600 hover:text-white uppercase tracking-widest transition-colors">
+                                                <Terminal size={10} />
+                                                {showCodeId === m.id ? 'Hide Code' : 'View Code'}
+                                            </button>
+                                        )}
+                                        {((m.result?.plotly_charts?.length || 0) + (m.result?.charts?.length || 0)) > 1 && (
+                                            <span className="ml-auto text-[8px] font-extrabold text-zinc-700 uppercase tracking-widest">
+                                                {(m.result?.plotly_charts?.length || 0) + (m.result?.charts?.length || 0)} charts below
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* ── CODE BLOCK (collapsible, outside main card) ── */}
+                                {m.code && showCodeId === m.id && (
+                                    <div className="w-full rounded-2xl overflow-hidden border border-zinc-800/60 animate-scale-in">
+                                        <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800/40 bg-zinc-950/60">
+                                            <span className="text-[8px] font-extrabold text-zinc-600 uppercase tracking-widest flex items-center gap-1.5">
+                                                <Code2 size={10} /> Python · Analysis Code
+                                            </span>
+                                            <button onClick={() => onCopy(m.code || '', `code-${m.id}`)}
+                                                className="p-1.5 glass rounded-lg text-zinc-600 hover:text-white transition-colors">
+                                                {copiedId === `code-${m.id}` ? <Check size={11} /> : <Copy size={11} />}
+                                            </button>
+                                        </div>
+                                        <pre className="p-4 bg-[#0a0a0a] font-mono text-[10px] text-green-400 overflow-x-auto leading-relaxed whitespace-pre-wrap break-words max-h-[560px] overflow-y-auto custom-scrollbar">
+                                            {m.code}
+                                        </pre>
+                                        {m.result?.error && (
+                                            <pre className="px-4 pb-4 bg-[#0a0a0a] font-mono text-[10px] text-red-400 overflow-x-auto">
+                                                {m.result.error}{m.result.traceback ? `\n\n${m.result.traceback}` : ''}
+                                            </pre>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* ── CHARTS SECTION — full-width, stacked vertically ── */}
+                                {((m.result?.plotly_charts && m.result.plotly_charts.length > 0) || (m.result?.charts && m.result.charts.length > 0) || m.visualization) && (
+                                    <div className="w-full space-y-3">
+                                        {m.result?.plotly_charts?.map((pChart, idx) => (
+                                            <div key={`${m.id}-plotly-${idx}`} className="w-full">
+                                                <PlotlyRenderer data={pChart} />
+                                            </div>
+                                        ))}
+                                        {m.result?.charts?.map((chart, idx) => (
+                                            <div key={`${m.id}-chart-${idx}`}
+                                                className="w-full rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-950/50 p-4">
+                                                <img src={`data:image/png;base64,${chart}`} alt={`Analysis Chart ${idx + 1}`} className="w-full h-auto rounded-xl" />
+                                            </div>
+                                        ))}
+                                        {!m.result?.charts && !m.result?.plotly_charts && m.visualization && (
+                                            <div className="w-full rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-950/50 p-4">
+                                                {typeof m.visualization === 'string' ? (
+                                                    <img src={m.visualization} alt="Visual Analysis" className="w-full h-auto rounded-xl" />
+                                                ) : (
+                                                    <ChartRenderer viz={m.visualization} onDrillDown={onSend} />
                                                 )}
                                             </div>
                                         )}
                                     </div>
                                 )}
 
-                                {/* Charts & Visualizations */}
-                                {((m.result?.charts && m.result.charts.length > 0) || (m.result?.plotly_charts && m.result.plotly_charts.length > 0) || m.visualization) && (
-                                    <div className="space-y-3 pt-2">
-                                        <div className="flex items-center justify-between px-1">
-                                            <p className="text-[8px] font-extrabold uppercase tracking-widest text-[#E50914] flex items-center gap-1.5">
-                                                <Sparkles size={10} /> Visualizations
-                                            </p>
-                                            {m.result?.charts && m.result.charts.length > 1 && (
-                                                <span className="text-[7px] font-extrabold text-zinc-600 uppercase tracking-widest">
-                                                    {m.result.charts.length} charts
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <div className="flex gap-4 overflow-x-auto pb-3 pt-1 snap-x custom-scrollbar">
-                                            {m.result?.plotly_charts?.map((pChart, idx) => (
-                                                <div key={`${m.id}-plotly-${idx}`} className="flex-none w-[90%] sm:w-[600px] lg:w-[700px] snap-center">
-                                                    <PlotlyRenderer data={pChart} />
-                                                </div>
-                                            ))}
-
-                                            {m.result?.charts?.map((chart, idx) => (
-                                                <div
-                                                    key={`${m.id}-chart-${idx}`}
-                                                    className="flex-none w-[280px] sm:w-[420px] rounded-xl overflow-hidden border border-zinc-800 shadow-2xl bg-zinc-950/50 p-4 snap-center hover:border-zinc-700 transition-all"
-                                                >
-                                                    <img src={`data:image/png;base64,${chart}`} alt={`Analysis Chart ${idx + 1}`} className="w-full h-auto rounded-lg" />
-                                                </div>
-                                            ))}
-
-                                            {!m.result?.charts && !m.result?.plotly_charts && m.visualization && (
-                                                <div className="flex-none w-[280px] sm:w-[420px] rounded-xl overflow-hidden border border-zinc-800 shadow-2xl bg-zinc-950/50 p-4 snap-center">
-                                                    {typeof m.visualization === 'string' ? (
-                                                        <img src={m.visualization} alt="Visual Analysis" className="w-full h-auto rounded-lg" />
-                                                    ) : (
-                                                        <ChartRenderer viz={m.visualization} onDrillDown={onSend} />
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Auto-Generated Chart for Tabular Data */}
-                                {m.role === 'assistant' && m.result?.updated_df_sample && Array.isArray(m.result.updated_df_sample) && m.result.updated_df_sample.length > 0 && !m.result?.plotly_charts?.length && !m.result?.charts?.length && (
-                                    <div className="pt-2">
+                                {/* Auto-chart for tabular data with no explicit charts */}
+                                {m.result?.updated_df_sample && Array.isArray(m.result.updated_df_sample) && m.result.updated_df_sample.length > 0 && !m.result?.plotly_charts?.length && !m.result?.charts?.length && (
+                                    <div className="w-full">
                                         <AutoChartSuggestion data={m.result.updated_df_sample} title="Data Insight" />
                                     </div>
                                 )}
-
-                                {/* Message Footer */}
-                                <div className="flex items-center gap-3 pt-3 border-t border-zinc-800/30">
-                                    <button
-                                        onClick={() => onCopy(m.content, m.id)}
-                                        className="flex items-center gap-1 text-[7px] font-extrabold text-zinc-600 hover:text-white uppercase tracking-widest transition-colors"
-                                    >
-                                        {copiedId === m.id ? <Check size={10} /> : <Copy size={10} />}
-                                        {copiedId === m.id ? 'Copied' : 'Copy'}
-                                    </button>
-                                    {m.persona && (
-                                        <span className="text-[7px] font-bold text-zinc-800 uppercase tracking-widest">
-                                            {m.persona}
-                                        </span>
-                                    )}
-                                    <span className="ml-auto text-[7px] font-bold text-zinc-800 uppercase tracking-widest">
-                                        {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 ))}
 

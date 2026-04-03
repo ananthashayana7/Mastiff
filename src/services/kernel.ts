@@ -8,6 +8,32 @@ class KernelService {
     private processes: Map<string, ChildProcess> = new Map();
     private dependencyCheckedCommands: Set<string> = new Set();
 
+    private normalizeExecutionResponse(res: any): any {
+        if (!res || typeof res !== 'object') return res;
+
+        const normalizeArray = (value: any): any[] => {
+            if (Array.isArray(value)) return value;
+            if (value === null || value === undefined || value === '') return [];
+
+            if (typeof value === 'string') {
+                try {
+                    const parsed = JSON.parse(value);
+                    return Array.isArray(parsed) ? parsed : [parsed];
+                } catch {
+                    return [value];
+                }
+            }
+
+            return [value];
+        };
+
+        return {
+            ...res,
+            charts: normalizeArray(res.charts),
+            plotly_charts: normalizeArray(res.plotly_charts),
+        };
+    }
+
     async execute(sessionId: string, code: string, files: { name: string; path: string }[]): Promise<any> {
         let retries = 0;
 
@@ -65,7 +91,7 @@ class KernelService {
                         clearTimeout(timeoutHandle);
                         process.stdout?.removeListener('data', onData);
                         process.removeListener('error', onError);
-                        resolve(res);
+                        resolve(this.normalizeExecutionResponse(res));
                         return;
                     } catch {
                         // Not yet a complete JSON — keep accumulating

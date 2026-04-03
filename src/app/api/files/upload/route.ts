@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { files as dbFiles } from '@/db/schema';
+import { files as dbFiles, sessions as dbSessions } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs/promises';
@@ -434,15 +435,33 @@ export async function POST(req: NextRequest) {
     try {
         const formData = await req.formData();
         const file = formData.get('file') as File;
-        const userId = formData.get('userId') as string;
+        const formUserId = formData.get('userId') as string;
         const sessionId = formData.get('sessionId') as string;
+        const headerUserId = req.headers.get('x-user-id') || '';
 
         if (!file) {
             return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
         }
 
-        if (!userId || !sessionId) {
-            return NextResponse.json({ error: 'Missing userId or sessionId' }, { status: 400 });
+        if (!sessionId) {
+            return NextResponse.json({ error: 'Missing sessionId' }, { status: 400 });
+        }
+
+        const session = await db.query.sessions.findFirst({
+            where: eq(dbSessions.id, sessionId),
+        });
+
+        if (!session) {
+            return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+        }
+
+        const effectiveUserId = formUserId || headerUserId || session.userId || '';
+        if (!effectiveUserId) {
+            return NextResponse.json({ error: 'Missing userId for upload session' }, { status: 400 });
+        }
+
+        if (session.userId && effectiveUserId !== session.userId) {
+            return NextResponse.json({ error: 'Upload user/session mismatch' }, { status: 403 });
         }
 
         const ext = path.extname(file.name).toLowerCase();
@@ -501,7 +520,7 @@ export async function POST(req: NextRequest) {
         }
 
         const [dbFile] = await db.insert(dbFiles).values({
-            userId,
+            userId: effectiveUserId,
             sessionId,
             filename: file.name,
             fileType: path.extname(file.name).substring(1),

@@ -328,16 +328,46 @@ def execute_request(request: dict) -> dict:
                 plt.close(fig)
 
         # Capture plotly charts
-        plotly_charts = namespace.get('plotly_json', [])
+        plotly_raw = namespace.get('plotly_json', [])
+        if isinstance(plotly_raw, list):
+            plotly_charts = list(plotly_raw)
+        elif plotly_raw is None:
+            plotly_charts = []
+        else:
+            plotly_charts = [plotly_raw]
         
-        # Also check if result is a Plotly figure
-        if HAS_PLOTLY and result is not None:
-            if hasattr(result, 'to_plotly_json'):
-                plotly_charts.append(json.loads(result.to_json()))
-                result_str = 'Interactive chart generated'
-            elif isinstance(result, go.Figure):
-                plotly_charts.append(json.loads(result.to_json()))
-                result_str = 'Interactive chart generated'
+        # Also check if result is a Plotly figure and auto-discover figures in namespace.
+        if HAS_PLOTLY:
+            discovered_plotly = []
+
+            def _append_plotly_chart(value):
+                try:
+                    if value is None:
+                        return
+                    if hasattr(value, 'to_plotly_json'):
+                        chart_json = value.to_plotly_json()
+                        discovered_plotly.append(json.loads(json.dumps(chart_json, cls=SafeJSONEncoder)))
+                    elif isinstance(value, dict) and 'data' in value and 'layout' in value:
+                        discovered_plotly.append(json.loads(json.dumps(value, cls=SafeJSONEncoder)))
+                except Exception:
+                    pass
+
+            _append_plotly_chart(result)
+
+            for key, value in namespace.items():
+                if key.startswith('__'):
+                    continue
+                _append_plotly_chart(value)
+
+            if discovered_plotly:
+                plotly_charts.extend(discovered_plotly)
+
+        # Ensure output is always a list for UI rendering.
+        if not isinstance(plotly_charts, list):
+            plotly_charts = [plotly_charts]
+
+        if len(plotly_charts) > 0:
+            result_str = 'Interactive chart generated'
 
         # Get updated df sample
         updated_df_sample = None

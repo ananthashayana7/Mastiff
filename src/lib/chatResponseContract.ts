@@ -2,7 +2,8 @@ export type ContractViolation =
   | 'intro_text_present'
   | 'missing_required_bullets'
   | 'word_limit_exceeded'
-  | 'missing_code_for_numeric_intent';
+  | 'missing_code_for_numeric_intent'
+  | 'contains_technical_artifacts';
 
 export interface ContractValidationResult {
   valid: boolean;
@@ -20,6 +21,21 @@ export function countBulletLines(text: string): number {
 export function hasIntroductoryPrefix(text: string): boolean {
   const firstLine = text.split(/\r?\n/)[0]?.trim().toLowerCase() || '';
   return /^(hi|hello|hey|thanks|thank you|sure|absolutely|of course|here'?s)/i.test(firstLine);
+}
+
+export function containsTechnicalArtifacts(text: string): boolean {
+  const content = (text || '').trim();
+  if (!content) return false;
+
+  if (/```[\s\S]*?```/.test(content)) return true;
+
+  const technicalLineCount = content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /^(import\s+|from\s+\w+\s+import|def\s+|class\s+|fig\s*=|df\s*=|go\.|px\.|plt\.|sns\.|print\(|return\s+\{|\{\s*"|\[\s*"|```)/i.test(line))
+    .length;
+
+  return technicalLineCount >= 3;
 }
 
 export function validateSummaryContract(
@@ -54,6 +70,10 @@ export function validateSummaryContract(
     violations.push('missing_code_for_numeric_intent');
   }
 
+  if (containsTechnicalArtifacts(content)) {
+    violations.push('contains_technical_artifacts');
+  }
+
   return {
     valid: violations.length === 0,
     violations,
@@ -62,20 +82,20 @@ export function validateSummaryContract(
 
 export function buildContractFallbackSummary(inputPrompt: string, hasCharts: boolean, hasAnalysisCode: boolean): string {
   const chartStatus = hasCharts
-    ? 'Visualization generated and attached for direct inspection.'
-    : 'Visualization could not be generated in this pass; re-run requested for chart completion.';
+    ? 'Interactive visuals are available below for drill-down.'
+    : 'Visual output is unavailable in this pass and should be retried immediately.';
 
-  const codeStatus = hasAnalysisCode
-    ? 'Executable analysis code has been produced and stored with this response.'
-    : 'Executable analysis code could not be produced in this pass; regeneration is required.';
+  const reliabilityStatus = hasAnalysisCode
+    ? 'Numerical conclusions are backed by executable analysis.'
+    : 'Numerical confidence is limited until analysis regeneration succeeds.';
 
   if (/exactly\s*3/i.test((inputPrompt || '').toLowerCase())) {
     return [
       `1) Key insight: ${chartStatus}`,
-      `2) Reliability: ${codeStatus}`,
-      '3) Recommended action: Re-run analysis with narrowed scope or cleaner source subset for deterministic output quality.',
+      `2) Reliability: ${reliabilityStatus}`,
+      '3) Recommended action: Prioritize top cost/profit drivers and run immediate corrective actions with owner + deadline.',
     ].join('\n');
   }
 
-  return `Contract fallback summary:\n- ${chartStatus}\n- ${codeStatus}`;
+  return `Executive fallback summary:\n- ${chartStatus}\n- ${reliabilityStatus}`;
 }

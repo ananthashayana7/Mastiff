@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildContractFallbackSummary,
+  containsTechnicalArtifacts,
   validateSummaryContract,
 } from '../src/lib/chatResponseContract';
 
@@ -52,5 +53,28 @@ describe('chat response contract helpers', () => {
     expect(fallback).toContain('1) Key insight');
     expect(fallback).toContain('2) Reliability');
     expect(fallback).toContain('3) Recommended action');
+  });
+
+  it('flags python/code-heavy summaries as technical artifacts', () => {
+    const response = [
+      '### Summary',
+      '```python',
+      'import pandas as pd',
+      'df = pd.DataFrame(data)',
+      'fig = go.Figure()',
+      '```',
+    ].join('\n');
+
+    expect(containsTechnicalArtifacts(response)).toBe(true);
+
+    const validation = validateSummaryContract(
+      'Provide management summary with charts.',
+      response,
+      true,
+      true
+    );
+
+    expect(validation.valid).toBe(false);
+    expect(validation.violations).toContain('contains_technical_artifacts');
   });
 });
