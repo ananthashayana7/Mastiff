@@ -722,7 +722,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     type="file"
                     className="hidden"
                     multiple
-                    accept=".csv,.xlsx,.xls,.json,.pdf,.docx,.doc,.txt"
+                    accept=".csv,.xlsx,.xls,.json,.pdf,.docx,.doc,.txt,.tsv,.parquet"
                     onChange={onFileUpload}
                 />
 

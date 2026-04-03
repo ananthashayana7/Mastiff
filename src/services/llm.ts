@@ -434,15 +434,20 @@ ASSEMBLY LINE DATA DETECTION:
 - If the data contains columns related to assembly lines, production, shifts, operators, defects, cycle times, throughput, QA, or manufacturing:
   - This is ASSEMBLY LINE DATA. Apply the special template below.
   - Generate a COMPREHENSIVE DASHBOARD with multiple charts using plotly subplots (make_subplots):
-    1. TOP-LEFT: Overall production summary (KPIs + trend chart)
-    2. BELOW TOP-LEFT: Shift-wise performance comparison (Shift 1 vs Shift 2) as grouped bar chart
-    3. BELOW SHIFTS: Operator-wise and QA/Engineer performance charts
-    4. CENTER: Forecast data — trends, anomalies, patterns with projections (THIS IS THE HERO SECTION)
-    5. BELOW CENTER: Two columns — (a) Top 5 Concerns (management-critical), (b) Recommended Actions for each
-    6. REMAINING SPACE: Interactive drill-down charts for deeper insights
+    1. TOP-LEFT: Overall production summary — KPIs (total output, defect rate, efficiency %) displayed as indicator or summary table + a trend chart.
+    2. BELOW TOP-LEFT: Shift-wise performance comparison (Shift 1 vs Shift 2) as grouped bar charts showing output, defects, and efficiency per shift.
+    3. BELOW SHIFTS: Operator-wise performance — bar/radar chart showing each operator's metrics (output, quality, efficiency). Also show QA/Engineer/Checker performance if available.
+    4. CENTER (HERO SECTION): Forecast data — trends, anomalies, patterns observed with forward projections. Use line charts with dashed forecast lines and confidence bands. This is the MOST IMPORTANT section.
+    5. BELOW CENTER (TWO COLUMNS):
+       - Column 1: Top 5 Concerns — management-critical issues ranked by impact (use go.Table or formatted annotations).
+       - Column 2: Recommended Actions — specific action for each concern (use go.Table or formatted annotations).
+    6. REMAINING SPACE: Interactive drill-down charts — cycle time distribution, defect Pareto, hourly production rate, or any other relevant deep-dive.
   - Use plotly subplots with make_subplots to create a multi-panel dashboard layout.
+  - Use specs=[{"type":"xy"},{"type":"xy"},...] appropriately. Use {"type":"domain"} for pie charts and {"type":"table"} for table traces.
   - Make it visually compelling with distinct colors per section.
-  - The template must be management-ready: focus on gaps, anomalies, and actionable insights.
+  - The template must be management-ready: focus on gaps, anomalies, actionable insights, and what a human would miss.
+  - Add updatemenus (dropdown filters) for shift selection, date range, or operator filtering where data supports it.
+  - ALWAYS include a download hint: set result text to include "📥 Export this dashboard via the download button above."
 
 INLINE / PASTED DATA HANDLING:
 - If the user's message contains tabular data (markdown tables, pipe-delimited rows, or dense numbers),
@@ -520,6 +525,11 @@ DIAGNOSTIC ANALYSIS RULES:
 - If time-series data is available, compare current period to same period last year (YoY) when possible.
 - Rank insights by impact: focus on the finding that affects the largest share of revenue or cost first.
 - IDENTIFY GAPS: If a gap or anomaly exists, don't just report it — hypothesize WHY it exists. Question the data like a skeptic.
+- GAP ANALYSIS: Look for missing data points, unexpected zeroes, sudden jumps, or flat lines. For each gap:
+  1. State what the gap is (e.g., "Revenue dropped 40% in May")
+  2. Hypothesize WHY (e.g., "Possible seasonal effect, supply chain disruption, or pricing change")
+  3. Recommend what data would confirm the hypothesis
+- BETWEEN-THE-LINES READING: Look for what the data is NOT showing — missing categories, unexplained ratios, or patterns that break.
 
 RESPONSE FORMAT (JSON ONLY):
 {

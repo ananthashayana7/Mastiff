@@ -41,13 +41,20 @@ export async function POST(req: NextRequest) {
           - Return ONLY a JSON array of strings.
           - Max 15 words per suggestion.
           - Make them SPECIFIC to the actual columns and data types present.
-          - Include at least ONE forecast/prediction question.
-          - Include at least ONE chart/visualization question.
-          - Include at least ONE anomaly/outlier detection question.
-          - Focus on management-level questions that drive decisions.
-          - If assembly line, production, or manufacturing data is detected, include shift-wise and operator-wise questions.
+          - Include at least ONE forecast/prediction question (e.g., "Forecast next quarter revenue with confidence bands").
+          - Include at least ONE chart/visualization question (e.g., "Create an interactive dashboard of key metrics").
+          - Include at least ONE anomaly/outlier detection question (e.g., "What anomalies exist and why?").
+          - Include at least ONE gap detection question (e.g., "What gaps or missing patterns exist in this data?").
+          - Focus on management-level questions that drive DECISIONS and ACTIONS.
+          - If assembly line, production, shift, operator, defect, cycle time, throughput, or manufacturing data is detected:
+            - Include shift-wise and operator-wise performance questions.
+            - Include a question about production bottlenecks or quality issues.
+          - If financial data (revenue, cost, profit, margin) is detected:
+            - Include a question about profitability trends and margin compression.
+            - Include a question about cost drivers and optimization.
           
-          Example: ["Forecast next month revenue trend with confidence bands", "Show top 5 underperforming segments and why", "What anomalies exist in the last quarter data?"]
+          AVOID generic questions. Be SPECIFIC to the data columns provided.
+          Example: ["Forecast next month revenue trend with confidence bands", "Show top 5 underperforming segments and why", "What anomalies exist in the last quarter data?", "Which operator has the highest defect rate and why?", "Create a shift-wise performance dashboard", "What data gaps could hide issues?"]
         `;
 
         let lastError: any = null;
