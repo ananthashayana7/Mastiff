@@ -37,15 +37,19 @@ export async function createIndexes(): Promise<void> {
     try {
         console.log('🔍 Creating database indexes...');
 
-        // Get raw connection for raw SQL
-        // await db.execute(sql`
-        //     CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
-        //     CREATE INDEX IF NOT EXISTS idx_files_session_id ON files(session_id);
-        //     CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id);
-        //     CREATE INDEX IF NOT EXISTS idx_credentials_user_id ON credentials(user_id);
-        //     CREATE INDEX IF NOT EXISTS idx_sessions_created_at ON sessions(created_at DESC);
-        //     CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC);
-        // `);
+        // Execute independently to isolate failures if specific tables are absent in some environments.
+        await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);`);
+        await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_files_session_id ON files(session_id);`);
+        await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id);`);
+        await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sessions_created_at ON sessions(created_at DESC);`);
+        await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC);`);
+
+        // Optional index; may not exist in all schemas.
+        try {
+            await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_credentials_user_id ON credentials(user_id);`);
+        } catch (credentialIndexError) {
+            console.warn('Skipping credentials index creation:', credentialIndexError);
+        }
 
         console.log('✅ Indexes created or already exist');
     } catch (err) {

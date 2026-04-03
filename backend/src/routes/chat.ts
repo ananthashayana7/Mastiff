@@ -14,6 +14,15 @@ if (process.env.NODE_ENV !== 'production') {
 // Send message and get analysis
 router.post('/message', async (req, res) => {
     const { sessionId, content } = req.body;
+    const userId = String(req.headers['x-user-id'] || '');
+
+    if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!sessionId || !content) {
+        return res.status(400).json({ error: 'Missing sessionId or content' });
+    }
 
     try {
         // 1. Get session and file context
@@ -23,6 +32,7 @@ router.post('/message', async (req, res) => {
         });
 
         if (!session) return res.status(404).json({ error: "Session not found" });
+        if (session.userId !== userId) return res.status(403).json({ error: 'Forbidden' });
 
         const activeFile = session.files[0]; // Simplification for MVP
         if (!activeFile) return res.status(400).json({ error: "No file uploaded for this session" });
@@ -51,7 +61,8 @@ router.post('/message', async (req, res) => {
 
         res.json(assistantMsg);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        console.error('Backend chat route error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
