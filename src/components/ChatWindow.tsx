@@ -406,9 +406,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                                 {/* ── CHARTS SECTION — full-width, stacked vertically ── */}
                                 {((m.result?.plotly_charts && m.result.plotly_charts.length > 0) || (m.result?.charts && m.result.charts.length > 0) || m.visualization) && (
-                                    <div className="w-full space-y-3">
+                                    <div className="w-full space-y-3 relative isolate pb-1">
                                         {m.result?.plotly_charts?.map((pChart, idx) => (
-                                            <div key={`${m.id}-plotly-${idx}`} className="w-full">
+                                            <div key={`${m.id}-plotly-${idx}`} className="w-full overflow-visible">
                                                 <PlotlyRenderer data={pChart} />
                                             </div>
                                         ))}

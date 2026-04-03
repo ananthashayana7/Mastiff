@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { messages, sessions } from '@/db/schema';
 import { connectors } from '@/db/connectorSchema';
 import { eq, asc, and, inArray } from 'drizzle-orm';
-import { llm } from '@/services/llm';
+import { buildDeterministicAnalysisFallbackCode, llm } from '@/services/llm';
 import { kernelService } from '@/services/kernel';
 import { generateDataIntelligenceReport, formatWarningsForPrompt, analyseFile, formatForPrompt, DataIntelligenceReport } from '@/services/dataIntelligenceService';
 import { AnalysisMode } from '@/src/types';
@@ -35,6 +35,10 @@ function isColumnShapeError(errorText: string): boolean {
     return /columns passed, passed data had|valueerror:\s*\d+\s*columns passed|assertionerror:\s*\d+\s*columns passed/i.test(errorText || '');
 }
 
+function isTabularParseError(errorText: string): boolean {
+    return /columns passed, passed data had|parsererror|error tokenizing data|expected\s+\d+\s+fields|saw\s+\d+|too many columns specified|shape of passed values/i.test(errorText || '');
+}
+
 function buildInlineFinancialFallbackCode(rawContent: string): string {
     const b64 = Buffer.from(rawContent || '', 'utf8').toString('base64');
 
@@ -62,6 +66,14 @@ def parse_value(token):
         m = re.search(r'-?\d+(?:\.\d+)?', t)
         return float(m.group(0)) if m else 0.0
 
+def split_row(ln):
+    # Prefer tabs when present; otherwise split on 2+ spaces for copied document tables.
+    if '\t' in ln:
+        parts = [p.strip() for p in ln.split('\t')]
+    else:
+        parts = [p.strip() for p in re.split(r'\s{2,}', ln)]
+    return [p for p in parts if p != '']
+
 records = []
 for ln in lines:
     if 'PreBo Statement of Profit and loss' in ln:
@@ -69,7 +81,7 @@ for ln in lines:
     if 'Particulars' in ln and "Jan'25" in ln:
         continue
 
-    parts = [p.strip() for p in ln.split('\t')]
+    parts = split_row(ln)
     if not parts:
         continue
 
@@ -87,9 +99,14 @@ for ln in lines:
             candidates.append(s)
 
     if len(candidates) < 12:
-        # Ignore malformed section labels/rows that don't have monthly+YTD payload.
+        # Try fallback extraction from full line for space-collapsed pasted tables.
+        candidates = re.findall(r'-?\d[\d,]*(?:\.\d+)?|\bN/?A\b|\-|—|null', ln, flags=re.IGNORECASE)
+
+    if len(candidates) < 12:
+        # Ignore section labels or malformed rows that don't have monthly+YTD payload.
         continue
 
+    # Keep exactly the first and last 6 numeric-like values to avoid ragged-row shape issues.
     monthly_vals = [parse_value(x) for x in candidates[:6]]
     ytd_vals = [parse_value(x) for x in candidates[-6:]]
     records.append((label, monthly_vals, ytd_vals))
@@ -208,6 +225,13 @@ function shouldEnforceVisualization(content: string, hasFiles: boolean): boolean
     if (!hasFiles) return false;
     if (isTheoryOnlyQuery(content, hasFiles)) return false;
     return NUMERIC_INTENT_PATTERNS.test(content) || VISUALIZATION_PATTERNS.test(content) || ANALYSIS_PATTERNS.test(content);
+}
+
+function countVisualizationArtifacts(executionResult: {
+    charts?: unknown[];
+    plotly_charts?: unknown[];
+} | null | undefined): number {
+    return (executionResult?.charts?.length || 0) + (executionResult?.plotly_charts?.length || 0);
 }
 
 function sanitizeExecutiveSummary(summary: string): string {
@@ -370,9 +394,11 @@ export async function POST(req: NextRequest) {
                 .slice(0, 200)
             : [];
 
-        const sessionFiles = hasActiveFileSelection
+        const explicitSelectedFiles = normalizedActiveFileIds.length > 0
             ? session.files.filter((file) => normalizedActiveFileIds.includes(file.id))
-            : session.files;
+            : [];
+
+        const sessionFiles = explicitSelectedFiles.length > 0 ? explicitSelectedFiles : session.files;
         const hasFiles = sessionFiles.length > 0;
         // Treat messages with pasted tabular/financial data as having effective data even without uploaded files
         const hasPastedData = !hasFiles && containsInlineTabularData(content);
@@ -394,6 +420,7 @@ export async function POST(req: NextRequest) {
                 : pastedDataContext;
 
             const executorFiles = sessionFiles.map((f) => ({
+                id: f.id,
                 name: f.filename,
                 path: f.filePath,
             }));
@@ -525,8 +552,8 @@ export async function POST(req: NextRequest) {
                 }
             }
 
-            // Deterministic fallback for pasted tabular financial data when parser-shape errors persist.
-            if (executionResult?.error && hasPastedData && isColumnShapeError(String(executionResult.error || ''))) {
+            // Deterministic fallback for pasted tabular/financial data when parser-shape issues persist.
+            if (executionResult?.error && hasPastedData && isTabularParseError(String(executionResult.error || ''))) {
                 try {
                     const fallbackCode = buildInlineFinancialFallbackCode(content);
                     const fallbackExecution = await kernelService.execute(sessionId, fallbackCode, executorFiles);
@@ -543,14 +570,13 @@ export async function POST(req: NextRequest) {
                 }
             }
 
-            const currentChartCount = (executionResult.charts?.length || 0) + (executionResult.plotly_charts?.length || 0);
-            const needsVisualizationRecovery = shouldEnforceVisualization(content, effectiveHasFiles)
-                && !executionResult.error
-                && currentChartCount === 0;
+            const visualizationRequired = shouldEnforceVisualization(content, effectiveHasFiles);
+            const currentChartCount = countVisualizationArtifacts(executionResult);
+            const needsVisualizationRecovery = visualizationRequired && currentChartCount === 0;
 
             if (needsVisualizationRecovery) {
                 try {
-                    const visualizationRecoveryPrompt = `${content}\n\nCRITICAL RECOVERY DIRECTIVE: The previous attempt produced no charts. Re-run analysis and MANDATORILY return at least one interactive Plotly chart from the uploaded data. The Python code must set result to a Plotly figure.`;
+                    const visualizationRecoveryPrompt = `${content}\n\nCRITICAL RECOVERY DIRECTIVE: The previous attempt ${executionResult.error ? 'failed or ' : ''}produced no charts. Re-run analysis and MANDATORILY return at least one interactive Plotly chart from the uploaded data. The Python code must set result to a Plotly figure.`;
 
                     const visualizationAnalysis = await llm.getAnalysisCode(
                         visualizationRecoveryPrompt,
@@ -565,7 +591,7 @@ export async function POST(req: NextRequest) {
 
                     if (visualizationAnalysis?.code?.trim()) {
                         const visualizationExecution = await kernelService.execute(sessionId, visualizationAnalysis.code, executorFiles);
-                        const recoveredChartCount = (visualizationExecution?.charts?.length || 0) + (visualizationExecution?.plotly_charts?.length || 0);
+                        const recoveredChartCount = countVisualizationArtifacts(visualizationExecution);
 
                         if (!visualizationExecution?.error && recoveredChartCount > 0) {
                             analysis = {
@@ -591,6 +617,27 @@ export async function POST(req: NextRequest) {
                 } catch (vizRecoveryError) {
                     console.warn('Visualization recovery pass failed:', vizRecoveryError);
                 }
+
+                if (countVisualizationArtifacts(executionResult) === 0) {
+                    try {
+                        const deterministicVisualizationCode = hasPastedData
+                            ? buildInlineFinancialFallbackCode(content)
+                            : buildDeterministicAnalysisFallbackCode(true);
+                        const deterministicVisualizationExecution = await kernelService.execute(sessionId, deterministicVisualizationCode, executorFiles);
+                        const deterministicChartCount = countVisualizationArtifacts(deterministicVisualizationExecution);
+
+                        if (!deterministicVisualizationExecution?.error && deterministicChartCount > 0) {
+                            analysis = {
+                                ...analysis,
+                                explanation: `${analysis.explanation || 'Analysis completed.'}\n\nDeterministic visualization fallback executed to guarantee chart output.`,
+                                code: deterministicVisualizationCode,
+                            };
+                            executionResult = deterministicVisualizationExecution;
+                        }
+                    } catch (deterministicVizError) {
+                        console.warn('Deterministic visualization fallback failed:', deterministicVizError);
+                    }
+                }
             }
 
             const groundedSummary = await llm.summarizeExecution(
@@ -609,7 +656,7 @@ export async function POST(req: NextRequest) {
                 dataIntelligenceContext
             );
 
-            const numericIntent = shouldEnforceVisualization(content, effectiveHasFiles);
+            const numericIntent = visualizationRequired;
             const initialContractValidation = validateSummaryContract(
                 content,
                 groundedSummary,

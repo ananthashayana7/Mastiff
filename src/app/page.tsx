@@ -77,6 +77,7 @@ const App: React.FC = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sessionCreationPromiseRef = useRef<Promise<string | null> | null>(null);
 
   const buildAuthHeaders = useCallback((userId: string, includeContentType = false): Record<string, string> => {
     const token = localStorage.getItem('mastiff_token');
@@ -86,6 +87,59 @@ const App: React.FC = () => {
       ...(includeContentType ? { 'Content-Type': 'application/json' } : {}),
     };
   }, []);
+
+  const normalizeSession = useCallback((session: any): Session => ({
+    ...session,
+    createdAt: new Date(session.createdAt).getTime(),
+    updatedAt: new Date(session.updatedAt).getTime(),
+  }), []);
+
+  const createSessionRecord = useCallback(async (title = 'New Chat') => {
+    if (!currentUser) {
+      throw new Error('No authenticated user');
+    }
+
+    const res = await fetch('/api/sessions', {
+      method: 'POST',
+      headers: buildAuthHeaders(currentUser.id, true),
+      body: JSON.stringify({ title })
+    });
+
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || !payload?.id) {
+      throw new Error(payload?.error || payload?.message || 'Failed to create session');
+    }
+
+    return normalizeSession(payload);
+  }, [buildAuthHeaders, currentUser, normalizeSession]);
+
+  const ensureActiveSession = useCallback(async () => {
+    if (sessionId) {
+      return sessionId;
+    }
+
+    if (!currentUser) {
+      return null;
+    }
+
+    if (sessionCreationPromiseRef.current) {
+      return await sessionCreationPromiseRef.current;
+    }
+
+    sessionCreationPromiseRef.current = (async () => {
+      try {
+        const session = await createSessionRecord('New Chat');
+        localStorage.setItem('mastiff_session_id', session.id);
+        setSessionId(session.id);
+        setSessions(prev => prev.some(existing => existing.id === session.id) ? prev : [session, ...prev]);
+        return session.id;
+      } finally {
+        sessionCreationPromiseRef.current = null;
+      }
+    })();
+
+    return await sessionCreationPromiseRef.current;
+  }, [createSessionRecord, currentUser, sessionId]);
 
   const loadConnectors = useCallback(async (userId: string) => {
     setIsLoadingConnectors(true);
@@ -204,15 +258,18 @@ const App: React.FC = () => {
   }, [buildAuthHeaders, currentUser]);
 
   const runSilentAnalysis = useCallback(async (prompt: string, options?: SilentAnalysisOptions) => {
-    if (!sessionId) return;
+    if (!currentUser) return;
+
+    const activeSessionId = await ensureActiveSession();
+    if (!activeSessionId) return;
 
     setIsAnalyzing(true);
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAuthHeaders(currentUser.id, true),
         body: JSON.stringify({
-          sessionId,
+          sessionId: activeSessionId,
           content: prompt,
           mode: analysisMode,
           silent: true,
@@ -242,17 +299,18 @@ const App: React.FC = () => {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [activeFileIds, activePersona.instruction, analysisMode, linkedConnectorIds, sessionId]);
+  }, [activeFileIds, activePersona.instruction, analysisMode, buildAuthHeaders, currentUser, ensureActiveSession, linkedConnectorIds]);
 
   const importConnectorSources = useCallback(async (connectorId: string, sources: any[]) => {
     if (!currentUser) throw new Error('No authenticated user');
-    if (!sessionId) throw new Error('No active session');
+    const activeSessionId = await ensureActiveSession();
+    if (!activeSessionId) throw new Error('No active session');
 
     const response = await fetch(`/api/connectors/${connectorId}/import`, {
       method: 'POST',
       headers: buildAuthHeaders(currentUser.id, true),
       body: JSON.stringify({
-        sessionId,
+        sessionId: activeSessionId,
         sources,
       }),
     });
@@ -306,7 +364,7 @@ const App: React.FC = () => {
       files: importedFiles,
       skipped: data?.skipped || [],
     };
-  }, [buildAuthHeaders, currentUser, runSilentAnalysis, sessionId]);
+  }, [buildAuthHeaders, currentUser, ensureActiveSession, runSilentAnalysis]);
 
   const toggleLinkedConnector = useCallback((connectorId: string) => {
     setLinkedConnectorIds((prev) => {
@@ -351,52 +409,54 @@ const App: React.FC = () => {
 
     console.log("Mastiff AI v4.0 — Initializing...");
     const initSession = async () => {
-      const sres = await fetch(`/api/sessions?userId=${currentUser.id}`);
-      const allSessions = await sres.json();
-      if (Array.isArray(allSessions)) {
-        setSessions(allSessions.map((s: any) => ({
-          ...s,
-          createdAt: new Date(s.createdAt).getTime(),
-          updatedAt: new Date(s.updatedAt).getTime()
-        })));
-      } else {
+      let availableSessions: Session[] = [];
+
+      try {
+        const sres = await fetch('/api/sessions', {
+          headers: buildAuthHeaders(currentUser.id),
+        });
+        const allSessions = await sres.json().catch(() => []);
+        availableSessions = Array.isArray(allSessions) ? allSessions.map(normalizeSession) : [];
+        setSessions(availableSessions);
+      } catch (err) {
+        console.error('Session fetch error:', err);
         setSessions([]);
       }
 
       let sId = localStorage.getItem('mastiff_session_id');
       if (sId === 'null' || sId === 'undefined') sId = null;
 
+      if (sId && !availableSessions.some((session) => session.id === sId)) {
+        sId = availableSessions[0]?.id || null;
+      }
+
       if (!sId) {
         try {
-          const res = await fetch('/api/sessions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: currentUser.id })
-          });
-          if (res.ok) {
-            const sess = await res.json();
-            sId = sess.id;
-            if (sId) {
-              localStorage.setItem('mastiff_session_id', sId);
-              setSessions(prev => [sess, ...prev]);
-            }
-          }
+          const session = await createSessionRecord('New Chat');
+          sId = session.id;
+          setSessions(prev => prev.some(existing => existing.id === session.id) ? prev : [session, ...prev]);
         } catch (err) {
           console.error("Session creation error:", err);
         }
       }
 
+      if (sId) {
+        localStorage.setItem('mastiff_session_id', sId);
+      } else {
+        localStorage.removeItem('mastiff_session_id');
+      }
+
       setSessionId(sId);
 
-      if (sId && Array.isArray(allSessions)) {
-        const session = allSessions.find((s: any) => s.id === sId);
+      if (sId) {
+        const session = availableSessions.find((s) => s.id === sId);
         if (session) loadSessionData(session);
       }
 
       await loadConnectors(currentUser.id);
     };
     initSession();
-  }, [currentUser, loadConnectors]);
+  }, [buildAuthHeaders, createSessionRecord, currentUser, loadConnectors, normalizeSession]);
 
   const loadSessionData = (session: any) => {
     setLinkedConnectorIds([]);
@@ -440,9 +500,13 @@ const App: React.FC = () => {
     if (session) {
       loadSessionData(session);
     } else if (currentUser) {
-      const res = await fetch(`/api/sessions?userId=${currentUser.id}`);
+      const res = await fetch('/api/sessions', {
+        headers: buildAuthHeaders(currentUser.id),
+      });
       const all = await res.json();
-      const found = all.find((s: any) => s.id === id);
+      const found = Array.isArray(all)
+        ? all.map(normalizeSession).find((s: Session) => s.id === id)
+        : null;
       if (found) loadSessionData(found);
     }
     setIsSidebarOpen(false);
@@ -453,7 +517,11 @@ const App: React.FC = () => {
     if (!confirm("Delete this analysis session?")) return;
 
     try {
-      const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+      if (!currentUser) return;
+      const res = await fetch(`/api/sessions/${id}`, {
+        method: 'DELETE',
+        headers: buildAuthHeaders(currentUser.id),
+      });
       if (res.ok) {
         setSessions(prev => prev.filter(s => s.id !== id));
         if (sessionId === id) createNewSession();
@@ -495,16 +563,25 @@ const App: React.FC = () => {
   // ===== FILE UPLOAD =====
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
-    if (!fileList || !sessionId) {
-      if (!sessionId) alert("No active session. Please wait or refresh.");
+    if (!fileList) {
       return;
     }
-    await uploadFiles(Array.from(fileList));
+
+    const activeSessionId = await ensureActiveSession();
+    if (!activeSessionId) {
+      alert("No active session. Please refresh and try again.");
+      return;
+    }
+
+    await uploadFiles(Array.from(fileList), activeSessionId);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const uploadFiles = async (fileList: File[]) => {
-    if (!sessionId || !currentUser) return;
+  const uploadFiles = async (fileList: File[], targetSessionId?: string) => {
+    if (!currentUser) return;
+    const activeSessionId = targetSessionId || await ensureActiveSession();
+    if (!activeSessionId) return;
+
     setIsUploading(true);
     const uploadedFileNames: string[] = [];
     try {
@@ -512,7 +589,7 @@ const App: React.FC = () => {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('userId', currentUser.id);
-        formData.append('sessionId', sessionId);
+        formData.append('sessionId', activeSessionId);
 
         const res = await fetch('/api/files/upload', {
           method: 'POST',
@@ -583,14 +660,19 @@ const App: React.FC = () => {
 
     const droppedFiles = Array.from(e.dataTransfer.files);
     if (droppedFiles.length > 0) {
-      uploadFiles(droppedFiles);
+      void uploadFiles(droppedFiles);
     }
-  }, [sessionId, currentUser?.id]);
+  }, [uploadFiles]);
 
   // ===== SEND MESSAGE (with analysis mode) =====
   const handleSend = async (overridePrompt?: string) => {
+    if (!currentUser) return;
+
     const promptToUse = overridePrompt || inputText;
-    if (!promptToUse.trim() || !sessionId) return;
+    if (!promptToUse.trim()) return;
+
+    const activeSessionId = await ensureActiveSession();
+    if (!activeSessionId) return;
 
     const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', content: promptToUse, timestamp: Date.now() };
     setMessages(prev => [...prev, userMsg]);
@@ -600,9 +682,9 @@ const App: React.FC = () => {
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAuthHeaders(currentUser.id, true),
         body: JSON.stringify({
-          sessionId,
+          sessionId: activeSessionId,
           content: promptToUse,
           mode: analysisMode,  // ← NOW SENT TO BACKEND
           activeFileIds,
@@ -631,7 +713,7 @@ const App: React.FC = () => {
 
       // Update session title if first message
       if (messages.length === 0) {
-        setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title: promptToUse.slice(0, 50) } : s));
+        setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, title: promptToUse.slice(0, 50) } : s));
       }
     } catch (err: any) {
       setMessages(prev => [...prev, {
@@ -648,18 +730,11 @@ const App: React.FC = () => {
   const createNewSession = async () => {
     if (!currentUser) return;
     try {
-      const res = await fetch('/api/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser.id, title: "New Chat" })
-      });
-      if (!res.ok) throw new Error("Failed to create session");
-
-      const sess = await res.json();
+      const sess = await createSessionRecord('New Chat');
       if (sess.id) {
         localStorage.setItem('mastiff_session_id', sess.id);
         setSessionId(sess.id);
-        setSessions(prev => [sess, ...prev]);
+        setSessions(prev => [sess, ...prev.filter(existing => existing.id !== sess.id)]);
         setMessages([]);
         setFiles([]);
         setActiveFileIds([]);

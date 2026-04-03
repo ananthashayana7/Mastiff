@@ -8,6 +8,7 @@ const llmGetAnalysisCodeMock = vi.fn();
 const llmSummarizeExecutionMock = vi.fn();
 const llmRepairAnalysisCodeMock = vi.fn();
 const kernelExecuteMock = vi.fn();
+const authenticateRequestMock = vi.fn();
 
 vi.mock('@/db', () => ({
   db: {
@@ -41,6 +42,7 @@ vi.mock('@/db/connectorSchema', () => ({
 }));
 
 vi.mock('@/services/llm', () => ({
+  buildDeterministicAnalysisFallbackCode: vi.fn(() => 'result = "fallback"'),
   llm: {
     getAnalysisCode: llmGetAnalysisCodeMock,
     summarizeExecution: llmSummarizeExecutionMock,
@@ -53,6 +55,10 @@ vi.mock('@/services/kernel', () => ({
   kernelService: {
     execute: kernelExecuteMock,
   },
+}));
+
+vi.mock('@/lib/auth', () => ({
+  authenticateRequest: authenticateRequestMock,
 }));
 
 vi.mock(
@@ -102,6 +108,8 @@ describe('chat route activeFileIds filtering', () => {
       code: 'result = 42',
     });
 
+    authenticateRequestMock.mockResolvedValue({ id: 'user-1' });
+
     kernelExecuteMock.mockResolvedValue({
       result: '42',
       charts: [],
@@ -148,9 +156,61 @@ describe('chat route activeFileIds filtering', () => {
 
     expect(kernelExecuteMock.mock.calls.length).toBeGreaterThanOrEqual(1);
     for (const call of kernelExecuteMock.mock.calls) {
-      const executorFiles = call[2] as Array<{ name: string }>;
+      const executorFiles = call[2] as Array<{ id?: string; name: string }>;
       expect(executorFiles).toHaveLength(1);
       expect(executorFiles[0].name).toBe('b.csv');
+      expect(executorFiles[0].id).toBe('file-b');
+    }
+  });
+
+  it('falls back to all session files when activeFileIds is an empty array', async () => {
+    const { POST } = await import('../src/app/api/chat/route');
+
+    const request = new Request('http://localhost/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'session-1',
+        content: 'analyze trends',
+        mode: 'analysis',
+        activeFileIds: [],
+      }),
+    });
+
+    const response = await POST(request as any);
+    expect(response.status).toBe(200);
+
+    expect(llmGetAnalysisCodeMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+    for (const call of llmGetAnalysisCodeMock.mock.calls) {
+      const fileContexts = call[1] as Array<{ name: string }>;
+      expect(fileContexts).toHaveLength(2);
+      expect(fileContexts.map((f) => f.name).sort()).toEqual(['a.csv', 'b.csv']);
+    }
+  });
+
+  it('falls back to all session files when activeFileIds has only invalid ids', async () => {
+    const { POST } = await import('../src/app/api/chat/route');
+
+    const request = new Request('http://localhost/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'session-1',
+        content: 'analyze trends',
+        mode: 'analysis',
+        activeFileIds: ['missing-id'],
+      }),
+    });
+
+    const response = await POST(request as any);
+    expect(response.status).toBe(200);
+
+    expect(kernelExecuteMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+    for (const call of kernelExecuteMock.mock.calls) {
+      const executorFiles = call[2] as Array<{ id?: string; name: string }>;
+      expect(executorFiles).toHaveLength(2);
+      expect(executorFiles.map((f) => f.name).sort()).toEqual(['a.csv', 'b.csv']);
+      expect(executorFiles.map((f) => f.id).sort()).toEqual(['file-a', 'file-b']);
     }
   });
 });

@@ -79,5 +79,7 @@ describe('visualization recovery integration check', () => {
     expect(routeContent).toContain('shouldEnforceVisualization');
     expect(routeContent).toContain('RECOVERY DIRECTIVE');
     expect(routeContent).toContain('visualizationExecution');
+    expect(routeContent).toContain('buildDeterministicAnalysisFallbackCode(true)');
+    expect(routeContent).toContain('Deterministic visualization fallback executed to guarantee chart output');
   });
 });

@@ -38,5 +38,10 @@ describe('deterministic analysis fallback', () => {
     expect(code).toContain('import pandas as pd');
     expect(code).toContain('result =');
     expect(code).toContain('Deterministic fallback');
+    expect(code).toContain('make_subplots');
+    expect(code).toContain('Forecast');
+    expect(code).toContain('Deterministic fallback dashboard');
+    expect(code).toContain("'dfs' in globals()");
+    expect(code).toContain('not _candidate.empty');
   });
 });

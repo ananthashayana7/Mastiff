@@ -222,9 +222,17 @@ export function buildDeterministicAnalysisFallbackCode(wantsVisualization: boole
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # Deterministic fallback to keep analysis pipeline operational when LLM output is malformed.
-df = df.copy()
+df = df.copy() if isinstance(df, pd.DataFrame) else pd.DataFrame()
+
+if df.empty and 'dfs' in globals() and isinstance(dfs, dict):
+    for _name, _candidate in dfs.items():
+        if isinstance(_candidate, pd.DataFrame) and not _candidate.empty:
+            df = _candidate.copy()
+            break
+
 if df.empty:
     result = "Data is empty after loading. Please upload a file with at least one data row."
 else:
@@ -238,39 +246,137 @@ else:
     if numeric_cols:
         value_col = numeric_cols[0]
         category_candidates = [c for c in df.columns if c not in numeric_cols]
-        if category_candidates:
-            cat_col = category_candidates[0]
+        secondary_value_col = numeric_cols[1] if len(numeric_cols) > 1 else None
+        cat_col = category_candidates[0] if category_candidates else None
+
+        series_df = df[[value_col]].copy().reset_index(drop=True)
+        series_df['row_id'] = np.arange(len(series_df))
+        valid_series = series_df.dropna(subset=[value_col]).copy()
+        if valid_series.empty:
+            valid_series = pd.DataFrame({'row_id': [0], value_col: [0.0]})
+
+        if len(valid_series) >= 2:
+            coeffs = np.polyfit(valid_series['row_id'], valid_series[value_col], 1)
+            future_steps = min(max(3, int(len(valid_series) * 0.2)), 12)
+            future_index = np.arange(len(valid_series), len(valid_series) + future_steps)
+            future_values = coeffs[0] * future_index + coeffs[1]
+            forecast_df = pd.DataFrame({'row_id': future_index, value_col: future_values})
+        else:
+            forecast_df = pd.DataFrame({'row_id': [len(valid_series)], value_col: [float(valid_series[value_col].iloc[-1]) if not valid_series.empty else 0.0]})
+
+        if cat_col:
             chart_df = df[[cat_col, value_col]].dropna().copy()
             if chart_df.empty:
-                chart_df = pd.DataFrame({
-                    cat_col: ["All Rows"],
-                    value_col: [float(df[value_col].fillna(0).sum())],
-                })
+                chart_df = pd.DataFrame({cat_col: ["All Rows"], value_col: [float(df[value_col].fillna(0).sum())]})
             else:
-                chart_df = chart_df.groupby(cat_col, as_index=False)[value_col].sum().sort_values(value_col, ascending=False).head(12)
-            fig = px.bar(
-                chart_df,
-                x=cat_col,
-                y=value_col,
-                title=f"Fallback Analysis: {value_col} by {cat_col}",
-                color=value_col,
-                color_continuous_scale='Viridis'
-            )
-            fig.update_layout(template='plotly_dark', margin=dict(l=40, r=20, t=70, b=40), height=520)
-            result = fig
+                chart_df = chart_df.groupby(cat_col, as_index=False)[value_col].sum().sort_values(value_col, ascending=False).head(10)
         else:
-            summary_df = pd.DataFrame({
-                'metric': ['rows', 'columns', f'sum_{value_col}', f'mean_{value_col}'],
-                'value': [
-                    int(len(df)),
-                    int(len(df.columns)),
-                    float(df[value_col].fillna(0).sum()),
-                    float(df[value_col].fillna(0).mean()),
-                ],
-            })
-            fig = px.bar(summary_df, x='metric', y='value', title='Fallback Analysis Summary', text='value')
-            fig.update_layout(template='plotly_dark', margin=dict(l=40, r=20, t=70, b=40), height=500)
-            result = fig
+            chart_df = pd.DataFrame({'label': [f'Row {idx + 1}' for idx in range(min(len(valid_series), 10))], value_col: valid_series[value_col].head(10).tolist()})
+            cat_col = 'label'
+
+        summary_metrics = pd.DataFrame({
+            'metric': ['rows', 'columns', f'sum_{value_col}', f'mean_{value_col}'],
+            'value': [
+                int(len(df)),
+                int(len(df.columns)),
+                float(df[value_col].fillna(0).sum()),
+                float(df[value_col].fillna(0).mean()),
+            ],
+        })
+
+        fig = make_subplots(
+            rows=2,
+            cols=2,
+            specs=[[{'type': 'xy'}, {'type': 'xy'}], [{'type': 'xy'}, {'type': 'table'}]],
+            subplot_titles=(
+                f'{value_col} by {cat_col}',
+                f'{value_col} trend and forecast',
+                f'{value_col} distribution',
+                'Fallback summary',
+            ),
+            vertical_spacing=0.14,
+            horizontal_spacing=0.1,
+        )
+
+        fig.add_trace(
+            go.Bar(
+                x=chart_df[cat_col],
+                y=chart_df[value_col],
+                marker=dict(color=chart_df[value_col], colorscale='Viridis'),
+                name='Top groups',
+            ),
+            row=1,
+            col=1,
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=valid_series['row_id'],
+                y=valid_series[value_col],
+                mode='lines+markers',
+                name='Observed',
+                line=dict(color='#19D3F3', width=3),
+            ),
+            row=1,
+            col=2,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=forecast_df['row_id'],
+                y=forecast_df[value_col],
+                mode='lines+markers',
+                name='Forecast',
+                line=dict(color='#EF553B', width=3, dash='dash'),
+            ),
+            row=1,
+            col=2,
+        )
+
+        fig.add_trace(
+            go.Histogram(
+                x=valid_series[value_col],
+                nbinsx=min(20, max(5, len(valid_series))),
+                marker=dict(color='#AB63FA'),
+                name='Distribution',
+            ),
+            row=2,
+            col=1,
+        )
+
+        fig.add_trace(
+            go.Table(
+                header=dict(values=['Metric', 'Value'], fill_color='#1f2937', font=dict(color='white')),
+                cells=dict(values=[summary_metrics['metric'], summary_metrics['value'].round(2)], fill_color='#111827'),
+                name='Summary',
+            ),
+            row=2,
+            col=2,
+        )
+
+        if secondary_value_col:
+            paired = df[[value_col, secondary_value_col]].dropna().copy()
+            if not paired.empty:
+                fig.add_trace(
+                    go.Scatter(
+                        x=paired[value_col],
+                        y=paired[secondary_value_col],
+                        mode='markers',
+                        marker=dict(color='#00CC96', size=9, opacity=0.75),
+                        name=f'{secondary_value_col} vs {value_col}',
+                    ),
+                    row=2,
+                    col=1,
+                )
+
+        fig.update_layout(
+            template='plotly_dark',
+            title=f'Deterministic fallback dashboard: {value_col}',
+            margin=dict(l=40, r=20, t=90, b=40),
+            height=780,
+            legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+            barmode='group',
+        )
+        result = fig
     else:
         preview = df.head(10).astype(str)
         fig = go.Figure(

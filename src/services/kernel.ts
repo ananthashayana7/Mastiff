@@ -38,7 +38,7 @@ class KernelService {
         };
     }
 
-    async execute(sessionId: string, code: string, files: { name: string; path: string }[]): Promise<any> {
+    async execute(sessionId: string, code: string, files: { id?: string; name: string; path: string }[]): Promise<any> {
         let retries = 0;
 
         while (retries <= MAX_RETRIES) {
@@ -78,7 +78,7 @@ class KernelService {
     private sendRequest(
         process: ChildProcess,
         code: string,
-        files: { name: string; path: string }[],
+        files: { id?: string; name: string; path: string }[],
         sessionId: string
     ): Promise<any> {
         return new Promise((resolve, reject) => {
