@@ -11,6 +11,11 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { twoFactorAuth } from '@/services/twoFactorAuth';
 import { credentialEncryption } from '@/lib/encryptedFields';
+import { rateLimiter } from '@/lib/rateLimiting';
+
+const MAX_CODE_LENGTH = 32;
+const MAX_SECRET_LENGTH = 512;
+const MAX_BACKUP_CODES = 20;
 
 /**
  * POST /api/2fa/verify
@@ -18,6 +23,9 @@ import { credentialEncryption } from '@/lib/encryptedFields';
  */
 export async function POST(request: NextRequest) {
     try {
+        const clientIdForLimit = request.headers.get('x-forwarded-for') || 'unknown';
+        await rateLimiter.checkLimit('2fa:verify', clientIdForLimit, 30, 3600);
+
         const user = await getSessionUser(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -33,6 +41,23 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        if (typeof code !== 'string' || code.length > MAX_CODE_LENGTH) {
+            return NextResponse.json({ error: 'Invalid verification code format' }, { status: 400 });
+        }
+
+        if (typeof secret !== 'string' || secret.length > MAX_SECRET_LENGTH) {
+            return NextResponse.json({ error: 'Invalid secret format' }, { status: 400 });
+        }
+
+        if (!Array.isArray(backupCodes) || backupCodes.length === 0 || backupCodes.length > MAX_BACKUP_CODES) {
+            return NextResponse.json({ error: 'Invalid backupCodes format' }, { status: 400 });
+        }
+
+        const normalizedBackupCodes = backupCodes.map((value: unknown) => String(value || '').trim()).filter(Boolean);
+        if (normalizedBackupCodes.length === 0 || normalizedBackupCodes.length !== backupCodes.length) {
+            return NextResponse.json({ error: 'Invalid backupCodes entries' }, { status: 400 });
+        }
+
         // Verify the code
         const verification = twoFactorAuth.verifyToken(code, secret);
         if (!verification.valid) {
@@ -43,7 +68,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Hash backup codes
-        const hashedBackupCodes = await twoFactorAuth.hashBackupCodes(backupCodes);
+        const hashedBackupCodes = await twoFactorAuth.hashBackupCodes(normalizedBackupCodes);
 
         // Encrypt secret
         const encryptedSecret = credentialEncryption.encryptCredential(secret, '2fa_totp');
@@ -78,6 +103,9 @@ export async function POST(request: NextRequest) {
  */
 export async function POST_LOGIN(request: NextRequest) {
     try {
+        const clientIdForLimit = request.headers.get('x-forwarded-for') || 'unknown';
+        await rateLimiter.checkLimit('2fa:verify-login', clientIdForLimit, 60, 3600);
+
         const body = await request.json();
         const { userId, code, backupCode } = body;
 
@@ -86,6 +114,16 @@ export async function POST_LOGIN(request: NextRequest) {
                 { error: 'Missing userId and either code or backupCode' },
                 { status: 400 }
             );
+        }
+
+        if (typeof userId !== 'string' || userId.length > 128) {
+            return NextResponse.json({ error: 'Invalid user identifier' }, { status: 400 });
+        }
+        if (code && (typeof code !== 'string' || code.length > MAX_CODE_LENGTH)) {
+            return NextResponse.json({ error: 'Invalid code format' }, { status: 400 });
+        }
+        if (backupCode && (typeof backupCode !== 'string' || backupCode.length > MAX_CODE_LENGTH)) {
+            return NextResponse.json({ error: 'Invalid backup code format' }, { status: 400 });
         }
 
         // Get user
@@ -159,7 +197,7 @@ export async function POST_LOGIN(request: NextRequest) {
         console.error('Error verifying 2FA login:', err);
         return NextResponse.json(
             { error: 'Failed to verify 2FA' },
-            { status: 500 }
+            { status: 401 }
         );
     }
 }
