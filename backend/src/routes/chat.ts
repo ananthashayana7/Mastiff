@@ -2,6 +2,7 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { llm } from '../services/llm';
 import { executor } from '../services/executor';
+import { resolveRequestUserId } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ if (process.env.NODE_ENV !== 'production') {
 // Send message and get analysis
 router.post('/message', async (req, res) => {
     const { sessionId, content } = req.body;
-    const userId = String(req.headers['x-user-id'] || '');
+    const userId = resolveRequestUserId(req);
 
     if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -54,8 +55,8 @@ router.post('/message', async (req, res) => {
                 role: 'assistant',
                 content: analysis.explanation,
                 code: analysis.code,
-                result: executionResult.success ? { output: executionResult.result } : { error: executionResult.error },
-                visualizationUrl: (executionResult as any).chart ? `data:image/png;base64,${(executionResult as any).chart}` : null
+                result: executionResult.success ? { output: executionResult.output } : { error: executionResult.error },
+                visualizationUrl: (executionResult as any)?.chart ? `data:image/png;base64,${(executionResult as any).chart}` : null
             }
         });
 

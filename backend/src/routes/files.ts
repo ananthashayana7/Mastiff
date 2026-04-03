@@ -4,6 +4,8 @@ import { PrismaClient } from '@prisma/client';
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import { resolveRequestUserId } from '../middleware/auth';
+import type { Request, Response } from 'express';
 
 const router = express.Router();
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
@@ -13,9 +15,9 @@ if (process.env.NODE_ENV !== 'production') {
 }
 const upload = multer({ dest: 'uploads/' });
 
-router.post('/upload', upload.single('file'), async (req, res) => {
+router.post('/upload', upload.single('file'), async (req: Request, res: Response) => {
     const sessionId = String(req.body?.sessionId || '');
-    const userId = String(req.headers['x-user-id'] || '');
+    const userId = resolveRequestUserId(req);
     const file = req.file;
 
     if (!file) return res.status(400).json({ error: "No file uploaded" });
@@ -76,8 +78,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     }
 });
 
-router.get('/:id/preview', async (req, res) => {
-    const userId = String(req.headers['x-user-id'] || '');
+router.get('/:id/preview', async (req: Request, res: Response) => {
+    const userId = resolveRequestUserId(req);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const file = await prisma.file.findUnique({ where: { id: req.params.id } });

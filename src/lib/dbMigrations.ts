@@ -9,6 +9,7 @@ import { db } from '@/db/index';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { sql } from 'drizzle-orm';
 import path from 'path';
+import fs from 'fs';
 
 /**
  * Run all migrations
@@ -17,11 +18,14 @@ import path from 'path';
 export async function runMigrations(): Promise<void> {
     try {
         console.log('🔄 Running database migrations...');
-        
-        // Note: In production with Drizzle, you would use:
-        // await migrate(db, { migrationsFolder: './drizzle' });
-        
-        // For now, migrations are handled by the schema definitions
+
+        const migrationsFolder = path.join(process.cwd(), 'drizzle');
+        if (fs.existsSync(migrationsFolder)) {
+            await migrate(db, { migrationsFolder });
+        } else {
+            console.warn(`⚠️  Migrations folder not found at ${migrationsFolder}; skipping migrate step.`);
+        }
+
         console.log('✅ Database schema is up to date');
     } catch (err) {
         console.error('❌ Migration failed:', err);
