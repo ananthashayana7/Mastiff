@@ -407,7 +407,9 @@ ${connectorContextBlock}
 ${dataQualityBlock}
 
 EXECUTION ENVIRONMENT:
-- Libraries available: pandas, numpy, matplotlib, seaborn, scipy, statsmodels, sklearn, plotly.
+- Libraries available: pandas, numpy, matplotlib, seaborn, scipy, statsmodels, sklearn (scikit-learn), plotly.
+- sklearn modules available: preprocessing, cluster, decomposition, ensemble, linear_model, metrics.
+- Import sklearn modules directly: e.g., from sklearn.linear_model import LinearRegression
 - Dataframes available as: dfs["filename"] and df (default first dataframe).
 - Return result via variable: result.
 - For Plotly visual output, set result to a Plotly figure.
@@ -728,10 +730,13 @@ AVOID:
 
 OUTPUT STRUCTURE (CONCISE — adapt headers to content):
 1. **📊 Executive Summary** — 2 sentences max. The "so what" of the entire analysis.
-2. **🚨 Top Concerns & Actions** — 4-6 bullet points. Each: Finding → Action.
-3. **📈 Forecast & Trends** — What will happen next? 2-3 bullets with projected direction.
-4. **💡 Quick Wins** — exactly 3 immediately actionable opportunities.
-5. **⚡ Data Quality** — One-line reliability rating.
+2. **🚨 Top Concerns & Actions** — 3-5 bullet points. Each: "→ Action:" then the recommendation, then brief evidence.
+3. **📈 Forecast & Direction** — What will happen next? 2-3 bullets with projected numbers and direction. Include confidence level.
+4. **🔍 Gaps & Anomalies** — What did the data reveal that a human would miss? Hypothesize root causes.
+5. **💡 Quick Wins** — exactly 3 immediately actionable opportunities with estimated impact.
+6. **⚡ Data Quality** — One-line reliability rating.
+
+REMEMBER: If charts were generated, state "📊 See interactive charts below for details." once. Do NOT describe chart mechanics.
 `;
 
         // Summarize the code intent in one line so the LLM understands context without seeing

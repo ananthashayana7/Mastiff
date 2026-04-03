@@ -32,6 +32,7 @@ try:
     import plotly.express as px
     import plotly.graph_objects as go
     import plotly.io as pio
+    from plotly.subplots import make_subplots as _make_subplots
 
     DEFAULT_COLORWAY = [
         '#0B6E99', '#FF7F0E', '#2CA02C', '#D62728',
@@ -284,6 +285,7 @@ def execute_request(request: dict) -> dict:
         namespace['px'] = px
         namespace['go'] = go
         namespace['pio'] = pio
+        namespace['make_subplots'] = _make_subplots
     if HAS_SCIPY:
         namespace['scipy_stats'] = scipy_stats
     if HAS_SKLEARN:
@@ -293,6 +295,7 @@ def execute_request(request: dict) -> dict:
         namespace['ensemble'] = ensemble
         namespace['linear_model'] = linear_model
         namespace['metrics'] = metrics
+        namespace['sklearn'] = __import__('sklearn')
 
     # Merge persisted variables
     namespace.update(session_state['variables'])
@@ -384,8 +387,8 @@ def execute_request(request: dict) -> dict:
         skip_keys = {'pd', 'np', 'plt', 'sns', 'px', 'go', 'pio', 'dfs', 'df', 'result',
                      'plotly_json', 'os', 'json', 'base64', 'BytesIO', 'matplotlib',
                      'scipy_stats', 'preprocessing', 'cluster', 'decomposition',
-                     'ensemble', 'linear_model', 'metrics',
-                     '__builtins__'}
+                     'ensemble', 'linear_model', 'metrics', 'sklearn',
+                     'make_subplots', '__builtins__'}
         for k, v in namespace.items():
             if k not in skip_keys and not k.startswith('__'):
                 try:

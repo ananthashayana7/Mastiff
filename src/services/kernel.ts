@@ -152,7 +152,7 @@ class KernelService {
     private async getMissingPythonModules(command: string): Promise<string[]> {
         const checkScript = [
             'import importlib.util',
-            "mods = ['pandas', 'numpy', 'plotly', 'openpyxl']",
+            "mods = ['pandas', 'numpy', 'plotly', 'openpyxl', 'sklearn', 'scipy']",
             'missing = [m for m in mods if importlib.util.find_spec(m) is None]',
             "print(','.join(missing))",
         ].join('; ');
@@ -178,6 +178,8 @@ class KernelService {
         for (const moduleName of missingModules) {
             if (moduleName === 'plotly') {
                 packagesToInstall.add('plotly[express]');
+            } else if (moduleName === 'sklearn') {
+                packagesToInstall.add('scikit-learn');
             } else {
                 packagesToInstall.add(moduleName);
             }

@@ -393,7 +393,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                 {copiedId === `code-${m.id}` ? <Check size={11} /> : <Copy size={11} />}
                                             </button>
                                         </div>
-                                        <pre className="p-4 bg-[#0a0a0a] font-mono text-[10px] text-green-400 overflow-x-auto leading-relaxed whitespace-pre-wrap break-words max-h-[560px] overflow-y-auto custom-scrollbar">
+                                        <pre className="p-4 bg-[#0a0a0a] font-mono text-[10px] text-green-400 overflow-x-auto leading-relaxed whitespace-pre-wrap break-words max-h-[80vh] overflow-y-auto custom-scrollbar">
                                             {m.code}
                                         </pre>
                                         {m.result?.error && (

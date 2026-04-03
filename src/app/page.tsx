@@ -516,6 +516,7 @@ const App: React.FC = () => {
 
         const res = await fetch('/api/files/upload', {
           method: 'POST',
+          headers: buildAuthHeaders(currentUser.id),
           body: formData
         });
 
