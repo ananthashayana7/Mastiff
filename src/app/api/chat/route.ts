@@ -461,6 +461,24 @@ export async function POST(req: NextRequest) {
                 }
             }
 
+            /* ---- Universal data-verification preamble ---- */
+            if (analysis.code && sessionFiles.length > 0) {
+                const verificationPreamble = [
+                    '# --- Data verification preamble ---',
+                    'try:',
+                    '    _df_bad = not isinstance(df, pd.DataFrame) or df.empty or list(df.columns) == ["load_error"]',
+                    '    if _df_bad:',
+                    '        for _vk, _vdf in (dfs if isinstance(dfs, dict) else {}).items():',
+                    '            if isinstance(_vdf, pd.DataFrame) and not _vdf.empty and list(_vdf.columns) != ["load_error"]:',
+                    '                df = _vdf.copy()',
+                    '                break',
+                    'except Exception:',
+                    '    pass',
+                    '# --- End data verification preamble ---',
+                ].join('\n');
+                analysis.code = verificationPreamble + '\n\n' + analysis.code;
+            }
+
             let executionResult = await kernelService.execute(sessionId, analysis.code, executorFiles);
 
             if (executionResult?.error) {

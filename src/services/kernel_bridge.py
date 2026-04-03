@@ -176,6 +176,15 @@ def _build_file_key(file_id: str, name: str, filepath: str) -> str:
     return f'name:{name}'
 
 
+def _is_usable_frame(candidate) -> bool:
+    """Return True when the DataFrame carries real data (not just a load-error placeholder)."""
+    if not isinstance(candidate, pd.DataFrame) or candidate.empty:
+        return False
+    if list(candidate.columns) == ['load_error']:
+        return False
+    return True
+
+
 def _set_name_alias(name: str, filepath: str, df: pd.DataFrame):
     """Preserve filename access while avoiding overwriting a non-empty alias with an empty frame."""
     if not name:
@@ -327,17 +336,20 @@ def execute_request(request: dict) -> dict:
     ]
 
     if requested_dfs:
-        non_empty_df = next((candidate for candidate in requested_dfs if not candidate.empty), None)
-        df = non_empty_df if non_empty_df is not None else requested_dfs[0]
+        # Prefer a frame with real data over error-only placeholders
+        usable_df = next((c for c in requested_dfs if _is_usable_frame(c)), None)
+        non_empty_df = next((c for c in requested_dfs if not c.empty), None)
+        df = usable_df or non_empty_df or requested_dfs[0]
     elif dfs:
-        non_empty_df = next(
-            (
-                candidate for candidate in dfs.values()
-                if isinstance(candidate, pd.DataFrame) and not candidate.empty
-            ),
+        usable_df = next(
+            (c for c in dfs.values() if _is_usable_frame(c)),
             None,
         )
-        df = non_empty_df if non_empty_df is not None else next(iter(dfs.values()))
+        non_empty_df = next(
+            (c for c in dfs.values() if isinstance(c, pd.DataFrame) and not c.empty),
+            None,
+        )
+        df = usable_df or non_empty_df or next(iter(dfs.values()))
 
     # Build execution namespace with all available tools
     namespace = {

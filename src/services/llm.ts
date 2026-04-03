@@ -223,18 +223,108 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import os, glob as _glob
 
 # Deterministic fallback to keep analysis pipeline operational when LLM output is malformed.
-df = df.copy() if isinstance(df, pd.DataFrame) else pd.DataFrame()
+def _is_usable(candidate):
+    return isinstance(candidate, pd.DataFrame) and not candidate.empty and list(candidate.columns) != ['load_error']
 
-if df.empty and 'dfs' in globals() and isinstance(dfs, dict):
+df = df.copy() if isinstance(df, pd.DataFrame) and not df.empty and list(df.columns) != ['load_error'] else pd.DataFrame()
+
+# Pass 1: scan dfs for a usable frame (skip error-only placeholders)
+if df.empty and 'dfs' in dir() and isinstance(dfs, dict):
     for _name, _candidate in dfs.items():
-        if isinstance(_candidate, pd.DataFrame) and not _candidate.empty:
+        if _is_usable(_candidate):
             df = _candidate.copy()
             break
 
+# Pass 2: try re-reading files from known paths in session_state
 if df.empty:
-    result = "Data is empty after loading. Please upload a file with at least one data row."
+    _file_sources = {}
+    if 'session_state' in dir() and isinstance(session_state, dict):
+        _file_sources = session_state.get('file_sources', {})
+    elif 'dfs' in dir() and isinstance(dfs, dict):
+        # file_sources may not be directly accessible; try files_json
+        pass
+
+    if not _file_sources and 'files_json' in dir():
+        import json as _json
+        try:
+            _flist = _json.loads(files_json) if isinstance(files_json, str) else files_json
+            for _f in (_flist if isinstance(_flist, list) else []):
+                _fp = _f.get('path', '')
+                _fn = _f.get('name', '')
+                if _fp:
+                    _file_sources[_fn or _fp] = _fp
+        except Exception:
+            pass
+
+    for _src_name, _src_path in _file_sources.items():
+        if not os.path.isfile(_src_path):
+            continue
+        _ext = os.path.splitext(_src_path)[1].lower()
+        try:
+            _rdf = pd.DataFrame()
+            if _ext in ['.xlsx', '.xls']:
+                _rdf = pd.read_excel(_src_path)
+                _rdf = _rdf.dropna(how='all').dropna(axis=1, how='all')
+                if len(_rdf) == 0:
+                    _rdf = pd.read_excel(_src_path, header=None)
+                    _rdf = _rdf.dropna(how='all').dropna(axis=1, how='all')
+            elif _ext == '.csv':
+                _rdf = pd.read_csv(_src_path, encoding='utf-8', low_memory=False)
+            elif _ext == '.json':
+                try:
+                    _rdf = pd.read_json(_src_path)
+                except ValueError:
+                    _rdf = pd.read_json(_src_path, lines=True)
+            elif _ext == '.parquet':
+                _rdf = pd.read_parquet(_src_path)
+            elif _ext == '.tsv':
+                _rdf = pd.read_csv(_src_path, sep='\\t', encoding='utf-8', low_memory=False)
+            if isinstance(_rdf, pd.DataFrame) and not _rdf.empty:
+                df = _rdf.reset_index(drop=True)
+                if 'dfs' in dir() and isinstance(dfs, dict):
+                    dfs[_src_name] = df
+                break
+        except Exception:
+            continue
+
+# Pass 3: scan uploads directory for any loadable file as last resort
+if df.empty:
+    _upload_dirs = ['uploads', '/tmp/uploads']
+    for _udir in _upload_dirs:
+        if not os.path.isdir(_udir):
+            continue
+        for _fpath in sorted(_glob.glob(os.path.join(_udir, '*')), key=os.path.getmtime, reverse=True):
+            _ext = os.path.splitext(_fpath)[1].lower()
+            try:
+                if _ext in ['.xlsx', '.xls']:
+                    _rdf = pd.read_excel(_fpath)
+                elif _ext == '.csv':
+                    _rdf = pd.read_csv(_fpath, low_memory=False)
+                elif _ext == '.json':
+                    _rdf = pd.read_json(_fpath)
+                elif _ext == '.parquet':
+                    _rdf = pd.read_parquet(_fpath)
+                elif _ext == '.tsv':
+                    _rdf = pd.read_csv(_fpath, sep='\\t', low_memory=False)
+                else:
+                    continue
+                if isinstance(_rdf, pd.DataFrame) and not _rdf.empty:
+                    _rdf = _rdf.dropna(how='all').dropna(axis=1, how='all')
+                if isinstance(_rdf, pd.DataFrame) and not _rdf.empty:
+                    df = _rdf.reset_index(drop=True)
+                    if 'dfs' in dir() and isinstance(dfs, dict):
+                        dfs[os.path.basename(_fpath)] = df
+                    break
+            except Exception:
+                continue
+        if not df.empty:
+            break
+
+if df.empty:
+    result = "Data is empty after loading. Please ensure your file was uploaded successfully and contains at least one data row. Try re-uploading the file or using a different format (CSV, Excel, JSON)."
 else:
     numeric_cols = []
     for col in df.columns:

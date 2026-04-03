@@ -33,6 +33,8 @@ function fallbackInsights(summary: string, context: EnvelopeContext): string[] {
   const bullets = extractBulletLines(summary);
   const base = bullets.slice(0, 3);
 
+  const isDataLoadingFailure = /data is empty|no data|0 rows|empty after loading|upload.*file/i.test(summary);
+
   // If we have some summary text but no bullets, extract first sentences as insights
   if (base.length === 0 && summary.trim()) {
     const sentences = summary
@@ -45,16 +47,26 @@ function fallbackInsights(summary: string, context: EnvelopeContext): string[] {
   }
 
   while (base.length < 3) {
-    if (base.length === 0) {
-      base.push(context.hasChart
-        ? '→ Action: Review the interactive charts below for detailed trend analysis and key metric visualization.'
-        : '→ Action: Re-run analysis with refined scope to generate actionable visualizations.');
-    } else if (base.length === 1) {
-      base.push(context.hasCode
-        ? '→ Reproducible analysis code is available — click "View Code" to inspect methodology.'
-        : '→ Action: Retry with a more specific question for targeted analysis results.');
+    if (isDataLoadingFailure) {
+      if (base.length === 0) {
+        base.push('→ Action: Re-upload your data file or verify that the uploaded file contains at least one row of data.');
+      } else if (base.length === 1) {
+        base.push('→ Action: Ensure the file format is supported (CSV, Excel, JSON, Parquet, TSV) and is not corrupted or password-protected.');
+      } else {
+        base.push('→ Action: Try exporting your data as a simple CSV file and uploading that instead.');
+      }
     } else {
-      base.push('→ Action: Focus on top cost/profit drivers and assign corrective actions with owners and deadlines.');
+      if (base.length === 0) {
+        base.push(context.hasChart
+          ? '→ Action: Review the interactive charts below for detailed trend analysis and key metric visualization.'
+          : '→ Action: Re-run analysis with refined scope to generate actionable visualizations.');
+      } else if (base.length === 1) {
+        base.push(context.hasCode
+          ? '→ Reproducible analysis code is available — click "View Code" to inspect methodology.'
+          : '→ Action: Retry with a more specific question for targeted analysis results.');
+      } else {
+        base.push('→ Action: Focus on top cost/profit drivers and assign corrective actions with owners and deadlines.');
+      }
     }
   }
 
@@ -64,6 +76,11 @@ function fallbackInsights(summary: string, context: EnvelopeContext): string[] {
 function fallbackForecast(summary: string, context: EnvelopeContext): string {
   const extracted = extractForecastLine(summary);
   if (extracted) return extracted;
+
+  const isDataLoadingFailure = /data is empty|no data|0 rows|empty after loading|upload.*file/i.test(summary);
+  if (isDataLoadingFailure) {
+    return 'Forecast unavailable — data could not be loaded. Please re-upload the file and retry the analysis.';
+  }
 
   // Try extracting any line with directional keywords
   const lines = summary.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);

@@ -41,7 +41,7 @@ describe('deterministic analysis fallback', () => {
     expect(code).toContain('make_subplots');
     expect(code).toContain('Forecast');
     expect(code).toContain('Deterministic fallback dashboard');
-    expect(code).toContain("'dfs' in globals()");
-    expect(code).toContain('not _candidate.empty');
+    expect(code).toContain("'dfs' in dir()");
+    expect(code).toContain('_is_usable(_candidate)');
   });
 });
