@@ -9,6 +9,10 @@ interface JwtPayload {
 
 const JWT_SECRET = process.env.JWT_SECRET || 'mastiff-ai-secret-key-change-in-production';
 
+export function shouldAllowHeaderIdentityFallback(): boolean {
+    return process.env.ALLOW_HEADER_AUTH === 'true' || process.env.NODE_ENV !== 'production';
+}
+
 function parseBearerToken(request: NextRequest): string | null {
     const authHeader = request.headers.get('authorization');
     if (!authHeader) return null;
@@ -29,8 +33,10 @@ export function getUserIdFromRequest(request: NextRequest): string | null {
         }
     }
 
-    const userIdHeader = request.headers.get('x-user-id');
-    if (userIdHeader) return userIdHeader;
+    if (shouldAllowHeaderIdentityFallback()) {
+        const userIdHeader = request.headers.get('x-user-id');
+        if (userIdHeader) return userIdHeader;
+    }
 
     return null;
 }

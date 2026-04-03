@@ -1,7 +1,7 @@
 import { cookies, headers } from 'next/headers';
 import { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { getUserIdFromRequest } from './requestAuth';
+import { getUserIdFromRequest, shouldAllowHeaderIdentityFallback } from './requestAuth';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'mastiff-ai-secret-key-change-in-production';
 
@@ -70,7 +70,8 @@ export async function getSessionUser(request?: NextRequest): Promise<SessionUser
     if (authUser) return authUser;
 
     const cookieStore = await cookies();
-    const userId = headerStore.get('x-user-id') || cookieStore.get('userId')?.value || null;
+    const headerUserId = shouldAllowHeaderIdentityFallback() ? headerStore.get('x-user-id') : null;
+    const userId = headerUserId || cookieStore.get('userId')?.value || null;
     const email = cookieStore.get('userEmail')?.value;
     const name = cookieStore.get('userName')?.value;
 
