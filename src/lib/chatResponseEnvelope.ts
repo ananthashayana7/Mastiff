@@ -33,17 +33,28 @@ function fallbackInsights(summary: string, context: EnvelopeContext): string[] {
   const bullets = extractBulletLines(summary);
   const base = bullets.slice(0, 3);
 
+  // If we have some summary text but no bullets, extract first sentences as insights
+  if (base.length === 0 && summary.trim()) {
+    const sentences = summary
+      .split(/[.!?]\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 10 && s.length < 200);
+    for (const sent of sentences.slice(0, 3)) {
+      base.push(sent.endsWith('.') ? sent : `${sent}.`);
+    }
+  }
+
   while (base.length < 3) {
     if (base.length === 0) {
       base.push(context.hasChart
-        ? 'Primary insight validated with generated visualization.'
-        : 'Primary insight identified; visualization requires a rerun.');
+        ? '→ Action: Review the interactive charts below for detailed trend analysis and key metric visualization.'
+        : '→ Action: Re-run analysis with refined scope to generate actionable visualizations.');
     } else if (base.length === 1) {
       base.push(context.hasCode
-        ? 'Analysis code generated successfully for reproducibility.'
-        : 'Analysis code generation was incomplete and should be retried.');
+        ? '→ Reproducible analysis code is available — click "View Code" to inspect methodology.'
+        : '→ Action: Retry with a more specific question for targeted analysis results.');
     } else {
-      base.push('Recommended action: narrow scope or clean source data for higher-confidence output.');
+      base.push('→ Action: Focus on top cost/profit drivers and assign corrective actions with owners and deadlines.');
     }
   }
 
@@ -54,9 +65,16 @@ function fallbackForecast(summary: string, context: EnvelopeContext): string {
   const extracted = extractForecastLine(summary);
   if (extracted) return extracted;
 
+  // Try extracting any line with directional keywords
+  const lines = summary.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const directionalLine = lines.find((line) =>
+    /(increase|decrease|grow|decline|stable|risk|opportunity|momentum|trajectory)/i.test(line)
+  );
+  if (directionalLine) return directionalLine;
+
   return context.hasChart
-    ? 'Forecast direction is available in the generated chart trend and should be used for planning decisions.'
-    : 'Forecast could not be established with sufficient confidence in this pass; rerun with cleaner scoped inputs.';
+    ? 'Forecast direction is visible in the generated charts — review trend lines for planning decisions.'
+    : 'Forecast requires additional data points or a more specific time-series query for reliable projections.';
 }
 
 export function buildAnalysisResponseEnvelope(
