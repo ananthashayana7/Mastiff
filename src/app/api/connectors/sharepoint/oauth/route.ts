@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { z } from 'zod';
 import { rateLimiter } from '@/lib/rateLimiting';
-import { getUserIdFromRequest } from '@/lib/requestAuth';
+import { authenticateRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,8 +40,8 @@ const tokenExchangeSchema = z.object({
 
 export async function GET(request: NextRequest) {
     try {
-        const userId = getUserIdFromRequest(request);
-        if (!userId) {
+        const user = await authenticateRequest(request);
+        if (!user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
         });
     } catch (error: any) {
         return NextResponse.json(
-            { error: error?.message || 'Failed to build SharePoint OAuth URL' },
+            { error: 'Failed to build SharePoint OAuth URL' },
             { status: 500 }
         );
     }
@@ -79,8 +79,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const userId = getUserIdFromRequest(request);
-        if (!userId) {
+        const user = await authenticateRequest(request);
+        if (!user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -138,12 +138,11 @@ export async function POST(request: NextRequest) {
             scope: response.data?.scope,
         });
     } catch (error: any) {
+        const providerMessage = error?.response?.data?.error_description
+            || error?.response?.data?.error;
         return NextResponse.json(
             {
-                error: error?.response?.data?.error_description
-                    || error?.response?.data?.error
-                    || error?.message
-                    || 'Failed to exchange SharePoint token',
+                error: providerMessage || 'Failed to exchange SharePoint token',
             },
             { status: 500 }
         );
