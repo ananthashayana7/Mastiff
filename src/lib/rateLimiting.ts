@@ -120,8 +120,19 @@ export async function checkRateLimit(
         };
     } catch (err) {
         console.error('Rate limit check error:', err);
-        // Fail open - don't block on rate limit errors
-        return { success: true, remaining: 0 };
+        const failOpen = process.env.RATE_LIMIT_FAIL_OPEN === 'true' || process.env.NODE_ENV !== 'production';
+
+        if (failOpen) {
+            // In development and explicitly configured environments, avoid blocking traffic.
+            return { success: true, remaining: 0 };
+        }
+
+        // Secure default in production: fail closed to avoid bypassing protection entirely.
+        return {
+            success: false,
+            remaining: 0,
+            resetTime: new Date(Date.now() + windowMs),
+        };
     }
 }
 
