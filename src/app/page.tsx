@@ -585,7 +585,7 @@ const App: React.FC = () => {
     if (droppedFiles.length > 0) {
       uploadFiles(droppedFiles);
     }
-  }, [sessionId, currentUser]);
+  }, [sessionId, currentUser?.id]);
 
   // ===== SEND MESSAGE (with analysis mode) =====
   const handleSend = async (overridePrompt?: string) => {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Download, Maximize2, Minimize2, Filter } from 'lucide-react';
+import { Download, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
 
 interface PlotlyRendererProps {
     data: any;
@@ -194,6 +194,15 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
         });
     };
 
+    const calculateChartHeight = (chartData: any): string => {
+        try {
+            const p = typeof chartData === 'string' ? JSON.parse(chartData) : chartData;
+            return p?.layout?.height ? `${Math.max(Number(p.layout.height), 400)}px` : '560px';
+        } catch {
+            return '560px';
+        }
+    };
+
     return (
         <div className={`w-full rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-900/20 shadow-xl animate-fade-in transition-all ${isExpanded ? 'fixed inset-4 z-50' : ''}`}>
             {/* Header */}
@@ -204,7 +213,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 </div>
                 <div className="flex gap-1.5">
                     <button onClick={handleResetZoom} title="Reset zoom" className="p-1.5 rounded-lg text-zinc-600 hover:text-white hover:bg-zinc-800 transition-all">
-                        <Filter size={12} />
+                        <RotateCcw size={12} />
                     </button>
                     <button onClick={() => setIsExpanded(!isExpanded)} className="p-1.5 rounded-lg text-zinc-600 hover:text-white hover:bg-zinc-800 transition-all">
                         {isExpanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
@@ -217,7 +226,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
 
             {/* Chart Area — height driven by chart's own layout.height, else 560px default */}
             <div className={`w-full ${isExpanded ? 'h-[calc(100vh-120px)]' : ''}`}
-                style={!isExpanded ? { height: (() => { try { const p = typeof data === 'string' ? JSON.parse(data) : data; return p?.layout?.height ? `${Math.max(Number(p.layout.height), 400)}px` : '560px'; } catch { return '560px'; } })() } : {}}>
+                style={!isExpanded ? { height: calculateChartHeight(data) } : {}}>
                 {!isLoaded && (
                     <div className="w-full h-full flex items-center justify-center">
                         <div className="flex items-center gap-3">
