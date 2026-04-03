@@ -229,7 +229,7 @@ import os, glob as _glob
 def _is_usable(candidate):
     return isinstance(candidate, pd.DataFrame) and not candidate.empty and list(candidate.columns) != ['load_error']
 
-df = df.copy() if isinstance(df, pd.DataFrame) and not df.empty and list(df.columns) != ['load_error'] else pd.DataFrame()
+df = df.copy() if _is_usable(df) else pd.DataFrame()
 
 # Pass 1: scan dfs for a usable frame (skip error-only placeholders)
 if df.empty and 'dfs' in dir() and isinstance(dfs, dict):
