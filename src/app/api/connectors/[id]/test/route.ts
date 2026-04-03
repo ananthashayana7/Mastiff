@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { rateLimiter } from '@/lib/rateLimiting';
-import { getUserIdFromRequest } from '@/lib/requestAuth';
+import { authenticateRequest } from '@/lib/auth';
 import { db } from '@/db';
 import { connectors } from '@/db/connectorSchema';
 import { encryptionService } from '@/services/encryptionService';
@@ -15,10 +15,11 @@ import { createConnector } from '@/services/connectors/connectorConfig';
 import { eq, and } from 'drizzle-orm';
 
 async function getOwnedConnector(request: NextRequest, connectorId: string) {
-    const userId = getUserIdFromRequest(request);
-    if (!userId) {
+    const user = await authenticateRequest(request);
+    if (!user?.id) {
         return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
     }
+    const userId = user.id;
 
     const found = await db
         .select()
@@ -91,7 +92,6 @@ export async function POST(
             {
                 success: false,
                 message: 'Connection test failed',
-                error: error.message,
             },
             { status: 400 }
         );
@@ -146,7 +146,6 @@ export async function GET(
             {
                 success: false,
                 message: 'Failed to list data sources',
-                error: error.message,
             },
             { status: 400 }
         );

@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { rateLimiter } from '@/lib/rateLimiting';
 import { validateInput } from '@/lib/validation';
-import { getUserIdFromRequest } from '@/lib/requestAuth';
+import { authenticateRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { db } from '@/db';
 import { connectors } from '@/db/connectorSchema';
@@ -19,7 +19,6 @@ import { eq, desc } from 'drizzle-orm';
  * Connector creation schema
  */
 const createConnectorSchema = z.object({
-    userId: z.string().uuid().optional(),
     name: z.string().min(1).max(255),
     type: z.enum(['sheets', 'sharepoint', 'snowflake', 'bigquery', 'postgres', 'api']),
     description: z.string().optional(),
@@ -38,10 +37,11 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const validated = validateInput(createConnectorSchema, body);
 
-        const userId = getUserIdFromRequest(request) || validated.userId;
-        if (!userId) {
+        const user = await authenticateRequest(request);
+        if (!user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+        const userId = user.id;
 
         const encryptedCredentials = encryptionService.encryptToString(
             JSON.stringify(validated.credentials)
@@ -69,10 +69,8 @@ export async function POST(request: NextRequest) {
         });
     } catch (error: any) {
         console.error('Error creating connector:', error);
-        const errorMessage = error?.message
-            || (error?.code === 'ECONNREFUSED' ? 'Database connection refused. Please ensure the database is running.' : 'Failed to create connector');
         return NextResponse.json(
-            { error: errorMessage },
+            { error: 'Failed to create connector' },
             { status: 500 }
         );
     }
@@ -86,10 +84,11 @@ export async function GET(request: NextRequest) {
         const clientId = request.ip || 'unknown';
         await rateLimiter.checkLimit('connector:list', clientId, 200, 3600);
 
-        const userId = getUserIdFromRequest(request);
-        if (!userId) {
+        const user = await authenticateRequest(request);
+        if (!user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+        const userId = user.id;
 
         const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '50', 10), 100);
         const offset = parseInt(request.nextUrl.searchParams.get('offset') || '0', 10);
@@ -120,10 +119,8 @@ export async function GET(request: NextRequest) {
         });
     } catch (error: any) {
         console.error('Error listing connectors:', error);
-        const errorMessage = error?.message
-            || (error?.code === 'ECONNREFUSED' ? 'Database connection refused. Please ensure the database is running.' : 'Failed to list connectors');
         return NextResponse.json(
-            { error: errorMessage },
+            { error: 'Failed to list connectors' },
             { status: 500 }
         );
     }

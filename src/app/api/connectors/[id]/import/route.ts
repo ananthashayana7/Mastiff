@@ -16,7 +16,7 @@ import { db } from '@/db';
 import { connectors } from '@/db/connectorSchema';
 import { files as dbFiles, sessions } from '@/db/schema';
 import { encryptionService } from '@/services/encryptionService';
-import { getUserIdFromRequest } from '@/lib/requestAuth';
+import { authenticateRequest } from '@/lib/auth';
 import { rateLimiter } from '@/lib/rateLimiting';
 import { buildTabularMetadataFallback } from '@/app/api/files/upload/route';
 
@@ -147,10 +147,11 @@ export async function POST(
     const clientIdForLimit = request.headers.get('x-forwarded-for') || 'unknown';
     await rateLimiter.checkLimit('connector:import', clientIdForLimit, 100, 3600);
 
-    const userId = getUserIdFromRequest(request);
-    if (!userId) {
+    const user = await authenticateRequest(request);
+    if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = user.id;
 
     const payload = IMPORT_SCHEMA.parse(await request.json());
 

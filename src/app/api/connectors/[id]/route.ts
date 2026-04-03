@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { rateLimiter } from '@/lib/rateLimiting';
 import { validateInput } from '@/lib/validation';
-import { getUserIdFromRequest } from '@/lib/requestAuth';
+import { authenticateRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { db } from '@/db';
 import { connectors } from '@/db/connectorSchema';
@@ -31,10 +31,11 @@ export async function GET(
         const clientId = request.ip || 'unknown';
         await rateLimiter.checkLimit('connector:get', clientId, 300, 3600);
 
-        const userId = getUserIdFromRequest(request);
-        if (!userId) {
+        const user = await authenticateRequest(request);
+        if (!user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+        const userId = user.id;
 
         const connector = await db
             .select({
@@ -61,7 +62,7 @@ export async function GET(
     } catch (error: any) {
         console.error('Error fetching connector:', error);
         return NextResponse.json(
-            { error: error.message || 'Failed to fetch connector' },
+            { error: 'Failed to fetch connector' },
             { status: 500 }
         );
     }
@@ -75,10 +76,11 @@ export async function PUT(
         const clientId = request.ip || 'unknown';
         await rateLimiter.checkLimit('connector:update', clientId, 100, 3600);
 
-        const userId = getUserIdFromRequest(request);
-        if (!userId) {
+        const user = await authenticateRequest(request);
+        if (!user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+        const userId = user.id;
 
         const body = await request.json();
         const validated = validateInput(updateConnectorSchema, body);
@@ -112,7 +114,7 @@ export async function PUT(
     } catch (error: any) {
         console.error('Error updating connector:', error);
         return NextResponse.json(
-            { error: error.message || 'Failed to update connector' },
+            { error: 'Failed to update connector' },
             { status: 500 }
         );
     }
@@ -126,10 +128,11 @@ export async function DELETE(
         const clientId = request.ip || 'unknown';
         await rateLimiter.checkLimit('connector:delete', clientId, 50, 3600);
 
-        const userId = getUserIdFromRequest(request);
-        if (!userId) {
+        const user = await authenticateRequest(request);
+        if (!user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+        const userId = user.id;
 
         const existing = await db
             .select({ id: connectors.id })
@@ -147,7 +150,7 @@ export async function DELETE(
     } catch (error: any) {
         console.error('Error deleting connector:', error);
         return NextResponse.json(
-            { error: error.message || 'Failed to delete connector' },
+            { error: 'Failed to delete connector' },
             { status: 500 }
         );
     }
