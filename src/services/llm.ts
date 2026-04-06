@@ -223,15 +223,50 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import os
 
 # Deterministic fallback to keep analysis pipeline operational when LLM output is malformed.
-df = df.copy() if isinstance(df, pd.DataFrame) else pd.DataFrame()
+def _is_usable(candidate):
+    return isinstance(candidate, pd.DataFrame) and not candidate.empty and list(candidate.columns) != ['load_error']
+
+df = df.copy() if _is_usable(df) else pd.DataFrame()
 
 if df.empty and 'dfs' in globals() and isinstance(dfs, dict):
     for _name, _candidate in dfs.items():
-        if isinstance(_candidate, pd.DataFrame) and not _candidate.empty:
+        if _is_usable(_candidate):
             df = _candidate.copy()
             break
+
+# Last-resort: re-read files from disk when the in-memory df is still empty.
+if df.empty and 'dfs' in globals() and isinstance(dfs, dict):
+    _file_sources = globals().get('file_sources', {}) or {}
+    for _src_key, _src_path in _file_sources.items():
+        if not _src_path or not os.path.isfile(_src_path):
+            continue
+        try:
+            _ext = os.path.splitext(_src_path)[1].lower()
+            if _ext == '.csv':
+                _rdf = pd.read_csv(_src_path, low_memory=False)
+            elif _ext in ('.xlsx', '.xls'):
+                _rdf = pd.read_excel(_src_path)
+                _rdf = _rdf.dropna(how='all').dropna(axis=1, how='all')
+                if len(_rdf) == 0:
+                    _rdf = pd.read_excel(_src_path, header=None)
+                    _rdf = _rdf.dropna(how='all').dropna(axis=1, how='all')
+            elif _ext == '.json':
+                _rdf = pd.read_json(_src_path)
+            elif _ext == '.parquet':
+                _rdf = pd.read_parquet(_src_path)
+            elif _ext == '.tsv':
+                _rdf = pd.read_csv(_src_path, sep='\\t', low_memory=False)
+            else:
+                continue
+            if _is_usable(_rdf):
+                df = _rdf.copy()
+                dfs[_src_key] = _rdf
+                break
+        except Exception:
+            continue
 
 if df.empty:
     result = "Data is empty after loading. Please upload a file with at least one data row."

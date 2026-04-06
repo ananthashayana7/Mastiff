@@ -53,5 +53,38 @@ export function buildRecoverySnippet(file: RecoveryFile): string {
         ].join('\n');
     }
 
+    if (ext === 'json') {
+        return [
+            `# Auto-recovery: metadata reported 0 rows for ${fileNameLiteral}`,
+            `try:`,
+            `    try:`,
+            `        _rdf = pd.read_json(${filePathLiteral})`,
+            `    except ValueError:`,
+            `        _rdf = pd.read_json(${filePathLiteral}, lines=True)`,
+            `    _rdf = _rdf.dropna(how='all')`,
+            `    if len(_rdf) > 0:`,
+            `        dfs[${fileNameLiteral}] = _rdf`,
+            `        df = _rdf`,
+            `        print("Recovered " + str(len(_rdf)) + " rows from " + ${fileNameLiteral})`,
+            `except Exception as _e:`,
+            `    print("Recovery failed for " + ${fileNameLiteral} + ": " + str(_e))`,
+        ].join('\n');
+    }
+
+    if (ext === 'parquet') {
+        return [
+            `# Auto-recovery: metadata reported 0 rows for ${fileNameLiteral}`,
+            `try:`,
+            `    _rdf = pd.read_parquet(${filePathLiteral})`,
+            `    _rdf = _rdf.dropna(how='all')`,
+            `    if len(_rdf) > 0:`,
+            `        dfs[${fileNameLiteral}] = _rdf`,
+            `        df = _rdf`,
+            `        print("Recovered " + str(len(_rdf)) + " rows from " + ${fileNameLiteral})`,
+            `except Exception as _e:`,
+            `    print("Recovery failed for " + ${fileNameLiteral} + ": " + str(_e))`,
+        ].join('\n');
+    }
+
     return '';
 }

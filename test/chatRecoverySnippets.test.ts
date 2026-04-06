@@ -55,4 +55,35 @@ describe('buildRecoverySnippet', () => {
     expect(snippet).toContain(`pd.read_csv("/uploads/95-rejections{daily}.csv", encoding=_enc)`);
     expectPythonToCompile(snippet);
   });
+
+  it('generates valid Python for json recovery snippets', () => {
+    const snippet = buildRecoverySnippet({
+      filename: 'data.json',
+      filePath: '/uploads/data.json',
+    });
+
+    expect(snippet).toContain('pd.read_json');
+    expect(snippet).toContain('dfs["data.json"] = _rdf');
+    expectPythonToCompile(snippet);
+  });
+
+  it('generates valid Python for parquet recovery snippets', () => {
+    const snippet = buildRecoverySnippet({
+      filename: 'report.parquet',
+      filePath: '/uploads/report.parquet',
+    });
+
+    expect(snippet).toContain('pd.read_parquet');
+    expect(snippet).toContain('dfs["report.parquet"] = _rdf');
+    expectPythonToCompile(snippet);
+  });
+
+  it('returns empty string for unsupported file types', () => {
+    const snippet = buildRecoverySnippet({
+      filename: 'image.png',
+      filePath: '/uploads/image.png',
+    });
+
+    expect(snippet).toBe('');
+  });
 });
