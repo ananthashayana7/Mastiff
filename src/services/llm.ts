@@ -239,11 +239,8 @@ if df.empty and 'dfs' in globals() and isinstance(dfs, dict):
 
 # Last-resort: re-read files from disk when the in-memory df is still empty.
 if df.empty and 'dfs' in globals() and isinstance(dfs, dict):
-    _file_sources = globals().get('file_sources', {})
-    if not _file_sources:
-        import json as _json
-        _file_sources = {}
-    for _src_key, _src_path in (globals().get('file_sources', None) or {}).items():
+    _file_sources = globals().get('file_sources', {}) or {}
+    for _src_key, _src_path in _file_sources.items():
         if not _src_path or not os.path.isfile(_src_path):
             continue
         try:
