@@ -8,6 +8,7 @@ import {
     Save, CheckCircle2, AlertCircle, HelpCircle
 } from 'lucide-react';
 import { DataFile, User, Session, ConnectorSummary } from '../types';
+import { BrandLockup } from './BrandMark';
 
 type ConnectorType = 'sheets' | 'sharepoint' | 'snowflake' | 'bigquery' | 'postgres' | 'api';
 
@@ -726,28 +727,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" onClick={onClose} />
             )}
 
-            <aside className={`fixed md:relative inset-y-0 left-0 w-72 glass flex flex-col z-50 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+            <aside className={`fixed md:relative inset-y-0 left-0 w-80 max-w-[92vw] glass flex flex-col z-50 transition-transform duration-300 border-r border-white/10 shadow-[0_30px_90px_rgba(2,6,23,0.3)] ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
                 {/* Header */}
-                <div className="p-4 flex items-center justify-between border-b border-zinc-900/80 shrink-0">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 bg-gradient-to-br from-[#E50914] to-[#ff4d4d] rounded-xl flex items-center justify-center shadow-lg glow-accent">
-                            <span className="text-white text-sm font-black">M</span>
+                <div className="shrink-0 border-b border-white/8 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                        <BrandLockup size={42} subtitle="Decision Cockpit" title="Mastiff" />
+                        <button onClick={onClose} className="md:hidden rounded-xl p-2 text-slate-400 transition-colors hover:text-white">
+                            <X size={16} />
+                        </button>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                        <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+                            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-sky-200/70">Datasets</p>
+                            <p className="mt-1 text-lg font-black tracking-[-0.04em] text-white">
+                                {uploadedFiles.length + stagedFiles.length}
+                            </p>
+                            <p className="text-[10px] text-slate-300/65">confirmed + staged</p>
                         </div>
-                        <div>
-                            <h1 className="text-sm font-black text-white tracking-tight">Mastiff</h1>
-                            <p className="text-[7px] font-bold text-zinc-600 uppercase tracking-widest">Data Intelligence</p>
+                        <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+                            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-rose-200/70">Sources</p>
+                            <p className="mt-1 text-lg font-black tracking-[-0.04em] text-white">
+                                {connectors.length}
+                            </p>
+                            <p className="text-[10px] text-slate-300/65">live connectors</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="md:hidden p-1.5 text-zinc-500 hover:text-white rounded-lg transition-colors">
-                        <X size={16} />
-                    </button>
                 </div>
 
                 {/* New Session Button */}
                 <div className="p-3 shrink-0">
                     <button
                         onClick={onClearMessages}
-                        className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#E50914] to-[#b20710] text-white font-extrabold text-[10px] uppercase tracking-widest rounded-xl hover:shadow-lg hover:shadow-[#E50914]/20 transition-all active:scale-[0.98]"
+                        className="w-full flex items-center justify-center gap-2 rounded-2xl border border-sky-300/25 bg-[linear-gradient(135deg,rgba(56,189,248,0.2),rgba(251,113,133,0.18),rgba(45,212,191,0.16))] px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.28em] text-white shadow-[0_18px_45px_rgba(8,15,30,0.24)] transition-all hover:-translate-y-[1px] hover:shadow-[0_24px_60px_rgba(8,15,30,0.32)] active:scale-[0.99]"
                     >
                         <Plus size={14} /> New Chat
                     </button>
@@ -767,26 +779,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {/* Uploaded Files Section */}
                     <div className="px-3 pb-3">
                         <div className="flex items-center justify-between mb-2 px-1">
-                            <p className="text-[8px] font-extrabold text-zinc-600 uppercase tracking-[2px]">
+                            <p className="text-[8px] font-extrabold text-slate-400 uppercase tracking-[0.24em]">
                                 Data Sources
                             </p>
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="p-1 text-zinc-600 hover:text-[#E50914] transition-colors rounded"
+                                className="rounded-lg p-1 text-slate-400 transition-colors hover:text-sky-200"
                             >
                                 <Plus size={12} />
                             </button>
                         </div>
 
                         {isUploading && (
-                            <div className="p-2.5 glass rounded-xl mb-2 animate-fade-in space-y-2">
+                            <div className="mb-2 space-y-2 rounded-2xl border border-sky-300/15 bg-sky-400/6 p-3 animate-fade-in">
                                 <div className="flex items-center gap-2">
-                                    <Loader2 size={12} className="animate-spin text-[#E50914]" />
-                                    <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-wider">{uploadStatusLabel}</span>
+                                    <Loader2 size={12} className="animate-spin text-sky-300" />
+                                    <span className="text-[9px] font-bold text-slate-100 uppercase tracking-[0.2em]">{uploadStatusLabel}</span>
                                 </div>
-                                <p className="text-[10px] text-zinc-500 leading-tight">{uploadStatusDetail}</p>
-                                <div className="h-1 w-full rounded-full bg-zinc-950 overflow-hidden">
-                                    <div className="h-full w-2/3 bg-gradient-to-r from-[#E50914] to-[#ff6b6b] animate-shimmer" />
+                                <p className="text-[10px] leading-tight text-slate-300/70">{uploadStatusDetail}</p>
+                                <div className="h-1 w-full overflow-hidden rounded-full bg-slate-950/70">
+                                    <div className="h-full w-2/3 animate-shimmer bg-gradient-to-r from-sky-400 via-rose-400 to-teal-300" />
                                 </div>
                             </div>
                         )}
@@ -884,11 +896,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         ) : (
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="w-full p-4 border border-dashed border-zinc-800 rounded-xl text-center hover:border-[#E50914]/30 hover:bg-[#E50914]/3 transition-all group"
+                                className="group w-full rounded-2xl border border-dashed border-slate-600/55 bg-white/5 p-4 text-center transition-all hover:-translate-y-[1px] hover:border-sky-300/40 hover:bg-sky-300/6"
                             >
-                                <FileUp size={16} className="mx-auto text-zinc-700 group-hover:text-[#E50914] mb-1.5 transition-colors" />
-                                <p className="text-[9px] font-bold text-zinc-600 group-hover:text-zinc-400 transition-colors">Upload files</p>
-                                <p className="mt-1 text-[10px] text-zinc-700 leading-tight">CSV, Excel, PDF, Word, text, JSON, TSV, and Parquet are supported. Multi-sheet or nested files may need cleanup after import.</p>
+                                <FileUp size={16} className="mx-auto mb-1.5 text-slate-400 transition-colors group-hover:text-sky-200" />
+                                <p className="text-[9px] font-bold text-slate-300 transition-colors group-hover:text-white">Upload files</p>
+                                <p className="mt-1 text-[10px] leading-tight text-slate-300/55">CSV, Excel, PDF, Word, text, JSON, TSV, and Parquet are supported. Multi-sheet or nested files may need cleanup after import.</p>
                             </button>
                         )}
                     </div>

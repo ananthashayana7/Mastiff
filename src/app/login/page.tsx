@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Loader2, Eye, EyeOff, ArrowRight, BarChart3, Sparkles, ShieldCheck } from 'lucide-react';
+import { BrandLockup, BrandMark } from '../../components/BrandMark';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -92,49 +93,95 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
-            {/* Background effects */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#E50914]/5 rounded-full blur-[120px] animate-pulse" />
-                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#E50914]/3 rounded-full blur-[150px]" />
+        <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+            <div className="pointer-events-none fixed inset-0 overflow-hidden">
+                <div className="absolute left-[8%] top-[12%] h-80 w-80 rounded-full bg-sky-400/12 blur-[130px]" />
+                <div className="absolute right-[10%] top-[10%] h-72 w-72 rounded-full bg-rose-400/10 blur-[130px]" />
+                <div className="absolute bottom-[8%] left-[38%] h-80 w-80 rounded-full bg-teal-400/10 blur-[150px]" />
             </div>
 
-            <div className="w-full max-w-md relative z-10">
-                {/* Logo */}
-                <div className="text-center mb-10">
-                    <div className="w-16 h-16 bg-gradient-to-br from-[#E50914] to-[#ff4d4d] rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-2xl shadow-[#E50914]/20">
-                        <span className="text-white text-2xl font-black">M</span>
+            <div className="relative z-10 grid w-full max-w-6xl overflow-hidden rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(12,18,30,0.92),rgba(8,13,24,0.8))] shadow-[0_40px_120px_rgba(2,6,23,0.45)] backdrop-blur-2xl lg:grid-cols-[1.05fr_0.95fr]">
+                <div className="relative overflow-hidden border-b border-white/10 p-8 sm:p-10 lg:border-b-0 lg:border-r">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(56,189,248,0.14),transparent_32%),radial-gradient(circle_at_82%_16%,rgba(251,113,133,0.12),transparent_28%),radial-gradient(circle_at_56%_88%,rgba(45,212,191,0.1),transparent_34%)]" />
+                    <div className="relative">
+                        <BrandLockup size={64} subtitle="Management-ready analytics" title="Mastiff" />
+                        <p className="mt-6 max-w-md text-[15px] leading-7 text-slate-200/80">
+                            A sharper analysis workspace for teams that want forecast-first insights, live connectors, and interactive drill-down visuals without the clutter.
+                        </p>
+
+                        <div className="mt-8 grid gap-3">
+                            <div className="rounded-3xl border border-white/10 bg-white/6 p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-400/14 text-sky-200">
+                                        <BarChart3 size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-200/70">Interactive Charts</p>
+                                        <p className="mt-1 text-sm font-semibold text-white">See the numbers, then drill to the root.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="rounded-3xl border border-white/10 bg-white/6 p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-400/14 text-rose-200">
+                                        <Sparkles size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-rose-200/70">Crisp Actions</p>
+                                        <p className="mt-1 text-sm font-semibold text-white">Less filler, more decisions and next steps.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="rounded-3xl border border-white/10 bg-white/6 p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-400/14 text-teal-200">
+                                        <ShieldCheck size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-teal-200/70">Trusted Workspace</p>
+                                        <p className="mt-1 text-sm font-semibold text-white">Connectors, uploads, and reproducible code in one place.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <h1 className="text-3xl font-black text-white tracking-tight">Mastiff</h1>
-                    <p className="text-sm text-zinc-500 mt-2 font-medium">Enterprise AI Data Analyst</p>
                 </div>
 
-                {/* Login Form */}
-                <form onSubmit={handleLogin} className="space-y-5">
-                    <div className="glass rounded-2xl p-8 space-y-5 border border-zinc-800/50">
+                <div className="p-6 sm:p-8 lg:p-10">
+                    <div className="mb-8 flex items-center justify-between">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-slate-300/70">Sign in</p>
+                            <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-white">Enter the cockpit</h1>
+                        </div>
+                        <BrandMark size={48} className="hidden sm:inline-flex" />
+                    </div>
+
+                    <form onSubmit={handleLogin} className="space-y-5">
                         {isMicrosoftEnabled && (
                             <>
                                 <a
                                     href="/api/auth/microsoft/start"
-                                    className="w-full py-3.5 border border-zinc-700 bg-zinc-900/70 text-white font-bold text-xs uppercase tracking-widest rounded-xl hover:border-zinc-500 transition-all flex items-center justify-center"
+                                    className="flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/6 py-3.5 text-xs font-bold uppercase tracking-[0.24em] text-white transition-all hover:border-sky-300/30 hover:bg-white/10"
                                 >
                                     Continue with Microsoft
                                 </a>
-                                <div className="flex items-center gap-3 text-zinc-600 text-[10px] font-bold uppercase tracking-[2px]">
-                                    <div className="h-px flex-1 bg-zinc-800" />
+                                <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                                    <div className="h-px flex-1 bg-white/10" />
                                     <span>Or use Mastiff password login</span>
-                                    <div className="h-px flex-1 bg-zinc-800" />
+                                    <div className="h-px flex-1 bg-white/10" />
                                 </div>
                             </>
                         )}
 
                         <div>
-                            <label className="block text-[10px] font-extrabold text-zinc-500 uppercase tracking-[2px] mb-2">Email</label>
+                            <label className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-300/75">Email</label>
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm font-medium placeholder:text-zinc-700 focus:outline-none focus:border-[#E50914]/50 focus:ring-1 focus:ring-[#E50914]/30 transition-all"
+                                className="w-full rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-medium text-white placeholder:text-slate-500 transition-all focus:border-sky-300/38 focus:ring-1 focus:ring-sky-300/20"
                                 placeholder="you@company.com"
                                 required
                                 autoFocus
@@ -142,13 +189,13 @@ export default function LoginPage() {
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-extrabold text-zinc-500 uppercase tracking-[2px] mb-2">Password</label>
+                            <label className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-300/75">Password</label>
                             <div className="relative">
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 pr-12 text-white text-sm font-medium placeholder:text-zinc-700 focus:outline-none focus:border-[#E50914]/50 focus:ring-1 focus:ring-[#E50914]/30 transition-all"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/6 px-4 py-3 pr-12 text-sm font-medium text-white placeholder:text-slate-500 transition-all focus:border-sky-300/38 focus:ring-1 focus:ring-sky-300/20"
                                     placeholder="••••••••"
                                     required
                                     minLength={6}
@@ -156,7 +203,7 @@ export default function LoginPage() {
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-white"
                                 >
                                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
@@ -164,7 +211,7 @@ export default function LoginPage() {
                         </div>
 
                         {error && (
-                            <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-400 text-xs font-semibold animate-fade-in">
+                            <div className="animate-fade-in rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-xs font-semibold text-red-200">
                                 {error}
                             </div>
                         )}
@@ -172,7 +219,7 @@ export default function LoginPage() {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full py-3.5 bg-gradient-to-r from-[#E50914] to-[#b20710] text-white font-extrabold text-xs uppercase tracking-widest rounded-xl hover:shadow-lg hover:shadow-[#E50914]/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(251,113,133,0.92))] py-3.5 text-xs font-extrabold uppercase tracking-[0.24em] text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {isLoading ? (
                                 <Loader2 size={16} className="animate-spin" />
@@ -180,15 +227,15 @@ export default function LoginPage() {
                                 <>Sign In <ArrowRight size={14} /></>
                             )}
                         </button>
-                    </div>
-                </form>
+                    </form>
 
-                <p className="text-center mt-6 text-sm text-zinc-600">
-                    Don't have an account?{' '}
-                    <a href="/signup" className="text-[#E50914] hover:text-[#ff4d4d] font-bold transition-colors">
-                        Create one
-                    </a>
-                </p>
+                    <p className="mt-6 text-center text-sm text-slate-400/80">
+                        Don't have an account?{' '}
+                        <a href="/signup" className="font-bold text-sky-300 transition-colors hover:text-white">
+                            Create one
+                        </a>
+                    </p>
+                </div>
             </div>
         </div>
     );

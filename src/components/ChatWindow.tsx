@@ -13,6 +13,7 @@ import { PlotlyRenderer } from './PlotlyRenderer';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { AutoChartSuggestion } from './AutoChartSuggestion';
 import { exportToPDF } from '../services/ReportExporter';
+import { BrandLockup, BrandMark } from './BrandMark';
 
 interface ChatWindowProps {
     currentSession: Session | null;
@@ -335,53 +336,57 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     };
 
     return (
-        <main className="flex-1 flex flex-col min-w-0 bg-transparent relative overflow-hidden">
+        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
             {/* Header */}
-            <header className="h-13 border-b border-zinc-900/80 flex items-center justify-between px-5 glass z-20 shrink-0">
+            <header className="mx-4 mt-4 flex shrink-0 items-center justify-between rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.88),rgba(11,16,29,0.72))] px-5 py-3 shadow-[0_20px_70px_rgba(2,6,23,0.28)] backdrop-blur-xl sm:mx-6 lg:mx-8 z-20">
                 <div className="flex items-center gap-3 overflow-hidden">
-                    <button className="md:hidden text-zinc-500 hover:text-white p-1.5 rounded-lg transition-colors" onClick={onToggleSidebar}>
+                    <button className="rounded-xl p-2 text-slate-400 transition-colors hover:text-white md:hidden" onClick={onToggleSidebar}>
                         <Menu size={18} />
                     </button>
 
-                    {/* Unified Engine Badge */}
-                    <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 glass rounded-xl">
-                        <span className="w-2 h-2 rounded-full bg-[#E50914] animate-pulse" />
-                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-zinc-300">
-                            Mastiff Engine
-                        </span>
+                    <div className="hidden sm:flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+                        <BrandMark size={34} />
+                        <div className="min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-[0.28em] text-sky-200/70">
+                                Analysis Cockpit
+                            </p>
+                            <p className="truncate text-[12px] font-bold text-white">
+                                {currentSession?.title || 'New analysis'}
+                            </p>
+                        </div>
                     </div>
 
                     {/* Persona Selector */}
                     <div className="relative">
                         <button
                             onClick={onTogglePersonaMenu}
-                            className="flex items-center gap-2 px-3 py-1.5 glass rounded-xl hover:border-zinc-700 transition-all"
+                            className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 transition-all hover:border-sky-300/30 hover:bg-white/8"
                         >
-                            <span className="w-5 h-5 bg-[#E50914] text-white rounded-lg flex items-center justify-center text-[9px] font-black shadow-sm">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-[linear-gradient(135deg,rgba(56,189,248,0.9),rgba(251,113,133,0.85))] text-[9px] font-black text-white shadow-sm">
                                 {activePersona.icon}
                             </span>
-                            <span className="hidden sm:inline text-[9px] font-extrabold uppercase tracking-widest text-zinc-300">
+                            <span className="hidden text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-200 sm:inline">
                                 {activePersona.name}
                             </span>
-                            <ChevronDown size={10} className="text-zinc-600" />
+                            <ChevronDown size={10} className="text-slate-400" />
                         </button>
                         {showPersonaMenu && (
-                            <div className="absolute top-full left-0 mt-2 w-52 glass rounded-xl shadow-2xl p-1.5 z-[50] animate-scale-in">
+                            <div className="absolute left-0 top-full z-[50] mt-2 w-56 animate-scale-in rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.95),rgba(10,16,28,0.9))] p-1.5 shadow-[0_30px_80px_rgba(2,6,23,0.4)] backdrop-blur-xl">
                                 {personas.map(p => (
                                     <button
                                         key={p.id}
                                         onClick={() => onSelectPersona(p)}
                                         className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-all ${activePersona.id === p.id
-                                            ? 'bg-[#E50914] text-white shadow-lg'
-                                            : 'hover:bg-zinc-800/60 text-zinc-400 hover:text-white'
+                                            ? 'bg-[linear-gradient(135deg,rgba(56,189,248,0.28),rgba(251,113,133,0.2))] text-white shadow-lg'
+                                            : 'text-slate-300 hover:bg-white/5 hover:text-white'
                                             }`}
                                     >
-                                        <span className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center text-[9px] font-black">
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-900/80 text-[9px] font-black">
                                             {p.icon}
                                         </span>
                                         <div>
                                             <p className="text-[9px] font-extrabold uppercase tracking-widest">{p.name}</p>
-                                            <p className="text-[7px] font-medium text-zinc-500 mt-0.5">{p.description}</p>
+                                            <p className="mt-0.5 text-[7px] font-medium text-slate-400">{p.description}</p>
                                         </div>
                                     </button>
                                 ))}
@@ -394,9 +399,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     {/* Live Search Toggle */}
                     <button
                         onClick={onToggleSearch}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-200 ${isSearchEnabled
-                            ? 'bg-[#E50914] border-[#E50914] text-white glow-accent-strong'
-                            : 'glass text-zinc-500 hover:text-zinc-300'
+                        className={`flex items-center gap-2 rounded-2xl border px-3 py-2 transition-all duration-200 ${isSearchEnabled
+                            ? 'border-sky-300/35 bg-sky-400/18 text-white glow-accent-strong'
+                            : 'border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30 hover:text-white'
                             }`}
                     >
                         <Globe size={13} className={isSearchEnabled ? 'animate-pulse' : ''} />
@@ -412,7 +417,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 await exportToPDF('pdf-export-target', currentSession?.title || 'Analysis');
                             }
                         }}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-xl glass text-zinc-500 hover:text-white hover:border-[#E50914]/50 transition-all"
+                        className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-slate-300 transition-all hover:border-rose-300/25 hover:text-white"
                     >
                         <Download size={13} />
                         <span className="text-[8px] font-extrabold uppercase tracking-widest hidden sm:inline">Export</span>
@@ -421,58 +426,75 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </header>
 
             {/* Messages Area */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5 custom-scrollbar messages-container">
+            <div ref={scrollRef} className="messages-container flex-1 space-y-5 overflow-y-auto px-4 py-5 custom-scrollbar sm:px-6 lg:px-8">
                 {/* Welcome Screen */}
                 {messages.length === 0 && (
-                    <div className="h-full flex flex-col items-center justify-center max-w-2xl mx-auto text-center animate-fade-in">
+                    <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-center text-center animate-fade-in">
                         {!hasLoadedDatasets ? (
-                            <div className="space-y-8 w-full">
+                            <div className="w-full space-y-8">
                                 {/* Logo & Title */}
-                                <div className="space-y-3">
-                                    <div className="w-16 h-16 bg-gradient-to-br from-[#E50914] to-[#ff4d4d] rounded-2xl flex items-center justify-center text-white shadow-2xl mx-auto glow-accent-strong rotate-3 hover:rotate-0 transition-transform duration-500">
-                                        <BrainCircuit size={32} />
-                                    </div>
-                                    <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tighter">
-                                        Mastiff<span className="text-[#E50914]">.</span>
-                                    </h1>
-                                    <p className="text-sm text-zinc-500 font-medium max-w-md mx-auto leading-relaxed">
-                                        Agentic Data Science — Upload your datasets and perform high-precision analysis.
+                                <div className="space-y-4">
+                                    <BrandLockup
+                                        align="center"
+                                        size={72}
+                                        subtitle="Colorful, interactive, management-ready"
+                                        title="Mastiff"
+                                        className="justify-center"
+                                    />
+                                    <p className="mx-auto max-w-xl text-sm font-medium leading-relaxed text-slate-300/78">
+                                        Forecast-first analysis, drill-down charts, and crisp action points for the teams that need answers quickly.
                                     </p>
                                 </div>
 
-                                {/* Features grid removed for V3.0 */}
+                                <div className="grid grid-cols-1 gap-3 text-left sm:grid-cols-3">
+                                    <div className="rounded-3xl border border-white/10 bg-white/6 px-4 py-4">
+                                        <TrendingUp size={18} className="text-sky-300" />
+                                        <p className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-sky-200/75">Forecast First</p>
+                                        <p className="mt-2 text-[13px] leading-relaxed text-slate-200/88">Lead with the next likely move, risk, and action instead of drowning in narrative.</p>
+                                    </div>
+                                    <div className="rounded-3xl border border-white/10 bg-white/6 px-4 py-4">
+                                        <BarChart3 size={18} className="text-rose-300" />
+                                        <p className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-rose-200/75">Interactive Views</p>
+                                        <p className="mt-2 text-[13px] leading-relaxed text-slate-200/88">Use filters, range controls, and drill-down charts to move from headline to root cause.</p>
+                                    </div>
+                                    <div className="rounded-3xl border border-white/10 bg-white/6 px-4 py-4">
+                                        <Database size={18} className="text-teal-300" />
+                                        <p className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-teal-200/75">File + Connector Native</p>
+                                        <p className="mt-2 text-[13px] leading-relaxed text-slate-200/88">Blend uploads and live sources without bouncing between tools or losing context.</p>
+                                    </div>
+                                </div>
 
                                 {/* Upload Zone */}
                                 <div
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="group mx-auto max-w-md p-6 rounded-2xl border-2 border-dashed border-zinc-800 hover:border-[#E50914]/40 bg-zinc-900/20 hover:bg-[#E50914]/5 transition-all duration-300 cursor-pointer"
+                                    className="group mx-auto max-w-2xl cursor-pointer rounded-[32px] border border-dashed border-slate-500/45 bg-[linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] p-7 transition-all duration-300 hover:-translate-y-[1px] hover:border-sky-300/45 hover:bg-sky-300/6"
                                 >
-                                    <div className="flex flex-col items-center gap-3">
-                                        <div className="w-12 h-12 rounded-xl bg-zinc-900 group-hover:bg-[#E50914]/10 flex items-center justify-center transition-all">
-                                            <Upload size={20} className="text-zinc-600 group-hover:text-[#E50914] transition-colors" />
+                                    <div className="flex flex-col items-center gap-4">
+                                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950/70 transition-all group-hover:bg-sky-400/12">
+                                            <Upload size={22} className="text-slate-300 transition-colors group-hover:text-sky-200" />
                                         </div>
                                         <div>
-                                            <p className="text-xs font-bold text-zinc-400 group-hover:text-white transition-colors">
+                                            <p className="text-xs font-black uppercase tracking-[0.26em] text-slate-100 transition-colors group-hover:text-white">
                                                 Drop files here or click to upload
                                             </p>
-                                            <p className="text-[9px] text-zinc-700 font-medium mt-1">
-                                                CSV • Excel • PDF • Word • Text • JSON
+                                            <p className="mt-2 text-[11px] font-medium text-slate-300/70">
+                                                CSV • Excel • PDF • Word • Text • JSON • SharePoint-ready
                                             </p>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Or type a message */}
-                                <p className="text-[9px] text-zinc-700 font-bold uppercase tracking-[3px]">
-                                    — or start chatting below —
+                                <p className="text-[9px] font-black uppercase tracking-[0.34em] text-slate-400/70">
+                                    Or start with a question below
                                 </p>
                             </div>
                         ) : (
                             /* Suggestions when files are loaded */
                             <div className="w-full space-y-5">
                                 <div className="flex items-center justify-center gap-2">
-                                    <Zap size={16} className="text-[#E50914]" />
-                                    <h3 className="text-[10px] font-extrabold uppercase tracking-[3px] text-zinc-500">Suggested Analyses</h3>
+                                    <Zap size={16} className="text-sky-300" />
+                                    <h3 className="text-[10px] font-extrabold uppercase tracking-[0.3em] text-slate-300/75">Suggested Analyses</h3>
                                 </div>
                                 {hasPendingDatasets && (
                                     <div className="max-w-2xl mx-auto rounded-2xl border border-[#E50914]/20 bg-[#E50914]/6 px-4 py-3 text-left">
@@ -501,11 +523,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                             <button
                                                 key={i}
                                                 onClick={() => onSend(s)}
-                                                className="group p-3.5 glass rounded-xl hover:border-[#E50914]/30 transition-all text-left"
+                                                className="group rounded-2xl border border-white/10 bg-white/5 p-3.5 text-left transition-all hover:-translate-y-[1px] hover:border-sky-300/35 hover:bg-white/8"
                                             >
                                                 <div className="flex items-start gap-2.5">
-                                                    <ArrowRight size={12} className="text-zinc-700 group-hover:text-[#E50914] mt-0.5 transition-colors shrink-0" />
-                                                    <p className="text-[11px] text-zinc-400 font-semibold leading-tight group-hover:text-white transition-colors">{s}</p>
+                                                    <ArrowRight size={12} className="mt-0.5 shrink-0 text-sky-300 transition-colors group-hover:text-rose-200" />
+                                                    <p className="text-[11px] font-semibold leading-tight text-slate-200/82 transition-colors group-hover:text-white">{s}</p>
                                                 </div>
                                             </button>
                                         ))}
@@ -521,7 +543,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <div key={m.id} className={`animate-fade-in ${m.role === 'user' ? 'flex justify-end' : 'w-full'}`}>
                         {m.role === 'user' ? (
                             /* ── USER BUBBLE ── */
-                            <div className="max-w-[72%] rounded-2xl px-5 py-3.5 bg-gradient-to-br from-[#E50914] to-[#b20710] text-white shadow-[0_4px_24px_rgba(229,9,20,0.18)]">
+                            <div className="max-w-[72%] rounded-[26px] border border-sky-300/18 bg-[linear-gradient(135deg,rgba(56,189,248,0.22),rgba(59,130,246,0.2),rgba(124,58,237,0.2))] px-5 py-3.5 text-white shadow-[0_10px_35px_rgba(37,99,235,0.16)] backdrop-blur-xl">
                                 <div className="text-sm leading-relaxed font-medium">{m.content}</div>
                             </div>
                         ) : (
@@ -535,14 +557,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         <>
 
                                 {/* ── TEXT CARD ── */}
-                                <div className="w-full rounded-2xl border border-zinc-800/60 bg-zinc-900/30 overflow-hidden">
+                                <div className="w-full overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,24,39,0.92),rgba(10,15,27,0.74))] shadow-[0_18px_50px_rgba(2,6,23,0.24)]">
 
                                     {/* Brand strip */}
-                                    <div className="flex items-center gap-2.5 px-4 py-2 border-b border-zinc-800/40">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-[#E50914] shrink-0" />
-                                        <span className="text-[8px] font-extrabold text-zinc-600 uppercase tracking-[2.5px]">Mastiff</span>
-                                        {m.persona && <span className="text-[8px] font-bold text-zinc-800 uppercase tracking-widest">· {m.persona}</span>}
-                                        <span className="ml-auto text-[8px] text-zinc-800 font-medium tabular-nums">
+                                    <div className="flex items-center gap-2.5 border-b border-white/8 px-4 py-3">
+                                        <BrandMark size={22} />
+                                        <span className="text-[8px] font-extrabold uppercase tracking-[0.3em] text-sky-200/75">Mastiff</span>
+                                        {m.persona && <span className="text-[8px] font-bold uppercase tracking-[0.22em] text-slate-400">· {m.persona}</span>}
+                                        <span className="ml-auto text-[8px] font-medium tabular-nums text-slate-400">
                                             {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                     </div>
@@ -853,39 +875,39 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             )}
 
             {/* Input Area */}
-            <div className="p-4 sm:p-5 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/95 to-transparent shrink-0">
+            <div className="shrink-0 bg-gradient-to-t from-[#07111f] via-[#07111f]/94 to-transparent p-4 sm:p-5">
                 <div className="max-w-3xl mx-auto relative">
                     <div className="mb-3 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[8px] font-extrabold uppercase tracking-[2px] text-zinc-600">Active Datasets</span>
+                            <span className="text-[8px] font-extrabold uppercase tracking-[0.24em] text-slate-400">Active Datasets</span>
                             {activeFiles.length > 0 ? activeFiles.slice(0, 4).map((file) => (
                                 <span
                                     key={file.id}
-                                    className="inline-flex items-center gap-1 rounded-full border border-[#E50914]/30 bg-[#E50914]/8 px-2.5 py-1 text-[9px] font-bold text-zinc-200 transition-all hover:border-[#E50914]/50 hover:bg-[#E50914]/14 hover:-translate-y-[1px]"
+                                    className="inline-flex items-center gap-1 rounded-full border border-sky-300/20 bg-sky-400/8 px-2.5 py-1 text-[9px] font-bold text-slate-100 transition-all hover:-translate-y-[1px] hover:border-sky-300/38 hover:bg-sky-400/12"
                                 >
-                                    <Database size={10} className="text-[#ff6b6b]" />
+                                    <Database size={10} className="text-sky-200" />
                                     <span className="max-w-[140px] truncate">{file.name}</span>
                                 </span>
                             )) : (
-                                <span className="text-[10px] text-zinc-600">No active files selected. Upload a dataset or enable one in the sidebar.</span>
+                                <span className="text-[10px] text-slate-400/70">No active files selected. Upload a dataset or enable one in the sidebar.</span>
                             )}
                             {activeFiles.length > 4 && (
-                                <span className="text-[9px] font-bold text-zinc-500">+{activeFiles.length - 4} more</span>
+                                <span className="text-[9px] font-bold text-slate-400">+{activeFiles.length - 4} more</span>
                             )}
                             {hasPendingDatasets && (
-                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/8 px-2.5 py-1 text-[9px] font-bold text-amber-100">
+                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[9px] font-bold text-amber-100">
                                     <Upload size={10} className="text-amber-300" />
                                     {pendingFiles.length} staged
                                 </span>
                             )}
                         </div>
 
-                        <div className="rounded-xl border border-zinc-800/60 bg-zinc-950/60 px-3 py-2.5">
+                        <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-2">
-                                    <Gauge size={13} className="text-zinc-500" />
+                                    <Gauge size={13} className="text-sky-300" />
                                     <div>
-                                        <p className="text-[9px] font-extrabold uppercase tracking-[2px] text-zinc-400">Context Meter</p>
+                                        <p className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-300">Context Meter</p>
                                         <p className={`text-[10px] font-semibold mt-1 ${contextMeter.textTone}`}>
                                             {contextMeter.status} load • {activeFiles.length} active file{activeFiles.length === 1 ? '' : 's'} • {contextMeter.totalEstimatedCells.toLocaleString()} estimated cells in scope
                                         </p>
@@ -893,12 +915,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 </div>
                                 {contextMeter.status !== 'Comfortable' && (
                                     <div className="text-right">
-                                        <p className="text-[9px] font-bold text-zinc-300">Reduce active files or confirm fewer columns.</p>
-                                        <p className="text-[9px] text-zinc-600">This keeps prompts inside a reliable analysis range.</p>
+                                        <p className="text-[9px] font-bold text-slate-100">Reduce active files or confirm fewer columns.</p>
+                                        <p className="text-[9px] text-slate-400/75">This keeps prompts inside a reliable analysis range.</p>
                                     </div>
                                 )}
                             </div>
-                            <div className="mt-2 h-1.5 rounded-full bg-zinc-900 overflow-hidden">
+                            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-950/70">
                                 <div className={`h-full ${contextMeter.tone}`} style={{ width: `${Math.max(contextMeter.percent * 100, activeFiles.length > 0 ? 8 : 0)}%` }} />
                             </div>
                         </div>
@@ -910,14 +932,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         )}
 
                         {suggestions.length > 0 && hasLoadedDatasets && (
-                            <div className="rounded-xl border border-zinc-800/60 bg-zinc-950/45 px-3 py-3">
+                            <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
-                                        <p className="text-[9px] font-extrabold uppercase tracking-[2px] text-zinc-400">Suggested Questions</p>
-                                        <p className="mt-1 text-[10px] text-zinc-600">Use these to move fast from uploaded data to decisions.</p>
+                                        <p className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-300">Suggested Questions</p>
+                                        <p className="mt-1 text-[10px] text-slate-400/75">Use these to move fast from uploaded data to decisions.</p>
                                     </div>
                                     {isLoadingSuggestions && (
-                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-zinc-500">
+                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-400">
                                             <Loader2 size={11} className="animate-spin" />
                                             Refreshing
                                         </span>
@@ -928,7 +950,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         <button
                                             key={prompt}
                                             onClick={() => onSend(prompt)}
-                                            className="rounded-full border border-zinc-800 bg-black/20 px-3 py-1.5 text-[10px] font-semibold text-zinc-300 hover:border-[#E50914]/35 hover:text-white transition-all"
+                                            className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1.5 text-[10px] font-semibold text-slate-200/90 transition-all hover:border-sky-300/35 hover:text-white"
                                         >
                                             {prompt}
                                         </button>
@@ -943,7 +965,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     <button
                                         key={prompt}
                                         onClick={() => onSend(prompt)}
-                                        className="rounded-full border border-zinc-800 bg-zinc-950/70 px-3 py-1.5 text-[10px] font-semibold text-zinc-400 hover:border-[#E50914]/30 hover:text-white transition-all"
+                                        className="rounded-full border border-white/10 bg-slate-950/55 px-3 py-1.5 text-[10px] font-semibold text-slate-300 transition-all hover:border-rose-300/30 hover:text-white"
                                     >
                                         {prompt}
                                     </button>
@@ -954,40 +976,42 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                     {isSearchEnabled && (
                         <div className="absolute -top-9 left-0 right-0 flex justify-center animate-fade-in">
-                            <div className="px-3 py-1 bg-[#E50914] text-white text-[8px] font-extrabold uppercase tracking-[2px] rounded-full shadow-lg flex items-center gap-2 glow-accent">
+                            <div className="flex items-center gap-2 rounded-full border border-sky-300/20 bg-sky-400/16 px-3 py-1 text-[8px] font-extrabold uppercase tracking-[0.24em] text-white shadow-lg glow-accent">
                                 <Search size={10} /> Web Search Active
                             </div>
                         </div>
                     )}
-                    <div className={`flex items-end gap-2.5 p-2.5 glass rounded-2xl shadow-xl transition-all duration-300 ${inputText ? 'border-[#E50914]/40 glow-accent' : ''}`}>
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className="p-2.5 text-zinc-600 hover:text-white transition-all bg-zinc-900/50 rounded-xl hover:bg-zinc-800 border border-zinc-800/50"
-                        >
-                            <Paperclip size={17} />
-                        </button>
-                        <textarea
-                            value={inputText}
-                            onChange={e => onInputChange(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } }}
-                            placeholder={isSearchEnabled ? "Search the web and your data..." : "Ask Mastiff anything — analyze data, generate charts, get insights..."}
-                            className="flex-1 bg-transparent border-none focus:ring-0 text-white font-medium text-sm resize-none py-2 max-h-28 custom-scrollbar placeholder:text-zinc-700"
-                            rows={1}
-                        />
-                        <button
-                            onClick={() => isAnalyzing ? onStopAnalysis() : onSend()}
-                            disabled={isAnalyzing ? false : !inputText.trim()}
-                            className={`p-2.5 rounded-xl transition-all duration-200 ${isAnalyzing
-                                ? 'bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 border border-amber-400/20'
-                                : inputText.trim()
-                                    ? 'bg-[#E50914] text-white shadow-lg glow-accent hover:bg-[#ff1a25] active:scale-95'
-                                    : 'bg-zinc-900 text-zinc-700'
-                                }`}
-                        >
-                            {isAnalyzing ? <Square size={17} /> : <Send size={17} />}
-                        </button>
+                    <div className={`rounded-[30px] border p-[1px] transition-all duration-300 ${inputText ? 'border-sky-300/35 bg-[linear-gradient(135deg,rgba(56,189,248,0.42),rgba(251,113,133,0.22),rgba(45,212,191,0.18))] glow-accent' : 'border-white/10 bg-white/8'}`}>
+                        <div className="flex items-end gap-2.5 rounded-[29px] bg-[linear-gradient(180deg,rgba(15,22,39,0.95),rgba(9,14,24,0.9))] p-2.5 shadow-xl backdrop-blur-xl">
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="rounded-2xl border border-white/10 bg-slate-950/60 p-2.5 text-slate-300 transition-all hover:border-sky-300/28 hover:text-white"
+                            >
+                                <Paperclip size={17} />
+                            </button>
+                            <textarea
+                                value={inputText}
+                                onChange={e => onInputChange(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } }}
+                                placeholder={isSearchEnabled ? "Search the web and your data..." : "Ask Mastiff anything — analyze data, generate charts, get insights..."}
+                                className="max-h-28 flex-1 resize-none border-none bg-transparent py-2 text-sm font-medium text-white placeholder:text-slate-500 custom-scrollbar focus:ring-0"
+                                rows={1}
+                            />
+                            <button
+                                onClick={() => isAnalyzing ? onStopAnalysis() : onSend()}
+                                disabled={isAnalyzing ? false : !inputText.trim()}
+                                className={`rounded-2xl p-2.5 transition-all duration-200 ${isAnalyzing
+                                    ? 'border border-amber-400/20 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30'
+                                    : inputText.trim()
+                                        ? 'bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(251,113,133,0.92))] text-white shadow-lg glow-accent hover:brightness-110 active:scale-95'
+                                        : 'bg-slate-950/70 text-slate-600'
+                                    }`}
+                            >
+                                {isAnalyzing ? <Square size={17} /> : <Send size={17} />}
+                            </button>
+                        </div>
                     </div>
-                    <p className="text-center mt-2 text-[8px] text-zinc-700 font-medium">
+                    <p className="mt-2 text-center text-[8px] font-medium text-slate-400/70">
                         Mastiff can make mistakes. Verify important analyses, and use View Code on any answer to inspect the generated Python.
                     </p>
                 </div>

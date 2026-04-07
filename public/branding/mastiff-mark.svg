@@ -1,9 +1,35 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" rx="120" fill="#0A0A0A"/>
-  <rect x="40" y="40" width="432" height="432" rx="96" stroke="#1F2937" stroke-width="8"/>
-  <path d="M128 360V148H174L256 250L338 148H384V360H338V224L269 315H243L174 224V360H128Z" fill="#E50914"/>
-  <path d="M352 140C389.555 140 420 170.445 420 208V304C420 341.555 389.555 372 352 372" stroke="#38BDF8" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
-  <circle cx="382" cy="209" r="16" fill="#38BDF8"/>
-  <circle cx="382" cy="304" r="16" fill="#2DD4BF"/>
-  <path d="M92 392C134 344.667 181.333 321 234 321C286.667 321 334 344.667 376 392" stroke="#FB7185" stroke-width="10" stroke-linecap="round" opacity="0.65"/>
+  <defs>
+    <radialGradient id="mastiffGlowA" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(142 118) rotate(50.0214) scale(179.246)">
+      <stop stop-color="#38BDF8" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#38BDF8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="mastiffGlowB" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(384 118) rotate(127.246) scale(166.747)">
+      <stop stop-color="#FB7185" stop-opacity="0.62"/>
+      <stop offset="1" stop-color="#FB7185" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="mastiffShell" x1="88" y1="70" x2="424" y2="442" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#162640"/>
+      <stop offset="0.55" stop-color="#0B1627"/>
+      <stop offset="1" stop-color="#09111D"/>
+    </linearGradient>
+    <linearGradient id="mastiffCore" x1="112" y1="112" x2="396" y2="396" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FBFF"/>
+      <stop offset="0.5" stop-color="#D9ECFF"/>
+      <stop offset="1" stop-color="#BDD8FF"/>
+    </linearGradient>
+    <linearGradient id="mastiffOrbit" x1="322" y1="134" x2="420" y2="326" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#2DD4BF"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="136" fill="#07111F"/>
+  <rect width="512" height="512" rx="136" fill="url(#mastiffGlowA)"/>
+  <rect width="512" height="512" rx="136" fill="url(#mastiffGlowB)"/>
+  <rect x="26" y="26" width="460" height="460" rx="118" fill="url(#mastiffShell)" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="4"/>
+  <path d="M108 386V126H164L256 245.8L349 126H404V386H349V210.4L285 293H227L164 210.4V386H108Z" fill="url(#mastiffCore)"/>
+  <path d="M348 146C384.451 146 414 175.642 414 212.213V303.787C414 340.358 384.451 370 348 370" stroke="url(#mastiffOrbit)" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="393" cy="213" r="20" fill="#38BDF8"/>
+  <circle cx="393" cy="304" r="20" fill="#FB7185"/>
+  <rect x="34" y="34" width="444" height="444" rx="110" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="4"/>
 </svg>
