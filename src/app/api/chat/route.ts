@@ -13,6 +13,7 @@ import { buildRecoverySnippet } from './recoverySnippets';
 import { buildDeterministicFinancialSummary } from '../../../lib/financialSummaryGuard';
 import { buildContractFallbackSummary, containsTechnicalArtifacts, validateSummaryContract } from '../../../lib/chatResponseContract';
 import { buildAnalysisResponseEnvelope, renderEnvelopeAsSummary } from '../../../lib/chatResponseEnvelope';
+import { buildCompactFileContext, buildMultiDatasetPromptBlock } from '../../../lib/multiDatasetIntelligence';
 
 export const dynamic = 'force-dynamic';
 
@@ -418,11 +419,17 @@ export async function POST(req: NextRequest) {
                 ? [{ name: 'pasted_data.txt', schema: '{"columns":[],"row_count":0}', sample: [] }]
                 : [];
 
-            const fileContexts = hasFiles
+            const intelligenceFileContexts = hasFiles
                 ? sessionFiles.map((f) => ({
                     name: f.filename,
                     schema: JSON.stringify(f.metadata, null, 2),
                     sample: (f.metadata as any)?.sample || [],
+                }))
+                : pastedDataContext;
+            const fileContexts = hasFiles
+                ? sessionFiles.map((f) => buildCompactFileContext({
+                    name: f.filename,
+                    metadata: (f.metadata || {}) as any,
                 }))
                 : pastedDataContext;
 
@@ -432,8 +439,14 @@ export async function POST(req: NextRequest) {
                 path: f.filePath,
             }));
 
-            const dataQualityWarnings = generateDataIntelligenceReport(fileContexts);
+            const dataQualityWarnings = generateDataIntelligenceReport(intelligenceFileContexts);
             const dataQualityContext = formatWarningsForPrompt(dataQualityWarnings);
+            const multiDatasetContext = hasFiles
+                ? buildMultiDatasetPromptBlock(sessionFiles.map((f) => ({
+                    name: f.filename,
+                    metadata: (f.metadata || {}) as any,
+                })))
+                : '';
 
             /* ---- Data Intelligence Pre-Scan ---- */
             const intelligenceReports: DataIntelligenceReport[] = sessionFiles.map((f) => {
@@ -451,7 +464,8 @@ export async function POST(req: NextRequest) {
                 linkedConnectorContext,
                 persona,
                 dataQualityContext,
-                dataIntelligenceContext
+                dataIntelligenceContext,
+                multiDatasetContext
             );
 
             /* ---- Data recovery preamble for 0-row files ---- */

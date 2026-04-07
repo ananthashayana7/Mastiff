@@ -36,8 +36,8 @@ try:
     from plotly.subplots import make_subplots as _make_subplots
 
     DEFAULT_COLORWAY = [
-        '#0B6E99', '#FF7F0E', '#2CA02C', '#D62728',
-        '#9467BD', '#8C564B', '#17BECF', '#BCBD22'
+        '#0B6E99', '#0F766E', '#D97706', '#4F46E5',
+        '#16A34A', '#EA580C', '#0891B2', '#84CC16'
     ]
 
     pio.templates['mastiff'] = go.layout.Template(
@@ -335,6 +335,18 @@ def execute_request(request: dict) -> dict:
         dfs.get(key) for key in requested_keys
         if _is_usable_frame(dfs.get(key))
     ]
+    dataset_catalog = []
+
+    for key, candidate in dfs.items():
+        if not _is_usable_frame(candidate):
+            continue
+        dataset_catalog.append({
+            'source_key': key,
+            'path': session_state['file_sources'].get(key),
+            'rows': int(len(candidate)),
+            'columns': list(map(str, list(candidate.columns))),
+            'column_count': int(len(candidate.columns)),
+        })
 
     if requested_dfs:
         df = requested_dfs[0]
@@ -352,6 +364,7 @@ def execute_request(request: dict) -> dict:
         'dfs': dfs,
         'df': df,
         'file_sources': session_state['file_sources'],
+        'dataset_catalog': dataset_catalog,
         'result': None,
         'plotly_json': [],
         'os': os,

@@ -30,9 +30,9 @@ body {
   background-color: rgb(var(--background-end-rgb));
   background-image:
     radial-gradient(circle at 8% 14%, rgba(56, 189, 248, 0.24), transparent 28%),
-    radial-gradient(circle at 88% 12%, rgba(251, 113, 133, 0.2), transparent 24%),
+    radial-gradient(circle at 88% 12%, rgba(245, 158, 11, 0.18), transparent 24%),
     radial-gradient(circle at 68% 76%, rgba(45, 212, 191, 0.18), transparent 26%),
-    radial-gradient(circle at 42% 52%, rgba(168, 85, 247, 0.09), transparent 20%),
+    radial-gradient(circle at 42% 52%, rgba(245, 158, 11, 0.08), transparent 20%),
     linear-gradient(140deg, #061222 0%, #0b1830 38%, #08111f 100%);
   font-family: "Aptos Display", "Aptos", "Trebuchet MS", "Segoe UI Variable Text", sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -92,7 +92,7 @@ body::after {
   background:
     linear-gradient(180deg, rgba(16, 25, 43, 0.9), rgba(8, 14, 26, 0.76)),
     radial-gradient(circle at top left, rgba(56, 189, 248, 0.09), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(251, 113, 133, 0.08), transparent 28%);
+    radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.08), transparent 28%);
   backdrop-filter: blur(24px) saturate(135%);
   -webkit-backdrop-filter: blur(24px) saturate(135%);
   border: 1px solid rgba(148, 163, 184, 0.16);
@@ -105,7 +105,7 @@ body::after {
   background:
     linear-gradient(180deg, rgba(18, 28, 46, 0.94), rgba(12, 18, 31, 0.82)),
     radial-gradient(circle at top left, rgba(56, 189, 248, 0.11), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(251, 113, 133, 0.1), transparent 28%);
+    radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.1), transparent 28%);
   border-color: rgba(148, 163, 184, 0.24);
 }
 
@@ -113,13 +113,13 @@ body::after {
 .glow-accent {
   box-shadow:
     0 0 28px rgba(56, 189, 248, 0.2),
-    0 0 88px rgba(251, 113, 133, 0.1);
+    0 0 88px rgba(245, 158, 11, 0.1);
 }
 
 .glow-accent-strong {
   box-shadow:
     0 0 34px rgba(56, 189, 248, 0.28),
-    0 0 94px rgba(251, 113, 133, 0.12);
+    0 0 94px rgba(245, 158, 11, 0.12);
 }
 
 /* === Animations === */

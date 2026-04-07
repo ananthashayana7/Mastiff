@@ -181,8 +181,8 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
     const [priceView, setPriceView] = useState<'candles' | 'line'>('candles');
 
     const MASTIFF_COLORWAY = [
-        '#38BDF8', '#F97316', '#2DD4BF', '#FACC15', '#FB7185',
-        '#818CF8', '#34D399', '#F59E0B', '#22C55E', '#E879F9'
+        '#38BDF8', '#14B8A6', '#F59E0B', '#818CF8', '#22C55E',
+        '#F97316', '#0EA5E9', '#A3E635', '#FACC15', '#06B6D4'
     ];
 
     const parsedPayload = useMemo(() => {
@@ -1173,7 +1173,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
             {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[linear-gradient(180deg,rgba(10,18,32,0.84),rgba(9,15,27,0.72))] px-4 py-2.5">
                 <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-[linear-gradient(135deg,#38BDF8,#FB7185,#2DD4BF)] shadow-[0_0_14px_rgba(56,189,248,0.45)]" />
+                    <span className="h-2 w-2 rounded-full bg-[linear-gradient(135deg,#38BDF8,#F59E0B,#2DD4BF)] shadow-[0_0_14px_rgba(56,189,248,0.45)]" />
                     <span className="bg-[linear-gradient(135deg,#c7f2ff,#fecdd3,#b2f5ea)] bg-clip-text text-[8px] font-semibold font-mono uppercase tracking-[0.24em] text-transparent">Interactive Analysis</span>
                 </div>
                 <div className="flex items-center gap-1.5">

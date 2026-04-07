@@ -14,9 +14,9 @@ import { Download, Table as TableIcon, FileText, ArrowUp, ArrowDown, Search, Fil
 import html2canvas from 'html2canvas';
 
 const COLORS = [
-  '#38BDF8', '#FB7185', '#2DD4BF', '#F59E0B', '#818CF8',
-  '#22C55E', '#F97316', '#A78BFA', '#FACC15', '#14B8A6',
-  '#E11D48', '#60A5FA', '#34D399', '#F43F5E', '#C084FC',
+  '#38BDF8', '#14B8A6', '#F59E0B', '#818CF8', '#22C55E',
+  '#F97316', '#0EA5E9', '#A3E635', '#FACC15', '#06B6D4',
+  '#1D4ED8', '#60A5FA', '#34D399', '#F97316', '#C084FC',
   '#8C564B', '#17BECF', '#BCBD22', '#FF7F0E', '#7F7F7F'
 ];
 
@@ -405,7 +405,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-extrabold text-white tracking-tight flex items-center gap-2">
-            <span className="h-5 w-1 rounded-full bg-[linear-gradient(180deg,#38BDF8,#FB7185,#2DD4BF)]" />
+            <span className="h-5 w-1 rounded-full bg-[linear-gradient(180deg,#38BDF8,#F59E0B,#2DD4BF)]" />
             {title}
           </h3>
           <p className="ml-3 mt-0.5 flex items-center gap-1 text-[8px] font-bold uppercase tracking-[2px] text-slate-400">

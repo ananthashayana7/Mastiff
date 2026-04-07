@@ -1,4 +1,5 @@
 import type { DataFile } from '../types';
+import { buildMultiDatasetPromptBlock } from './multiDatasetIntelligence';
 
 type ColumnKind = 'numeric' | 'date' | 'categorical' | 'text' | 'boolean' | 'unknown';
 type OperationalDomain = 'assembly_line' | 'financial' | 'general';
@@ -135,10 +136,17 @@ function formatColumnList(columns: string[], limit = 8): string {
 
 export function buildSuggestionContext(files: DataFile[]): string {
   const domain = detectOperationalDomain(files);
+  const multiDatasetBlock = files.length > 1
+    ? buildMultiDatasetPromptBlock(files.map((file) => ({
+        name: file.name,
+        metadata: file.metadata,
+      })))
+    : '';
 
   return [
     `Domain: ${domain}`,
     `Dataset count: ${files.length}`,
+    ...(multiDatasetBlock ? [multiDatasetBlock] : []),
     ...files.map((file) => {
       const summary = summarizeFileQuality(file);
       return [

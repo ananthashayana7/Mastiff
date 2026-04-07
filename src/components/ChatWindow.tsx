@@ -146,7 +146,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 </div>
 
                 <div className="mt-4 h-1 w-full bg-zinc-900 rounded-full overflow-hidden">
-                    <div className="h-full animate-shimmer bg-gradient-to-r from-sky-400 via-rose-400 to-teal-300" style={{ width: '40%' }} />
+                    <div className="h-full animate-shimmer bg-gradient-to-r from-sky-400 via-teal-300 to-amber-300" style={{ width: '40%' }} />
                 </div>
             </div>
         </div>
@@ -417,7 +417,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 await exportToPDF('pdf-export-target', currentSession?.title || 'Analysis');
                             }
                         }}
-                        className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-slate-300 transition-all hover:border-rose-300/25 hover:text-white"
+                        className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-slate-300 transition-all hover:border-amber-300/25 hover:text-white"
                     >
                         <Download size={13} />
                         <span className="text-[8px] font-extrabold uppercase tracking-widest hidden sm:inline">Export</span>
@@ -452,8 +452,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         <p className="mt-2 text-[13px] leading-relaxed text-slate-200/[0.88]">Lead with the next likely move, risk, and action instead of drowning in narrative.</p>
                                     </div>
                                     <div className="rounded-3xl border border-white/10 bg-white/[0.06] px-4 py-4">
-                                        <BarChart3 size={18} className="text-rose-300" />
-                                        <p className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-rose-200/75">Interactive Views</p>
+                                        <BarChart3 size={18} className="text-amber-300" />
+                                        <p className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-amber-200/75">Interactive Views</p>
                                         <p className="mt-2 text-[13px] leading-relaxed text-slate-200/[0.88]">Use filters, range controls, and drill-down charts to move from headline to root cause.</p>
                                     </div>
                                     <div className="rounded-3xl border border-white/10 bg-white/[0.06] px-4 py-4">
@@ -512,7 +512,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                 <span className="text-[10px] font-extrabold uppercase tracking-[2px] text-white/80">Analyzing your data...</span>
                                             </div>
                                             <div className="w-full max-w-xs h-1 bg-zinc-950 rounded-full overflow-hidden">
-                                                <div className="h-full animate-shimmer bg-gradient-to-r from-sky-400 via-rose-400 to-teal-300" style={{ width: '60%' }} />
+                                                <div className="h-full animate-shimmer bg-gradient-to-r from-sky-400 via-teal-300 to-amber-300" style={{ width: '60%' }} />
                                             </div>
                                         </div>
                                     </div>
@@ -525,7 +525,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                 className="group rounded-2xl border border-white/10 bg-white/5 p-3.5 text-left transition-all hover:-translate-y-[1px] hover:border-sky-300/35 hover:bg-white/[0.08]"
                                             >
                                                 <div className="flex items-start gap-2.5">
-                                                    <ArrowRight size={12} className="mt-0.5 shrink-0 text-sky-300 transition-colors group-hover:text-rose-200" />
+                                                    <ArrowRight size={12} className="mt-0.5 shrink-0 text-sky-300 transition-colors group-hover:text-amber-200" />
                                                     <p className="text-[11px] font-semibold leading-tight text-slate-200/[0.82] transition-colors group-hover:text-white">{s}</p>
                                                 </div>
                                             </button>
@@ -542,7 +542,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <div key={m.id} className={`animate-fade-in ${m.role === 'user' ? 'flex justify-end' : 'w-full'}`}>
                         {m.role === 'user' ? (
                             /* ── USER BUBBLE ── */
-                            <div className="max-w-[72%] rounded-[26px] border border-sky-300/18 bg-[linear-gradient(135deg,rgba(56,189,248,0.22),rgba(59,130,246,0.2),rgba(124,58,237,0.2))] px-5 py-3.5 text-white shadow-[0_10px_35px_rgba(37,99,235,0.16)] backdrop-blur-xl">
+                            <div className="max-w-[72%] rounded-[26px] border border-sky-300/18 bg-[linear-gradient(135deg,rgba(56,189,248,0.22),rgba(13,148,136,0.2),rgba(245,158,11,0.14))] px-5 py-3.5 text-white shadow-[0_10px_35px_rgba(8,47,73,0.28)] backdrop-blur-xl">
                                 <div className="text-sm leading-relaxed font-medium">{m.content}</div>
                             </div>
                         ) : (
@@ -625,7 +625,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                         </p>
                                                         <button
                                                             onClick={() => onSend(visualRecoveryPrompt)}
-                                                            className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(251,113,133,0.92))] px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.22em] text-white transition-all hover:brightness-110"
+                                                            className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(14,165,233,0.98),rgba(13,148,136,0.94),rgba(245,158,11,0.88))] px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.22em] text-white transition-all hover:brightness-110"
                                                         >
                                                             <BarChart3 size={12} />
                                                             Regenerate chart pack
@@ -645,7 +645,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                                             {executiveInsights.length > 0 && (
                                                 <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,21,36,0.94),rgba(8,13,24,0.86))] p-4 shadow-[0_16px_50px_rgba(2,6,23,0.18)]">
-                                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.26em] text-rose-200/75">Top Signals</p>
+                                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.26em] text-amber-200/75">Top Signals</p>
                                                     <div className="mt-3 space-y-2">
                                                         {executiveInsights.slice(0, 3).map((insight, index) => (
                                                             <div key={`${m.id}-signal-${index}`} className="rounded-2xl border border-white/8 bg-white/[0.04] px-3 py-2.5">
@@ -665,7 +665,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                             <button
                                                                 key={`${m.id}-${action}`}
                                                                 onClick={() => onSend(buildActionPrompt(action))}
-                                                                className="w-full rounded-2xl border border-rose-300/20 bg-rose-400/[0.08] px-3 py-2.5 text-left text-[11px] font-semibold leading-relaxed text-zinc-100 transition-all hover:bg-rose-400/[0.14]"
+                                                            className="w-full rounded-2xl border border-emerald-300/20 bg-emerald-400/[0.08] px-3 py-2.5 text-left text-[11px] font-semibold leading-relaxed text-zinc-100 transition-all hover:bg-emerald-400/[0.14]"
                                                             >
                                                                 {action}
                                                             </button>
@@ -705,7 +705,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                     <button
                                                         key={`${m.id}-${action}`}
                                                         onClick={() => onSend(buildActionPrompt(action))}
-                                                        className="rounded-full border border-rose-300/25 bg-rose-400/[0.08] px-3 py-1.5 text-left text-[10px] font-semibold text-zinc-200 transition-all hover:bg-rose-400/[0.14] hover:text-white"
+                                                        className="rounded-full border border-emerald-300/25 bg-emerald-400/[0.08] px-3 py-1.5 text-left text-[10px] font-semibold text-zinc-200 transition-all hover:bg-emerald-400/[0.14] hover:text-white"
                                                     >
                                                         {action}
                                                     </button>
@@ -887,7 +887,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                     <div className="flex items-center justify-between gap-2 mb-1">
                                                         <p className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-600">Concern {index + 1}</p>
                                                         <div className="flex items-center gap-2">
-                                                            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-200">
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-200">
                                                                 <PlayCircle size={11} /> Run Deep Dive
                                                             </span>
                                                             <span
@@ -934,7 +934,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                                     <section className="rounded-2xl border border-zinc-800/60 bg-black/20 p-4">
                                         <div className="flex items-center gap-2 mb-3">
-                                            <PlayCircle size={14} className="text-rose-200" />
+                                            <PlayCircle size={14} className="text-emerald-200" />
                                             <p className="text-[9px] font-extrabold uppercase tracking-[2px] text-zinc-400">Recommended Actions</p>
                                         </div>
                                         <div className="space-y-2.5">
@@ -942,15 +942,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                 <button
                                                     key={`${latestAssistantMessage?.id || 'drawer'}-action-${action}`}
                                                     onClick={() => onSend(buildActionPrompt(action))}
-                                                    className="w-full rounded-xl border border-rose-300/25 bg-rose-400/[0.08] px-3 py-3 text-left transition-all hover:border-rose-300/40 hover:bg-rose-400/[0.14]"
+                                                    className="w-full rounded-xl border border-emerald-300/25 bg-emerald-400/[0.08] px-3 py-3 text-left transition-all hover:border-emerald-300/40 hover:bg-emerald-400/[0.14]"
                                                 >
-                                                    <p className="mb-1 text-[10px] font-extrabold uppercase tracking-widest text-rose-200">Run This Follow-Up</p>
+                                                    <p className="mb-1 text-[10px] font-extrabold uppercase tracking-widest text-emerald-200">Run This Follow-Up</p>
                                                     <p className="text-[12px] leading-relaxed text-zinc-100">{action}</p>
                                                 </button>
                                             )) : isAnalyzing ? (
                                                 <div className="space-y-2 animate-pulse">
-                                                    <div className="h-14 rounded-xl border border-rose-300/[0.15] bg-rose-400/[0.08]" />
-                                                    <div className="h-14 rounded-xl border border-rose-300/[0.15] bg-rose-400/[0.08]" />
+                                                    <div className="h-14 rounded-xl border border-emerald-300/[0.15] bg-emerald-400/[0.08]" />
+                                                    <div className="h-14 rounded-xl border border-emerald-300/[0.15] bg-emerald-400/[0.08]" />
                                                 </div>
                                             ) : (
                                                 <p className="text-[11px] text-zinc-600">Action prompts will appear here when the agent returns concrete next steps.</p>
@@ -988,6 +988,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[9px] font-bold text-amber-100">
                                     <Upload size={10} className="text-amber-300" />
                                     {pendingFiles.length} staged
+                                </span>
+                            )}
+                            {activeFiles.length > 1 && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-400/[0.1] px-2.5 py-1 text-[9px] font-bold text-emerald-100">
+                                    <ScanSearch size={10} className="text-emerald-300" />
+                                    Cross-file comparison active
                                 </span>
                             )}
                         </div>
@@ -1055,7 +1061,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     <button
                                         key={prompt}
                                         onClick={() => onSend(prompt)}
-                                        className="rounded-full border border-white/10 bg-slate-950/55 px-3 py-1.5 text-[10px] font-semibold text-slate-300 transition-all hover:border-rose-300/30 hover:text-white"
+                                            className="rounded-full border border-white/10 bg-slate-950/55 px-3 py-1.5 text-[10px] font-semibold text-slate-300 transition-all hover:border-amber-300/30 hover:text-white"
                                     >
                                         {prompt}
                                     </button>
@@ -1071,7 +1077,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             </div>
                         </div>
                     )}
-                    <div className={`rounded-[30px] border p-[1px] transition-all duration-300 ${inputText ? 'border-sky-300/35 bg-[linear-gradient(135deg,rgba(56,189,248,0.42),rgba(251,113,133,0.22),rgba(45,212,191,0.18))] glow-accent' : 'border-white/10 bg-white/[0.08]'}`}>
+                    <div className={`rounded-[30px] border p-[1px] transition-all duration-300 ${inputText ? 'border-sky-300/35 bg-[linear-gradient(135deg,rgba(56,189,248,0.42),rgba(13,148,136,0.24),rgba(245,158,11,0.18))] glow-accent' : 'border-white/10 bg-white/[0.08]'}`}>
                         <div className="flex items-end gap-2.5 rounded-[29px] bg-[linear-gradient(180deg,rgba(15,22,39,0.95),rgba(9,14,24,0.9))] p-2.5 shadow-xl backdrop-blur-xl">
                             <button
                                 onClick={() => fileInputRef.current?.click()}

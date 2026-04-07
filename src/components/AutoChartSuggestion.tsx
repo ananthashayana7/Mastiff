@@ -9,8 +9,8 @@ import {
 import { BarChart3, TrendingUp, PieChart as PieIcon, Activity, ChevronDown, ChevronUp } from 'lucide-react';
 
 const CHART_COLORS = [
-  '#38BDF8', '#FB7185', '#2DD4BF', '#F59E0B', '#818CF8',
-  '#22C55E', '#F97316', '#A78BFA', '#FACC15', '#14B8A6',
+  '#38BDF8', '#14B8A6', '#F59E0B', '#818CF8', '#22C55E',
+  '#F97316', '#0EA5E9', '#A3E635', '#FACC15', '#06B6D4',
 ];
 
 interface AutoChartSuggestionProps {

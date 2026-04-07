@@ -26,6 +26,8 @@ MANDATORY VISUAL TEMPLATE:
 - Keep visuals colorful, boardroom-ready, and immediately actionable.
 
 ${multiFile ? '- Treat all confirmed files as one coordinated operational analysis. Compare lines, shifts, or periods across files and surface cross-file deviations.' : '- Use the confirmed dataset as the primary operational source of truth.'}
+${multiFile ? '- Add a line-wise comparison layer that ranks each source file or assembly line by rejection rate, throughput, downtime, and forecast risk.' : ''}
+${multiFile ? '- If schemas differ, compare only the common KPIs and clearly state any confidence limits instead of forcing a merge.' : ''}
 
 Keep the written output under 180 words. The charts and dashboard should do the heavy lifting.`;
 }
@@ -45,6 +47,7 @@ MANDATORY:
 - Pair every compact table with a chart.
 - Highlight the biggest anomaly, main driver, and forecast confidence.
 ${multiFile ? '- Compare all confirmed files together and explain the most material changes across periods, entities, or sources.' : ''}
+${multiFile ? '- Add a file or source comparison view with the biggest favorable and unfavorable variance by source.' : ''}
 
 Keep total text under 160 words.`;
 }
@@ -65,6 +68,7 @@ MANDATORY:
 - If time-series data exists, show trend plus forecast projection.
 - If categorical data exists, show ranking, comparison, or distribution.
 ${multiFile ? '- Compare the confirmed files together and surface the most important cross-file differences.' : ''}
+${multiFile ? '- If the files are not directly compatible, compare them on the common dimensions only and state that limit.' : ''}
 
 Keep total text under 150 words.`;
 }

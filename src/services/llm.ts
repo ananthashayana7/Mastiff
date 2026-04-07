@@ -230,6 +230,12 @@ def _is_usable(candidate):
     return isinstance(candidate, pd.DataFrame) and not candidate.empty and list(candidate.columns) != ['load_error']
 
 df = df.copy() if _is_usable(df) else pd.DataFrame()
+_usable_dfs = {}
+
+if 'dfs' in globals() and isinstance(dfs, dict):
+    for _name, _candidate in dfs.items():
+        if _is_usable(_candidate):
+            _usable_dfs[_name] = _candidate.copy()
 
 if df.empty and 'dfs' in globals() and isinstance(dfs, dict):
     for _name, _candidate in dfs.items():
@@ -264,13 +270,193 @@ if df.empty and 'dfs' in globals() and isinstance(dfs, dict):
             if _is_usable(_rdf):
                 df = _rdf.copy()
                 dfs[_src_key] = _rdf
+                _usable_dfs[_src_key] = _rdf.copy()
                 break
         except Exception:
             continue
 
+if not _usable_dfs and _is_usable(df):
+    _usable_dfs['active_df'] = df.copy()
+
 if df.empty:
     result = "Data is empty after loading. Please upload a file with at least one data row."
 else:
+    _multi_file_ready = len(_usable_dfs) > 1
+    if _multi_file_ready:
+        _normalized_sets = []
+        _profile_rows = []
+
+        for _source_name, _source_df in _usable_dfs.items():
+            _normalized_map = {str(_col).strip().lower(): _col for _col in _source_df.columns}
+            _normalized_sets.append(set(_normalized_map.keys()))
+            _numeric_hits = 0
+            for _col in _source_df.columns:
+                if pd.to_numeric(_source_df[_col], errors='coerce').notna().sum() > 0:
+                    _numeric_hits += 1
+            _profile_rows.append({
+                'source_file': str(_source_name),
+                'rows': int(len(_source_df)),
+                'columns': int(len(_source_df.columns)),
+                'numeric_columns': int(_numeric_hits),
+            })
+
+        _shared_columns = set.intersection(*_normalized_sets) if _normalized_sets else set()
+        _shared_numeric = []
+        for _shared_key in sorted(_shared_columns):
+            _numeric_ok = True
+            for _source_name, _source_df in _usable_dfs.items():
+                _source_map = {str(_col).strip().lower(): _col for _col in _source_df.columns}
+                _series = pd.to_numeric(_source_df[_source_map[_shared_key]], errors='coerce')
+                if _series.notna().sum() == 0:
+                    _numeric_ok = False
+                    break
+            if _numeric_ok:
+                _shared_numeric.append(_shared_key)
+
+        _profile_df = pd.DataFrame(_profile_rows)
+        _primary_metric_key = _shared_numeric[0] if _shared_numeric else None
+        _compare_rows = []
+        _distribution_frames = []
+
+        if _primary_metric_key:
+            for _source_name, _source_df in _usable_dfs.items():
+                _source_map = {str(_col).strip().lower(): _col for _col in _source_df.columns}
+                _metric_col = _source_map[_primary_metric_key]
+                _metric = pd.to_numeric(_source_df[_metric_col], errors='coerce')
+                _compare_rows.append({
+                    'source_file': str(_source_name),
+                    'metric_sum': float(_metric.fillna(0).sum()),
+                    'metric_mean': float(_metric.mean()) if _metric.notna().sum() > 0 else 0.0,
+                })
+                _dist = pd.DataFrame({
+                    'source_file': str(_source_name),
+                    'metric_value': _metric.dropna().head(250),
+                })
+                if not _dist.empty:
+                    _distribution_frames.append(_dist)
+
+        _compare_df = pd.DataFrame(_compare_rows)
+        _distribution_df = pd.concat(_distribution_frames, ignore_index=True) if _distribution_frames else pd.DataFrame()
+        _shared_columns_label = ', '.join(sorted(list(_shared_columns))[:8]) if _shared_columns else 'none'
+
+        print(f"Datasets analyzed: {len(_usable_dfs)}")
+        print(f"Dataset names: {', '.join(list(_usable_dfs.keys())[:8])}")
+        print(f"Shared columns: {_shared_columns_label}")
+        if _primary_metric_key:
+            print(f"Primary shared metric for comparison: {_primary_metric_key}")
+        else:
+            print("Primary shared metric for comparison: none detected")
+
+        fig = make_subplots(
+            rows=2,
+            cols=2,
+            specs=[[{'type': 'xy'}, {'type': 'xy'}], [{'type': 'xy'}, {'type': 'table'}]],
+            subplot_titles=(
+                'Rows by dataset',
+                'Cross-file KPI comparison',
+                'Distribution by dataset',
+                'Multi-file summary',
+            ),
+            vertical_spacing=0.14,
+            horizontal_spacing=0.1,
+        )
+
+        fig.add_trace(
+            go.Bar(
+                x=_profile_df['source_file'],
+                y=_profile_df['rows'],
+                marker=dict(color='#38BDF8'),
+                name='Rows',
+                text=_profile_df['rows'],
+                textposition='auto',
+            ),
+            row=1,
+            col=1,
+        )
+
+        if not _compare_df.empty and _primary_metric_key:
+            fig.add_trace(
+                go.Bar(
+                    x=_compare_df['source_file'],
+                    y=_compare_df['metric_sum'],
+                    marker=dict(color='#2DD4BF'),
+                    name=f'{_primary_metric_key} sum',
+                    text=_compare_df['metric_sum'].round(2),
+                    textposition='auto',
+                ),
+                row=1,
+                col=2,
+            )
+        else:
+            fig.add_trace(
+                go.Bar(
+                    x=_profile_df['source_file'],
+                    y=_profile_df['columns'],
+                    marker=dict(color='#F59E0B'),
+                    name='Columns',
+                    text=_profile_df['columns'],
+                    textposition='auto',
+                ),
+                row=1,
+                col=2,
+            )
+
+        if not _distribution_df.empty and _primary_metric_key:
+            fig.add_trace(
+                go.Box(
+                    x=_distribution_df['source_file'],
+                    y=_distribution_df['metric_value'],
+                    marker=dict(color='#818CF8'),
+                    name=f'{_primary_metric_key} spread',
+                    boxmean=True,
+                ),
+                row=2,
+                col=1,
+            )
+        else:
+            fig.add_trace(
+                go.Bar(
+                    x=_profile_df['source_file'],
+                    y=_profile_df['numeric_columns'],
+                    marker=dict(color='#F59E0B'),
+                    name='Numeric columns',
+                    text=_profile_df['numeric_columns'],
+                    textposition='auto',
+                ),
+                row=2,
+                col=1,
+            )
+
+        _summary_metrics = pd.DataFrame({
+            'metric': ['datasets', 'total_rows', 'shared_columns', 'primary_metric'],
+            'value': [
+                int(len(_usable_dfs)),
+                int(_profile_df['rows'].sum()),
+                int(len(_shared_columns)),
+                _primary_metric_key or 'none',
+            ],
+        })
+
+        fig.add_trace(
+            go.Table(
+                header=dict(values=['Metric', 'Value'], fill_color='#0f172a', font=dict(color='white')),
+                cells=dict(values=[_summary_metrics['metric'], _summary_metrics['value']], fill_color='#111827'),
+                name='Summary',
+            ),
+            row=2,
+            col=2,
+        )
+
+        fig.update_layout(
+            template='plotly_dark',
+            title='Multi-dataset comparison dashboard',
+            margin=dict(l=40, r=20, t=90, b=40),
+            height=780,
+            legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+            barmode='group',
+        )
+        result = fig
+
     numeric_cols = []
     for col in df.columns:
         s = pd.to_numeric(df[col], errors='coerce')
@@ -278,7 +464,9 @@ else:
             numeric_cols.append(col)
             df[col] = s
 
-    if numeric_cols:
+    if _multi_file_ready:
+        pass
+    elif numeric_cols:
         value_col = numeric_cols[0]
         category_candidates = [c for c in df.columns if c not in numeric_cols]
         secondary_value_col = numeric_cols[1] if len(numeric_cols) > 1 else None
@@ -727,7 +915,8 @@ export class LLMService {
         connectorContext: string = '',
         personaInstruction: string = '',
         dataQualityContext: string = '',
-        dataIntelligenceContext: string = ''
+        dataIntelligenceContext: string = '',
+        multiDatasetContext: string = ''
     ) {
         const modeConfig = MODE_CONFIGS[mode];
         const wantsVisualization = mode === 'analysis' || files.length > 0 || VISUALIZATION_HINTS.test(userQuery);
@@ -758,12 +947,16 @@ ${JSON.stringify(f.sample, null, 2)}
         const intelligenceBlock = dataIntelligenceContext
             ? `\n${dataIntelligenceContext}\n`
             : '';
+        const multiDatasetBlock = multiDatasetContext
+            ? `\n${multiDatasetContext}\n`
+            : '';
         const systemPrompt = `
 You are Mastiff, a Senior Strategic Business Analyst (Digital Twin) executing Python in a stateful sandbox.
 
 ${modeConfig.promptPrefix}
 ${personaBlock}
 ${intelligenceBlock}
+${multiDatasetBlock}
 
 DATA CONTEXT:
 ${filesContext}
@@ -775,6 +968,8 @@ EXECUTION ENVIRONMENT:
 - sklearn modules available: preprocessing, cluster, decomposition, ensemble, linear_model, metrics.
 - Import sklearn modules directly: e.g., from sklearn.linear_model import LinearRegression
 - Dataframes available as: dfs["filename"] and df (default first dataframe).
+- dataset_catalog is available as a list of file-level metadata dictionaries for multi-file orchestration.
+- When multiple files are present, inspect dfs first and never assume all files should be stacked blindly.
 - Return result via variable: result.
 - For Plotly visual output, set result to a Plotly figure.
 
@@ -787,6 +982,12 @@ INSTRUCTIONS:
 - WRITE COMPLETE, FULL PYTHON CODE. Never truncate, abbreviate, or use "..." or "# similar for other..." placeholders. Every line must be executable. Write the FULL code for each chart — no shortcuts.
 - When result is a Plotly figure, ALSO print a concise evidence block to stdout with the exact KPIs, top concerns, and forecast assumptions used. Those printed logs are consumed by the business summary.
 - Isolate outliers (Z-score > 3) and show stats with and without them when relevant.
+- When multiple datasets are loaded:
+  - First determine whether the files should be harmonized vertically, compared side by side, or joined on shared keys.
+  - If schemas are aligned, create a harmonized dataframe with a source_file column before cross-file comparisons.
+  - If schemas differ materially, keep per-file analyses separate and compare only shared dimensions or KPIs.
+  - State confidence carefully when only partial overlap exists across files.
+  - Print a short coverage line showing which files were actually used in the analysis.
 
 FORECASTING (MANDATORY):
 - ALWAYS include a trend projection or forecast when time-series or sequential data is detected.
@@ -812,6 +1013,7 @@ ASSEMBLY LINE DATA DETECTION:
   - Make it visually compelling with distinct colors per section.
   - The template must be management-ready: focus on gaps, anomalies, actionable insights, and what a human would miss.
   - Add updatemenus (dropdown filters) for shift selection, date range, or operator filtering where data supports it.
+  - If multiple assembly-line files are present, treat source_file as the line identifier unless a stronger line column exists. Compare lines explicitly.
     - ALWAYS include a download hint: set result text to include "Export this dashboard via the download button above."
 
 INLINE / PASTED DATA HANDLING:
@@ -867,7 +1069,7 @@ VISUALIZATION RULES (MANDATORY — CHARTS ARE NON-NEGOTIABLE):
     - Use funnel for sequential stage analysis; histogram for distributions; box/violin for spread comparisons.
     - When in doubt, prefer bar or line charts — they are the most universally readable.
 - Styling guidance for Plotly (MAKE CHARTS COLORFUL AND INSIGHTFUL):
-    - Use vivid, high-contrast color palettes: ['#636EFA','#EF553B','#00CC96','#AB63FA','#FFA15A','#19D3F3','#FF6692','#B6E880','#FF97FF','#FECB52'].
+    - Use vivid but executive-grade color palettes: ['#38BDF8','#14B8A6','#F59E0B','#818CF8','#22C55E','#F97316','#0EA5E9','#A3E635','#FACC15','#06B6D4'].
     - For heatmaps, use perceptual continuous scales (Viridis, Plasma, Inferno).
     - Set clear, descriptive titles and axis labels.
     - Use hover templates for rich interactive tooltips (e.g., hovertemplate="<b>%{x}</b><br>Value: %{y:,.2f}<extra></extra>").
@@ -1116,6 +1318,7 @@ RULES:
 - If execution failed, explain the failure in 1-2 sentences and suggest a concrete fix.
 - If charts were generated, mention their key takeaway in one sentence — don't describe the chart structure.
 - If charts were generated, reference outcomes from visuals and explicitly state "See interactive visuals below" once.
+- If execution output lists multiple datasets analyzed, include one short coverage note so the user knows whether the conclusion is cross-file or single-file.
 - Use markdown: **bold** for key metrics, bullet points for findings, ### for sections.
 
 DIAGNOSTIC RULES:

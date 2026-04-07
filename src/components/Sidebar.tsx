@@ -711,7 +711,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { type: 'snowflake', label: 'Snowflake', accent: 'text-cyan-300 border-cyan-500/20 bg-cyan-500/[0.08]', badge: 'SF' },
         { type: 'bigquery', label: 'BigQuery', accent: 'text-amber-300 border-amber-500/20 bg-amber-500/[0.08]', badge: 'BQ' },
         { type: 'postgres', label: 'Postgres', accent: 'text-indigo-300 border-indigo-500/20 bg-indigo-500/[0.08]', badge: 'PG' },
-        { type: 'api', label: 'API', accent: 'text-rose-300 border-rose-500/20 bg-rose-500/[0.08]', badge: 'API' },
+        { type: 'api', label: 'API', accent: 'text-teal-300 border-teal-500/20 bg-teal-500/[0.08]', badge: 'API' },
     ];
     const uploadStatusLabel = uploadingFileNames.length > 0
         ? `Processing ${uploadingFileNames.length} file${uploadingFileNames.length === 1 ? '' : 's'}`
@@ -746,20 +746,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <p className="text-[10px] text-slate-300/[0.65]">confirmed + staged</p>
                         </div>
                         <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
-                            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-rose-200/70">Sources</p>
+                            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-emerald-200/70">Sources</p>
                             <p className="mt-1 text-lg font-black tracking-[-0.04em] text-white">
                                 {connectors.length}
                             </p>
                             <p className="text-[10px] text-slate-300/[0.65]">live connectors</p>
                         </div>
                     </div>
+                    {(uploadedFiles.length + stagedFiles.length) > 1 && (
+                        <div className="mt-3 rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.06] px-3 py-2.5">
+                            <p className="text-[8px] font-extrabold uppercase tracking-[0.26em] text-emerald-200/80">Cross-File Ready</p>
+                            <p className="mt-1 text-[10px] leading-relaxed text-slate-200/[0.78]">
+                                Compare multiple sources together and surface line-level variance, common KPIs, and source-to-source anomalies.
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* New Session Button */}
                 <div className="p-3 shrink-0">
                     <button
                         onClick={onClearMessages}
-                        className="w-full flex items-center justify-center gap-2 rounded-2xl border border-sky-300/25 bg-[linear-gradient(135deg,rgba(56,189,248,0.2),rgba(251,113,133,0.18),rgba(45,212,191,0.16))] px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.28em] text-white shadow-[0_18px_45px_rgba(8,15,30,0.24)] transition-all hover:-translate-y-[1px] hover:shadow-[0_24px_60px_rgba(8,15,30,0.32)] active:scale-[0.99]"
+                        className="w-full flex items-center justify-center gap-2 rounded-2xl border border-sky-300/25 bg-[linear-gradient(135deg,rgba(56,189,248,0.2),rgba(13,148,136,0.18),rgba(245,158,11,0.16))] px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.28em] text-white shadow-[0_18px_45px_rgba(8,15,30,0.24)] transition-all hover:-translate-y-[1px] hover:shadow-[0_24px_60px_rgba(8,15,30,0.32)] active:scale-[0.99]"
                     >
                         <Plus size={14} /> New Chat
                     </button>
@@ -798,7 +806,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 </div>
                                 <p className="text-[10px] leading-tight text-slate-300/70">{uploadStatusDetail}</p>
                                 <div className="h-1 w-full overflow-hidden rounded-full bg-slate-950/70">
-                                    <div className="h-full w-2/3 animate-shimmer bg-gradient-to-r from-sky-400 via-rose-400 to-teal-300" />
+                                    <div className="h-full w-2/3 animate-shimmer bg-gradient-to-r from-sky-400 via-teal-300 to-amber-300" />
                                 </div>
                             </div>
                         )}
@@ -1020,7 +1028,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             <button
                                                 onClick={() => onToggleLinkedConnector?.(connector.id)}
                                                 className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-colors flex items-center justify-center gap-1.5 ${linkedConnectorIds.includes(connector.id)
-                                                        ? 'border-rose-300/35 bg-rose-400/10 text-rose-200'
+                                                        ? 'border-emerald-300/35 bg-emerald-400/10 text-emerald-200'
                                                         : 'border-zinc-800 text-zinc-500 hover:text-white'
                                                     }`}
                                             >
