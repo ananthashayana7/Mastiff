@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withCSRFProtection, validateCSRFRequest } from '@/app/api/csrf-token/route';
+import { withCSRFProtection, validateCSRFRequest } from '@/lib/csrf';
 
 /**
  * Example POST endpoint protected with CSRF

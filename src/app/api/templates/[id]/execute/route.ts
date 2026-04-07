@@ -15,7 +15,6 @@ import websocketService, { WebSocketMessageType } from '@/src/services/websocket
 import { rateLimiter } from '@/src/lib/rateLimiting';
 import { validateInput } from '@/src/lib/validation';
 import { z } from 'zod';
-import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Execute template schema
@@ -86,7 +85,7 @@ export async function POST(
         }
 
         const startTime = Date.now();
-        const executionId = uuidv4();
+        const executionId = crypto.randomUUID();
         let outputs: any = {};
         let error: string | null = null;
 

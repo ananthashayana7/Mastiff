@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { clearAuthCookies } from '../../../../lib/authCookies';
-import { validateCSRFRequest } from '../../csrf-token/route';
+import { validateCSRFRequest } from '@/lib/csrf';
 
 export const dynamic = 'force-dynamic';
 

@@ -12,7 +12,8 @@ import os
 import traceback
 import base64
 from datetime import date, datetime, time
-from io import BytesIO
+from io import BytesIO, StringIO
+from contextlib import redirect_stdout, redirect_stderr
 
 # Preload common libraries for faster execution
 import pandas as pd
@@ -384,21 +385,54 @@ def execute_request(request: dict) -> dict:
     namespace.update(session_state['variables'])
 
     try:
+        stdout_buffer = StringIO()
+        stderr_buffer = StringIO()
+
         # Execute the code
-        exec(code, namespace)
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            exec(code, namespace)
+
+        captured_stdout = stdout_buffer.getvalue().strip()
+        captured_stderr = stderr_buffer.getvalue().strip()
 
         # Extract result
         result = namespace.get('result', None)
         result_str = ''
         if result is not None:
-            if isinstance(result, pd.DataFrame):
+            is_plotly_result = (
+                HAS_PLOTLY and (
+                    hasattr(result, 'to_plotly_json')
+                    or (isinstance(result, dict) and 'data' in result and 'layout' in result)
+                )
+            )
+
+            if is_plotly_result:
+                result_title = ''
+                if isinstance(result, dict):
+                    result_title = str(((result.get('layout') or {}).get('title') or {}).get('text', '')).strip()
+                else:
+                    try:
+                        result_title = str(getattr(getattr(result, 'layout', None), 'title', None).text or '').strip()
+                    except Exception:
+                        result_title = ''
+                result_str = f'Interactive chart generated{f": {result_title}" if result_title else ""}'
+            elif isinstance(result, pd.DataFrame):
                 result_str = result.to_string(max_rows=50, max_cols=20)
             elif isinstance(result, pd.Series):
                 result_str = result.to_string(max_rows=50)
             else:
                 result_str = str(result)
-        else:
-            result_str = 'Execution successful'
+
+        output_sections = []
+        if captured_stdout:
+            output_sections.append(captured_stdout)
+        if result_str and result_str != 'Execution successful':
+            output_sections.append(result_str)
+        if captured_stderr:
+            output_sections.append(f'Warnings:\n{captured_stderr}')
+        if not output_sections:
+            output_sections.append('Execution successful')
+        result_str = '\n\n'.join(output_sections)
 
         # Capture matplotlib charts
         charts = []
@@ -475,7 +509,7 @@ def execute_request(request: dict) -> dict:
 
         plotly_charts = _dedupe_plotly(plotly_charts)
 
-        if len(plotly_charts) > 0:
+        if len(plotly_charts) > 0 and not captured_stdout and result_str.strip() == 'Execution successful':
             result_str = 'Interactive chart generated'
 
         # Get updated df sample

@@ -5,7 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { files } from '@/db/schema';
 import { authenticateRequest } from '@/lib/auth';
-import { validateCSRFRequest } from '../../csrf-token/route';
+import { validateCSRFRequest } from '@/lib/csrf';
 
 export const dynamic = 'force-dynamic';
 

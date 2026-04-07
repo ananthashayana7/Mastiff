@@ -1,25 +1,98 @@
-export const buildUploadAutoPrompt = (uploadedFileNames: string[]): string => `Upload successful: ${uploadedFileNames.join(', ')}.
-STRICT RULE: NO introductory text, greetings, or parsing summaries. Start IMMEDIATELY with insights.
+type AutoPromptDomain = 'assembly_line' | 'financial' | 'general';
+
+interface AutoPromptOptions {
+  domain?: AutoPromptDomain;
+  multiFile?: boolean;
+}
+
+function buildAssemblyLinePrompt(fileNames: string[], multiFile: boolean): string {
+  return `Data ingestion successful: ${fileNames.join(', ')}.
+STRICT RULE: NO greetings, NO preamble, NO long narrative. Start immediately with management-ready output.
+
+This is assembly-line data. Build a management dashboard response with:
+1. FORECAST FIRST: predict the next shift/period and state the top production risk immediately.
+2. TOP 5 CONCERNS: crisp, management-driven concerns ranked by impact.
+3. ACTIONS: one specific action for each concern.
+4. DATA QUALITY VERDICT: one line only.
+
+MANDATORY VISUAL TEMPLATE:
+- Top-left: overall summary KPIs with a compact table or indicators plus a trend chart.
+- Left middle: shift-wise performance comparison.
+- Left lower: operator-wise and QA/checker/engineer performance if available.
+- Center hero: forecast, anomalies, and patterns with dashed forecast lines.
+- Lower center: two columns for Top 5 Concerns and Recommended Actions.
+- Remaining space: drill-down charts for defects, throughput, cycle time, downtime, Pareto, or bottlenecks.
+- Add interactive filters for date/time, shift, operator, station, and line where the data supports them.
+- Keep visuals colorful, boardroom-ready, and immediately actionable.
+
+${multiFile ? '- Treat all confirmed files as one coordinated operational analysis. Compare lines, shifts, or periods across files and surface cross-file deviations.' : '- Use the confirmed dataset as the primary operational source of truth.'}
+
+Keep the written output under 180 words. The charts and dashboard should do the heavy lifting.`;
+}
+
+function buildFinancialPrompt(fileNames: string[], multiFile: boolean): string {
+  return `Data ingestion successful: ${fileNames.join(', ')}.
+STRICT RULE: NO introductory text. Start directly with insights.
+
+Provide:
+1. Forecast first with the next likely revenue, cost, margin, or run-rate direction.
+2. Top 5 concerns ranked by business impact.
+3. One action for each concern.
+4. One-line data reliability verdict.
+
+MANDATORY:
+- Include at least one interactive Plotly dashboard.
+- Pair every compact table with a chart.
+- Highlight the biggest anomaly, main driver, and forecast confidence.
+${multiFile ? '- Compare all confirmed files together and explain the most material changes across periods, entities, or sources.' : ''}
+
+Keep total text under 160 words.`;
+}
+
+function buildGeneralPrompt(fileNames: string[], multiFile: boolean): string {
+  return `Data ingestion successful: ${fileNames.join(', ')}.
+STRICT RULE: NO introductory text, greetings, or parsing summaries. Start immediately with insights.
 
 Provide EXACTLY 3 crisp, actionable bullet points:
-1. **Most significant pattern/anomaly** - with the specific numbers.
-2. **Data quality verdict** - one sentence: is this data reliable for decisions?
-3. **Top business action** - one boardroom-ready recommendation with projected impact.
+1. Most significant pattern or anomaly with the specific numbers.
+2. Data quality verdict in one sentence.
+3. Top business action with projected impact.
 
-Then provide a FORECAST: Based on detected trends, what is the projected direction? Show it visually.
+Then provide a forecast or projected direction from the current trend.
 
-MANDATORY: Generate at least ONE high-fidelity interactive Plotly chart with professional styling.
-- If time-series data exists, show trend + forecast projection.
-- If categorical data, show distribution or comparison.
-- Use vivid colors, clear labels, and hover tooltips.
+MANDATORY:
+- Generate at least one interactive Plotly chart with professional styling.
+- If time-series data exists, show trend plus forecast projection.
+- If categorical data exists, show ranking, comparison, or distribution.
+${multiFile ? '- Compare the confirmed files together and surface the most important cross-file differences.' : ''}
 
-Keep total text under 150 words. Charts speak louder than text.`;
+Keep total text under 150 words.`;
+}
 
-export const buildSharePointImportAutoPrompt = (importedFileNames: string[]): string => `SharePoint import successful: ${importedFileNames.join(', ')}.
-Provide EXACTLY 3 concise, management-ready bullets:
-1) Most significant insight/anomaly with numbers.
-2) Data reliability verdict in one sentence.
-3) Highest-impact action recommendation.
+export const buildUploadAutoPrompt = (
+  uploadedFileNames: string[],
+  options: AutoPromptOptions = {}
+): string => {
+  const domain = options.domain || 'general';
+  const multiFile = Boolean(options.multiFile);
 
-Then provide a forecast/projection from current trends.
-MANDATORY: include at least one interactive Plotly chart.`;
+  if (domain === 'assembly_line') {
+    return buildAssemblyLinePrompt(uploadedFileNames, multiFile);
+  }
+
+  if (domain === 'financial') {
+    return buildFinancialPrompt(uploadedFileNames, multiFile);
+  }
+
+  return buildGeneralPrompt(uploadedFileNames, multiFile);
+};
+
+export const buildSharePointImportAutoPrompt = (
+  importedFileNames: string[],
+  options: AutoPromptOptions = {}
+): string => {
+  return buildUploadAutoPrompt(importedFileNames, options).replace(
+    'Data ingestion successful',
+    'SharePoint import successful'
+  );
+};

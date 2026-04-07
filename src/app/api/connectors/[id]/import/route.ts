@@ -18,8 +18,12 @@ import { files as dbFiles, sessions } from '@/db/schema';
 import { encryptionService } from '@/services/encryptionService';
 import { authenticateRequest } from '@/lib/auth';
 import { rateLimiter } from '@/lib/rateLimiting';
-import { validateCSRFRequest } from '../../../csrf-token/route';
-import { buildTabularMetadataFallback } from '@/app/api/files/upload/route';
+import { validateCSRFRequest } from '@/lib/csrf';
+import {
+  buildDocumentMetadata,
+  buildTabularMetadataFallback,
+  extractDocumentText,
+} from '@/lib/fileIngestion';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +47,7 @@ const IMPORT_SCHEMA = z.object({
 });
 
 const SUPPORTED_TABULAR_EXT = new Set(['.csv', '.xlsx', '.xls', '.json', '.tsv']);
-const SUPPORTED_DOC_EXT = new Set(['.txt']);
+const SUPPORTED_DOC_EXT = new Set(['.txt', '.pdf', '.docx', '.doc']);
 
 function sanitizeFileName(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -52,41 +56,6 @@ function sanitizeFileName(name: string): string {
 function inferFileType(filename: string): string {
   const ext = path.extname(filename).toLowerCase();
   return ext.replace('.', '') || 'bin';
-}
-
-function buildTextMetadata(text: string, filename: string) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const sample = lines.slice(0, 10).map((value, idx) => ({
-    line_number: idx + 1,
-    text: value,
-  }));
-
-  return {
-    row_count: lines.length,
-    column_count: 2,
-    original_filename: filename,
-    columns: {
-      line_number: {
-        dtype: 'int64',
-        null_count: 0,
-        null_percentage: 0,
-        unique_count: lines.length,
-        sample_values: sample.slice(0, 5).map((row) => row.line_number),
-      },
-      text: {
-        dtype: 'object',
-        null_count: 0,
-        null_percentage: 0,
-        unique_count: new Set(lines).size,
-        sample_values: sample.slice(0, 5).map((row) => row.text),
-      },
-    },
-    sample,
-  };
 }
 
 async function getSharePointAccessToken(creds: Record<string, any>): Promise<string> {
@@ -239,12 +208,21 @@ export async function POST(
         const storedPath = path.join(uploadDir, `${Date.now()}-${safeName}`);
         await fs.writeFile(storedPath, buffer);
 
+        let analysisPath = storedPath;
         let metadata: Record<string, any> = {};
         if (isTabular) {
           metadata = await buildTabularMetadataFallback(storedPath, sourceName, ext);
         } else {
-          const text = buffer.toString('utf-8');
-          metadata = buildTextMetadata(text, sourceName);
+          const text = (await extractDocumentText(buffer, ext)).trim();
+          if (!text) {
+            skipped.push({ sourceId: source.id, reason: 'Could not extract text from the selected document' });
+            continue;
+          }
+
+          const extractedPath = path.join(uploadDir, `${Date.now()}-${crypto.randomUUID()}-${safeName}.txt`);
+          await fs.writeFile(extractedPath, text, 'utf-8');
+          analysisPath = extractedPath;
+          metadata = buildDocumentMetadata(text, sourceName, ext);
         }
 
         const [dbFile] = await db.insert(dbFiles).values({
@@ -252,7 +230,7 @@ export async function POST(
           sessionId: payload.sessionId,
           filename: sourceName,
           fileType: inferFileType(sourceName),
-          filePath: storedPath,
+          filePath: analysisPath,
           fileSize: buffer.byteLength,
           metadata: {
             ...(metadata || {}),

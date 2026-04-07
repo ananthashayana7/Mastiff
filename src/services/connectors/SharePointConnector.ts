@@ -19,6 +19,9 @@ interface SharePointConfig extends ConnectorConfig {
     tokenExpiry?: number;
 }
 
+const SHAREPOINT_SOURCE_LIMIT = 200;
+const SHAREPOINT_FOLDER_DEPTH = 3;
+
 export class SharePointConnector extends BaseDataConnector {
     private client: AxiosInstance | null = null;
     private accessToken: string | null = null;
@@ -103,6 +106,65 @@ export class SharePointConnector extends BaseDataConnector {
         this.status = 'disconnected';
     }
 
+    private async listDriveItemsRecursive(
+        driveId: string,
+        parentItemId: string | null,
+        pathSegments: string[] = [],
+        depth = 0,
+        collected: DataSource[] = []
+    ): Promise<DataSource[]> {
+        if (!this.client || collected.length >= SHAREPOINT_SOURCE_LIMIT) {
+            return collected;
+        }
+
+        const endpoint = parentItemId
+            ? `/drives/${driveId}/items/${parentItemId}/children?$top=200`
+            : `/drives/${driveId}/root/children?$top=200`;
+
+        const response = await this.client.get(endpoint);
+        const items = response.data?.value || [];
+
+        for (const item of items) {
+            if (!item?.id || collected.length >= SHAREPOINT_SOURCE_LIMIT) {
+                continue;
+            }
+
+            const nextPathSegments = [...pathSegments, item.name || item.id];
+            const displayPath = nextPathSegments.join(' / ');
+            const isFolder = Boolean(item.folder);
+
+            collected.push({
+                id: `${driveId}:${item.id}`,
+                name: displayPath,
+                type: isFolder ? 'folder' : 'file',
+                description: isFolder ? 'SharePoint folder' : item.file?.mimeType || 'SharePoint file',
+                metadata: {
+                    driveId,
+                    itemId: item.id,
+                    webUrl: item.webUrl,
+                    mimeType: item.file?.mimeType,
+                    path: displayPath,
+                },
+            });
+
+            if (isFolder && depth < SHAREPOINT_FOLDER_DEPTH) {
+                try {
+                    await this.listDriveItemsRecursive(
+                        driveId,
+                        item.id,
+                        nextPathSegments,
+                        depth + 1,
+                        collected
+                    );
+                } catch {
+                    // Best-effort traversal of nested folders.
+                }
+            }
+        }
+
+        return collected;
+    }
+
     async listSources(): Promise<DataSource[]> {
         try {
             await this.ensureConnected();
@@ -125,22 +187,7 @@ export class SharePointConnector extends BaseDataConnector {
                 });
 
                 try {
-                    const children = await this.client.get(`/drives/${drive.id}/root/children?$top=50`);
-                    const items = children.data?.value || [];
-                    for (const item of items) {
-                        if (!item?.id) continue;
-                        sources.push({
-                            id: `${drive.id}:${item.id}`,
-                            name: item.name || item.id,
-                            type: item.folder ? 'folder' : 'file',
-                            metadata: {
-                                driveId: drive.id,
-                                itemId: item.id,
-                                webUrl: item.webUrl,
-                                mimeType: item.file?.mimeType,
-                            },
-                        });
-                    }
+                    await this.listDriveItemsRecursive(drive.id, null, [drive.name || drive.id], 0, sources);
                 } catch {
                     // Best-effort listing per drive
                 }

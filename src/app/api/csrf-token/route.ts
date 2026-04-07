@@ -10,7 +10,6 @@ import {
     csrfProtection,
     CSRF_COOKIE_NAME,
     getCSRFCookieOptions,
-    validateCSRFToken,
 } from '../../../services/csrfProtection';
 
 /**
@@ -25,45 +24,4 @@ export async function GET(request: NextRequest) {
     response.cookies.set(CSRF_COOKIE_NAME, tokenPair.cookie, getCSRFCookieOptions());
 
     return response;
-}
-
-/**
- * Middleware function for use in API routes
- * Usage: at the start of your POST/PUT/DELETE handler
- * 
- * const validation = await validateCSRFRequest(request);
- * if (!validation.valid) {
- *   return NextResponse.json({ error: validation.error }, { status: 403 });
- * }
- */
-export async function validateCSRFRequest(request: NextRequest): Promise<{
-    valid: boolean;
-    error?: string;
-}> {
-    return validateCSRFToken(request);
-}
-
-/**
- * Middleware to protect specific routes
- * Usage: wrap protected route handlers with this
- */
-export function withCSRFProtection(
-    handler: (request: NextRequest) => Promise<NextResponse>
-) {
-    return async (request: NextRequest): Promise<NextResponse> => {
-        // Only validate on state-changing methods
-        const stateChangingMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
-        if (stateChangingMethods.includes(request.method.toUpperCase())) {
-            const validation = await validateCSRFToken(request);
-            if (!validation.valid) {
-                return NextResponse.json(
-                    { error: validation.error || 'Invalid CSRF token' },
-                    { status: 403 }
-                );
-            }
-        }
-
-        // Call the actual handler
-        return handler(request);
-    };
 }

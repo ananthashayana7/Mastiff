@@ -25,6 +25,7 @@ interface ChatWindowProps {
     inputText: string;
     suggestions: string[];
     isLoadingSuggestions: boolean;
+    pendingFiles: DataFile[];
     files: DataFile[];
     activeFiles: DataFile[];
     showCodeId: string | null;
@@ -63,6 +64,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     inputText,
     suggestions,
     isLoadingSuggestions,
+    pendingFiles,
     files,
     activeFiles,
     showCodeId,
@@ -95,6 +97,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         'Summarize the top trends, anomalies, and recommended charts.',
         'Which columns look most predictive, and what should I ask next?',
     ];
+    const hasLoadedDatasets = files.some((file) => file.id !== 'sample-sales');
+    const hasPendingDatasets = pendingFiles.length > 0;
 
     const renderAnalysisSteps = () => (
         <div className="flex justify-start animate-fade-in">
@@ -421,7 +425,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 {/* Welcome Screen */}
                 {messages.length === 0 && (
                     <div className="h-full flex flex-col items-center justify-center max-w-2xl mx-auto text-center animate-fade-in">
-                        {files.length === 0 || files.every(f => f.id === 'sample-sales') ? (
+                        {!hasLoadedDatasets ? (
                             <div className="space-y-8 w-full">
                                 {/* Logo & Title */}
                                 <div className="space-y-3">
@@ -470,6 +474,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     <Zap size={16} className="text-[#E50914]" />
                                     <h3 className="text-[10px] font-extrabold uppercase tracking-[3px] text-zinc-500">Suggested Analyses</h3>
                                 </div>
+                                {hasPendingDatasets && (
+                                    <div className="max-w-2xl mx-auto rounded-2xl border border-[#E50914]/20 bg-[#E50914]/6 px-4 py-3 text-left">
+                                        <p className="text-[9px] font-extrabold uppercase tracking-[2px] text-[#ff6b6b]">New data staged</p>
+                                        <p className="mt-1 text-[11px] text-zinc-300 leading-relaxed">
+                                            {pendingFiles.length} staged file{pendingFiles.length === 1 ? '' : 's'} detected. Suggestions are ready immediately, and you can still review the schema in the inspector before drilling deeper.
+                                        </p>
+                                    </div>
+                                )}
                                 {isLoadingSuggestions ? (
                                     <div className="w-full max-w-md mx-auto p-6 glass rounded-2xl relative overflow-hidden">
                                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#E50914]/5 to-transparent animate-neural-scan -translate-x-full" />
@@ -860,6 +872,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             {activeFiles.length > 4 && (
                                 <span className="text-[9px] font-bold text-zinc-500">+{activeFiles.length - 4} more</span>
                             )}
+                            {hasPendingDatasets && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/8 px-2.5 py-1 text-[9px] font-bold text-amber-100">
+                                    <Upload size={10} className="text-amber-300" />
+                                    {pendingFiles.length} staged
+                                </span>
+                            )}
                         </div>
 
                         <div className="rounded-xl border border-zinc-800/60 bg-zinc-950/60 px-3 py-2.5">
@@ -888,6 +906,34 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         {contextChangeNotice && (
                             <div className="rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-[10px] font-semibold text-amber-200 animate-fade-in">
                                 {contextChangeNotice}
+                            </div>
+                        )}
+
+                        {suggestions.length > 0 && hasLoadedDatasets && (
+                            <div className="rounded-xl border border-zinc-800/60 bg-zinc-950/45 px-3 py-3">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <p className="text-[9px] font-extrabold uppercase tracking-[2px] text-zinc-400">Suggested Questions</p>
+                                        <p className="mt-1 text-[10px] text-zinc-600">Use these to move fast from uploaded data to decisions.</p>
+                                    </div>
+                                    {isLoadingSuggestions && (
+                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-zinc-500">
+                                            <Loader2 size={11} className="animate-spin" />
+                                            Refreshing
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {suggestions.slice(0, 6).map((prompt) => (
+                                        <button
+                                            key={prompt}
+                                            onClick={() => onSend(prompt)}
+                                            className="rounded-full border border-zinc-800 bg-black/20 px-3 py-1.5 text-[10px] font-semibold text-zinc-300 hover:border-[#E50914]/35 hover:text-white transition-all"
+                                        >
+                                            {prompt}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         )}
 

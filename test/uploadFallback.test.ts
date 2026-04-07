@@ -12,7 +12,7 @@ vi.mock('@/db/schema', () => ({
   files: {},
 }));
 
-import { buildTabularMetadataFallback } from '../src/app/api/files/upload/route';
+import { buildTabularMetadataFallback } from '../src/lib/fileIngestion';
 
 const tempFiles: string[] = [];
 

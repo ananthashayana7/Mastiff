@@ -2,6 +2,8 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
+import { ChartRenderer } from './ChartRenderer';
+import type { VisualizationData } from '../types';
 
 interface PlotlyRendererProps {
     data: any;
@@ -10,6 +12,155 @@ interface PlotlyRendererProps {
 type RangePreset = 'ALL' | '1M' | '3M' | '6M' | 'YTD' | '1Y';
 type PointWindow = 'all' | '12' | '24' | '60';
 type TimeAggregation = 'raw' | 'week' | 'month' | 'quarter' | 'year';
+
+function getLayoutTitle(layout: any): string {
+    if (!layout) return 'Chart';
+    if (typeof layout.title === 'string') return layout.title;
+    if (typeof layout.title?.text === 'string') return layout.title.text;
+    return 'Chart';
+}
+
+function normalizeAxisLabel(value: any, index: number): string {
+    if (value === null || value === undefined || value === '') {
+        return `Item ${index + 1}`;
+    }
+    return String(value);
+}
+
+function toFiniteNumber(value: any): number {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function buildHistogramRows(values: any[]): Array<{ bucket: string; value: number }> {
+    const numericValues = values.map((value) => Number(value)).filter((value) => Number.isFinite(value));
+    if (numericValues.length === 0) return [];
+
+    const min = Math.min(...numericValues);
+    const max = Math.max(...numericValues);
+    if (min === max) {
+        return [{ bucket: `${min}`, value: numericValues.length }];
+    }
+
+    const bucketCount = Math.min(10, Math.max(4, Math.round(Math.sqrt(numericValues.length))));
+    const width = (max - min) / bucketCount;
+    const buckets = Array.from({ length: bucketCount }, (_, index) => ({
+        bucket: `${(min + (width * index)).toFixed(1)}-${(min + (width * (index + 1))).toFixed(1)}`,
+        value: 0,
+    }));
+
+    for (const numericValue of numericValues) {
+        const rawIndex = Math.floor((numericValue - min) / width);
+        const bucketIndex = Math.min(bucketCount - 1, Math.max(0, rawIndex));
+        buckets[bucketIndex].value += 1;
+    }
+
+    return buckets;
+}
+
+function buildPlotlyFallbackVisualization(payload: any): VisualizationData | null {
+    const traces = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+    const layout = Array.isArray(payload) ? {} : (payload?.layout || {});
+    if (traces.length === 0) return null;
+
+    const title = `${getLayoutTitle(layout)} (Fallback View)`;
+    const primaryTrace = traces.find((trace: any) => trace) || traces[0];
+    const traceType = String(primaryTrace?.type || 'scatter').toLowerCase();
+
+    if (traceType === 'table') {
+        const headers = Array.isArray(primaryTrace?.header?.values)
+            ? primaryTrace.header.values.map((value: any, index: number) => normalizeAxisLabel(value, index))
+            : [];
+        const cells = Array.isArray(primaryTrace?.cells?.values) ? primaryTrace.cells.values : [];
+        if (headers.length === 0 || cells.length === 0) return null;
+
+        const rowCount = Math.max(...cells.map((column: any[]) => Array.isArray(column) ? column.length : 0), 0);
+        const rows = Array.from({ length: rowCount }, (_, rowIndex) => {
+            const row: Record<string, any> = {};
+            headers.forEach((header: string, columnIndex: number) => {
+                row[header] = Array.isArray(cells[columnIndex]) ? cells[columnIndex][rowIndex] ?? '' : '';
+            });
+            return row;
+        });
+
+        return {
+            type: 'table',
+            title,
+            data: rows,
+            config: {},
+        };
+    }
+
+    if (traceType === 'pie') {
+        const labels = Array.isArray(primaryTrace?.labels) ? primaryTrace.labels : [];
+        const values = Array.isArray(primaryTrace?.values) ? primaryTrace.values : [];
+        if (labels.length === 0 || values.length === 0) return null;
+
+        return {
+            type: 'pie',
+            title,
+            data: labels.map((label: any, index: number) => ({
+                label: normalizeAxisLabel(label, index),
+                value: toFiniteNumber(values[index]),
+            })),
+            config: {},
+        };
+    }
+
+    if (traceType === 'heatmap' && Array.isArray(primaryTrace?.z)) {
+        const xLabels = Array.isArray(primaryTrace?.x) ? primaryTrace.x : [];
+        const yLabels = Array.isArray(primaryTrace?.y) ? primaryTrace.y : [];
+        const rows = (primaryTrace.z as any[]).map((rowValues: any, rowIndex: number) => {
+            const row: Record<string, any> = {
+                segment: normalizeAxisLabel(yLabels[rowIndex], rowIndex),
+            };
+            (Array.isArray(rowValues) ? rowValues : []).forEach((value: any, columnIndex: number) => {
+                row[normalizeAxisLabel(xLabels[columnIndex], columnIndex)] = toFiniteNumber(value);
+            });
+            return row;
+        });
+
+        return rows.length > 0 ? {
+            type: 'heatmap',
+            title,
+            data: rows,
+            config: { xAxis: 'segment' },
+        } : null;
+    }
+
+    if (traceType === 'histogram') {
+        const histogramSource = Array.isArray(primaryTrace?.x) ? primaryTrace.x : primaryTrace?.y;
+        const histogramRows = Array.isArray(histogramSource) ? buildHistogramRows(histogramSource) : [];
+        return histogramRows.length > 0 ? {
+            type: 'bar',
+            title,
+            data: histogramRows,
+            config: { xAxis: 'bucket', keys: ['value'] },
+        } : null;
+    }
+
+    const xValues = Array.isArray(primaryTrace?.x)
+        ? primaryTrace.x
+        : Array.from({ length: Array.isArray(primaryTrace?.y) ? primaryTrace.y.length : 0 }, (_, index) => index + 1);
+    const yValues = Array.isArray(primaryTrace?.y) ? primaryTrace.y : [];
+
+    if (xValues.length > 0 && yValues.length > 0) {
+        const metricKey = String(primaryTrace?.name || 'value');
+        const data = xValues.map((value: any, index: number) => ({
+            label: normalizeAxisLabel(value, index),
+            [metricKey]: toFiniteNumber(yValues[index]),
+        }));
+
+        return {
+            type: traceType === 'bar' ? 'bar' : 'line',
+            title,
+            data,
+            config: { xAxis: 'label', keys: [metricKey] },
+        };
+    }
+
+    return null;
+}
 
 export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
     const chartRef = useRef<HTMLDivElement>(null);
@@ -52,6 +203,10 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
 
     const layoutPayload = useMemo(() => {
         return Array.isArray(parsedPayload) ? {} : (parsedPayload?.layout || {});
+    }, [parsedPayload]);
+
+    const fallbackVisualization = useMemo(() => {
+        return buildPlotlyFallbackVisualization(parsedPayload);
     }, [parsedPayload]);
 
     const hasTableTrace = useMemo(() => {
@@ -541,8 +696,8 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                         if (i < 19) return null;
                         const seg = close.slice(i - 19, i + 1).filter((v: number) => Number.isFinite(v));
                         if (seg.length < 2) return null;
-                        const mean = seg.reduce((sum, v) => sum + v, 0) / seg.length;
-                        const variance = seg.reduce((sum, v) => sum + ((v - mean) ** 2), 0) / seg.length;
+                        const mean = seg.reduce((sum: number, v: number) => sum + v, 0) / seg.length;
+                        const variance = seg.reduce((sum: number, v: number) => sum + ((v - mean) ** 2), 0) / seg.length;
                         return Math.sqrt(variance);
                     });
 
@@ -1189,12 +1344,20 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                         </div>
                     </div>
                 )}
-                {renderError && (
+                {renderError && fallbackVisualization && (
+                    <div className="w-full h-full overflow-auto p-3 custom-scrollbar">
+                        <div className="mb-3 rounded-xl border border-amber-500/25 bg-amber-500/8 px-3 py-2 text-[10px] font-semibold text-amber-100">
+                            Plotly interactive runtime was unavailable, so Mastiff switched to a local fallback chart.
+                        </div>
+                        <ChartRenderer viz={fallbackVisualization} />
+                    </div>
+                )}
+                {renderError && !fallbackVisualization && (
                     <div className="w-full h-full flex items-center justify-center p-4">
                         <div className="text-[10px] text-red-400 font-semibold text-center">{renderError}</div>
                     </div>
                 )}
-                <div ref={chartRef} className="w-full h-full" />
+                {!renderError && <div ref={chartRef} className="w-full h-full" />}
             </div>
             </div>
         </div>

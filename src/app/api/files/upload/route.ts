@@ -5,11 +5,10 @@ import { eq, and } from 'drizzle-orm';
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs/promises';
-import { v4 as uuidv4 } from 'uuid';
 import mammoth from 'mammoth';
 import * as xlsx from 'xlsx';
 import { authenticateRequest } from '@/lib/auth';
-import { validateCSRFRequest } from '../../csrf-token/route';
+import { validateCSRFRequest } from '@/lib/csrf';
 
 export const dynamic = 'force-dynamic';
 
@@ -187,7 +186,7 @@ function mapGridRowsToObjects(headers: string[], dataRows: any[][]): Record<stri
         });
 }
 
-export async function buildTabularMetadataFallback(
+async function buildTabularMetadataFallback(
     filePath: string,
     originalName: string,
     ext: string
@@ -514,7 +513,7 @@ export async function POST(req: NextRequest) {
 
             const extractedPath = path.join(
                 uploadDir,
-                `${Date.now()}-${uuidv4()}-${safeName}.txt`
+                `${Date.now()}-${crypto.randomUUID()}-${safeName}.txt`
             );
             await fs.writeFile(extractedPath, text, 'utf-8');
 

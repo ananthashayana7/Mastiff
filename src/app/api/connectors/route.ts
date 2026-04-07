@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { rateLimiter } from '@/lib/rateLimiting';
 import { validateInput } from '@/lib/validation';
 import { authenticateRequest } from '@/lib/auth';
-import { validateCSRFRequest } from '../csrf-token/route';
+import { validateCSRFRequest } from '@/lib/csrf';
 import { z } from 'zod';
 import { db } from '@/db';
 import { connectors } from '@/db/connectorSchema';

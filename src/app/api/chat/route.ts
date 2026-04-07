@@ -8,7 +8,7 @@ import { kernelService } from '@/services/kernel';
 import { generateDataIntelligenceReport, formatWarningsForPrompt, analyseFile, formatForPrompt, DataIntelligenceReport } from '@/services/dataIntelligenceService';
 import { AnalysisMode } from '@/src/types';
 import { authenticateRequest } from '@/lib/auth';
-import { validateCSRFRequest } from '../csrf-token/route';
+import { validateCSRFRequest } from '@/lib/csrf';
 import { buildRecoverySnippet } from './recoverySnippets';
 import { buildDeterministicFinancialSummary } from '../../../lib/financialSummaryGuard';
 import { buildContractFallbackSummary, containsTechnicalArtifacts, validateSummaryContract } from '../../../lib/chatResponseContract';

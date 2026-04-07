@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { sessions, messages, files } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { authenticateRequest } from '@/lib/auth';
-import { validateCSRFRequest } from '../../csrf-token/route';
+import { validateCSRFRequest } from '@/lib/csrf';
 import { kernelService } from '@/services/kernel';
 
 export async function DELETE(

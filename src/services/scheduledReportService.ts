@@ -4,7 +4,6 @@
  * Manages scheduled report creation, execution, and delivery
  */
 
-import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/src/db';
 import {
     scheduledReports,
@@ -65,7 +64,7 @@ export class ScheduledReportService {
         }
     ): Promise<string> {
         try {
-            const reportId = uuidv4();
+            const reportId = crypto.randomUUID();
 
             await db.insert(scheduledReports).values({
                 id: reportId,
@@ -237,7 +236,7 @@ export class ScheduledReportService {
             throw new Error('Report not found');
         }
 
-        const executionId = uuidv4();
+        const executionId = crypto.randomUUID();
         const startTime = Date.now();
 
         try {
@@ -433,7 +432,7 @@ export class ScheduledReportService {
                 }
 
                 await db.insert(reportDistributionLog).values({
-                    id: uuidv4(),
+                    id: crypto.randomUUID(),
                     executionId,
                     recipient: email,
                     subject,
@@ -449,7 +448,7 @@ export class ScheduledReportService {
             } catch (error) {
                 console.error(`Failed to deliver report to ${email}:`, error);
                 await db.insert(reportDistributionLog).values({
-                    id: uuidv4(),
+                    id: crypto.randomUUID(),
                     executionId,
                     recipient: email,
                     subject,

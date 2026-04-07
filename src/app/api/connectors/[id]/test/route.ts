@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { rateLimiter } from '@/lib/rateLimiting';
 import { authenticateRequest } from '@/lib/auth';
-import { validateCSRFRequest } from '../../csrf-token/route';
+import { validateCSRFRequest } from '@/lib/csrf';
 import { db } from '@/db';
 import { connectors } from '@/db/connectorSchema';
 import { encryptionService } from '@/services/encryptionService';

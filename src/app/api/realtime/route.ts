@@ -12,7 +12,6 @@ import websocketService, {
     WebSocketMessageType,
 } from '@/src/services/websocketService';
 import { rateLimiter } from '@/src/lib/rateLimiting';
-import { v4 as uuidv4 } from 'uuid';
 
 /**
  * GET /api/realtime - Subscribe to real-time updates via SSE
@@ -55,7 +54,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        const sessionId = uuidv4();
+        const sessionId = crypto.randomUUID();
 
         // Register connection
         websocketService.registerConnection(sessionId, session.userId);

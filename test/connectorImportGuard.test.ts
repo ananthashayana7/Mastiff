@@ -49,7 +49,7 @@ vi.mock('@/db/connectorSchema', () => ({
 vi.mock('@/services/encryptionService', () => ({
   encryptionService: { decryptFromString: vi.fn().mockReturnValue('{}') },
 }));
-vi.mock('@/app/api/files/upload/route', () => ({
+vi.mock('@/lib/fileIngestion', () => ({
   buildTabularMetadataFallback: vi.fn().mockResolvedValue({}),
 }));
 

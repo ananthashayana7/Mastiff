@@ -15,7 +15,6 @@ import ScheduledReportService from '@/src/services/scheduledReportService';
 import { rateLimiter } from '@/src/lib/rateLimiting';
 import { validateInput } from '@/src/lib/validation';
 import { z } from 'zod';
-import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Update report schema

@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { sessions, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { authenticateRequest } from '@/lib/auth';
-import { validateCSRFRequest } from '../csrf-token/route';
+import { validateCSRFRequest } from '@/lib/csrf';
 
 export const dynamic = 'force-dynamic';
 

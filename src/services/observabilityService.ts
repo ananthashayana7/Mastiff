@@ -10,7 +10,6 @@ import {
   dashboardConfigs,
 } from '@/src/db/observabilitySchema';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
-import { v4 as uuid } from 'uuid';
 
 /**
  * OBSERVABILITY SERVICE - Phase 4.1
@@ -190,7 +189,7 @@ export class ObservabilityService {
     sessionId?: string;
     isSampled?: boolean;
   }) {
-    const traceId = `trace-${uuid()}`;
+    const traceId = `trace-${crypto.randomUUID()}`;
     const startTime = new Date();
 
     const trace = await db
@@ -238,7 +237,7 @@ export class ObservabilityService {
     attributes?: Record<string, any>;
     resourceAttributes?: Record<string, string>;
   }) {
-    const spanId = `span-${uuid()}`;
+    const spanId = `span-${crypto.randomUUID()}`;
 
     const span = await db
       .insert(traceSpans)

@@ -5,7 +5,6 @@
  */
 
 import { db } from '@/src/db';
-import { v4 as uuidv4 } from 'uuid';
 import { auditLogger } from './auditLogger';
 
 /**
@@ -350,7 +349,7 @@ export class RoleService {
         createdBy: string
     ) {
         try {
-            const roleId = uuidv4();
+            const roleId = crypto.randomUUID();
 
             // Insert role
             // await db.insert(rolesTable).values({
@@ -657,7 +656,7 @@ export class PolicyService {
         createdBy: string
     ) {
         try {
-            const policyId = uuidv4();
+            const policyId = crypto.randomUUID();
 
             // Insert policy
             // await db.insert(policiesTable).values({

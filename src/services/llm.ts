@@ -319,6 +319,14 @@ else:
             ],
         })
 
+        top_group_label = str(chart_df[cat_col].iloc[0]) if len(chart_df) > 0 else 'n/a'
+        top_group_value = float(chart_df[value_col].iloc[0]) if len(chart_df) > 0 else 0.0
+        forecast_last_value = float(forecast_df[value_col].iloc[-1]) if len(forecast_df) > 0 else 0.0
+        print(f"Rows analyzed: {len(df)}")
+        print(f"Primary metric: {value_col}")
+        print(f"Top segment: {top_group_label} = {top_group_value:,.2f}")
+        print(f"Run-rate forecast ({value_col}): {forecast_last_value:,.2f}")
+
         fig = make_subplots(
             rows=2,
             cols=2,
@@ -544,6 +552,7 @@ export class LLMService {
     private clients: Map<string, GoogleGenAI> = new Map();
     private apiKeys: string[] = [];
     private currentKeyIndex = 0;
+    private exhaustedKeysUntil: Map<string, number> = new Map();
 
     /**
      * Resolve all available API keys from environment variables.
@@ -557,6 +566,24 @@ export class LLMService {
             process.env.GOOGLE_API_KEY
         );
         return this.apiKeys;
+    }
+
+    private getCandidateKeys(): string[] {
+        const allKeys = this.resolveApiKeys();
+        if (allKeys.length === 0) return [];
+
+        const rotated = [
+            ...allKeys.slice(this.currentKeyIndex),
+            ...allKeys.slice(0, this.currentKeyIndex),
+        ];
+        const now = Date.now();
+        const available = rotated.filter((key) => (this.exhaustedKeysUntil.get(key) || 0) <= now);
+
+        return available.length > 0 ? available : rotated;
+    }
+
+    private markKeyCoolingDown(apiKey: string): void {
+        this.exhaustedKeysUntil.set(apiKey, Date.now() + 90_000);
     }
 
     /**
@@ -576,7 +603,7 @@ export class LLMService {
      * Returns null during build / dev when no keys are configured.
      */
     private getClient(): GoogleGenAI | null {
-        const keys = this.resolveApiKeys();
+        const keys = this.getCandidateKeys();
         if (keys.length === 0) {
             if (process.env.NEXT_PHASE === 'phase-production-build' || process.env.NODE_ENV === 'development') {
                 return null;
@@ -585,7 +612,7 @@ export class LLMService {
                 'At least one Gemini API key must be set via API_KEY, GEMINI_API_KEY, or GOOGLE_API_KEY. Multiple comma-separated keys are supported.'
             );
         }
-        return this.getClientForKey(keys[this.currentKeyIndex]);
+        return this.getClientForKey(keys[0]);
     }
 
     private normalizeResponseText(response: any): string {
@@ -606,6 +633,7 @@ export class LLMService {
      * Returns null if all models returned "not found".
      */
     private async tryModelsWithKey(
+        apiKey: string,
         client: GoogleGenAI,
         models: string[],
         contents: any[],
@@ -624,6 +652,7 @@ export class LLMService {
             } catch (error: any) {
                 lastError = error;
                 if (isKeyExhaustedError(error)) {
+                    this.markKeyCoolingDown(apiKey);
                     throw error; // bubble up so key rotation can handle it
                 }
                 if (!this.isModelNotFoundError(error)) {
@@ -649,7 +678,7 @@ export class LLMService {
      *  3. Throw the last error if all keys and models are exhausted.
      */
     private async generateWithFallback(params: GenerateWithFallbackParams): Promise<{ response: any; model: string }> {
-        const keys = this.resolveApiKeys();
+        const keys = this.getCandidateKeys();
         if (keys.length === 0) {
             throw new Error('AI client not initialized');
         }
@@ -657,13 +686,14 @@ export class LLMService {
         const uniqueModels = Array.from(new Set(params.models));
         let lastError: any = null;
 
-        // Try each key, starting from the current index and wrapping around
-        for (let attempt = 0; attempt < keys.length; attempt++) {
-            const keyIndex = (this.currentKeyIndex + attempt) % keys.length;
-            const client = this.getClientForKey(keys[keyIndex]);
+        for (const apiKey of keys) {
+            const client = this.getClientForKey(apiKey);
+            const originalKeyIndex = Math.max(0, this.resolveApiKeys().indexOf(apiKey));
+            const keyIndex = originalKeyIndex;
 
             try {
                 const result = await this.tryModelsWithKey(
+                    apiKey,
                     client,
                     uniqueModels,
                     params.contents,
@@ -671,7 +701,7 @@ export class LLMService {
                 );
                 if (result) {
                     // Promote this key as the current one for future calls
-                    this.currentKeyIndex = keyIndex;
+                    this.currentKeyIndex = originalKeyIndex;
                     return result;
                 }
             } catch (error: any) {
@@ -755,6 +785,7 @@ INSTRUCTIONS:
 - For every numerical question, write deterministic Python that computes the answer directly from data (never prose-only math).
 - Guard edge cases (division by zero, empty subsets, non-numeric coercion, and missing columns) before computing.
 - WRITE COMPLETE, FULL PYTHON CODE. Never truncate, abbreviate, or use "..." or "# similar for other..." placeholders. Every line must be executable. Write the FULL code for each chart — no shortcuts.
+- When result is a Plotly figure, ALSO print a concise evidence block to stdout with the exact KPIs, top concerns, and forecast assumptions used. Those printed logs are consumed by the business summary.
 - Isolate outliers (Z-score > 3) and show stats with and without them when relevant.
 
 FORECASTING (MANDATORY):
@@ -896,6 +927,7 @@ IMPORTANT:
                     systemInstruction: systemPrompt,
                     responseMimeType: 'application/json',
                     temperature: modeConfig.temperature,
+                    maxOutputTokens: 12288,
                 },
             });
 
@@ -917,6 +949,7 @@ IMPORTANT:
                     systemInstruction: systemPrompt,
                     responseMimeType: 'application/json',
                     temperature: 0.05,
+                    maxOutputTokens: 12288,
                 },
             });
 
@@ -1011,6 +1044,7 @@ ${traceback || ''}
                     systemInstruction: systemPrompt,
                     responseMimeType: 'application/json',
                     temperature: 0.1,
+                    maxOutputTokens: 12288,
                 },
             });
 
@@ -1145,6 +1179,7 @@ Chart count: ${chartCount}
                 config: {
                     systemInstruction: systemPrompt,
                     temperature: mode === 'analysis' ? 0.2 : 0.4,
+                    maxOutputTokens: 4096,
                 },
             });
 
@@ -1182,6 +1217,7 @@ Chart count: ${chartCount}
                 config: {
                     systemInstruction: systemPrompt,
                     temperature: modeConfig.temperature,
+                    maxOutputTokens: 6144,
                 },
             });
 

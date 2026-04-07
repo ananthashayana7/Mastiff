@@ -5,7 +5,6 @@
  */
 
 import { db } from '@/src/db';
-import { v4 as uuidv4 } from 'uuid';
 import { auditLogger } from './auditLogger';
 
 /**
@@ -22,7 +21,7 @@ export class OrganizationService {
         createdBy: string
     ) {
         try {
-            const orgId = uuidv4();
+            const orgId = crypto.randomUUID();
 
             // Insert org (you'll need to add to your db setup)
             // await db.insert(organizationsTable).values({
@@ -94,7 +93,7 @@ export class WorkspaceService {
         createdBy: string
     ) {
         try {
-            const workspaceId = uuidv4();
+            const workspaceId = crypto.randomUUID();
 
             // Insert workspace
             // await db.insert(workspacesTable).values({
@@ -246,7 +245,7 @@ export class WorkspaceMemberService {
         addedBy: string
     ) {
         try {
-            const memberId = uuidv4();
+            const memberId = crypto.randomUUID();
 
             // Insert member
             // await db.insert(workspaceMembersTable).values({
@@ -364,8 +363,8 @@ export class WorkspaceMemberService {
         expiresInHours = 7 * 24 // 7 days
     ) {
         try {
-            const inviteId = uuidv4();
-            const token = uuidv4();
+            const inviteId = crypto.randomUUID();
+            const token = crypto.randomUUID();
             const expiresAt = new Date();
             expiresAt.setHours(expiresAt.getHours() + expiresInHours);
 
@@ -448,7 +447,7 @@ export class TeamService {
         createdBy: string
     ) {
         try {
-            const teamId = uuidv4();
+            const teamId = crypto.randomUUID();
 
             // Insert team
             // await db.insert(teamsTable).values({
@@ -531,7 +530,7 @@ export class TeamService {
         addedBy: string
     ) {
         try {
-            const membershipId = uuidv4();
+            const membershipId = crypto.randomUUID();
 
             // Insert team member
             // await db.insert(teamMembersTable).values({

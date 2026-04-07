@@ -6,7 +6,6 @@
  */
 
 import { db } from '@/src/db';
-import { v4 as uuidv4 } from 'uuid';
 import {
     LLMProvider,
     LLMProviderConfig,
@@ -78,7 +77,7 @@ export class LLMManagementService {
                 throw new Error(`Failed to validate ${config.provider} connection`);
             }
 
-            const modelId = uuidv4();
+            const modelId = crypto.randomUUID();
 
             // Store encrypted config (in real implementation)
             // For now, store directly

@@ -11,7 +11,8 @@ import { DataFile, ChatMessage, AnalysisMode, User as UserType, AnalystPersona, 
 import { Sidebar } from '../components/Sidebar';
 import { ChatWindow } from '../components/ChatWindow';
 import { DataInspector } from '../components/DataInspector';
-import { buildSharePointImportAutoPrompt, buildUploadAutoPrompt } from '../lib/analysisPrompts';
+import { buildUploadAutoPrompt } from '../lib/analysisPrompts';
+import { buildSuggestedQuestions, buildSuggestionContext, detectOperationalDomain } from '../lib/dataExplorer';
 import { csrfFetch } from '../hooks/useCSRFToken';
 
 type ConnectorType = 'sheets' | 'sharepoint' | 'snowflake' | 'bigquery' | 'postgres' | 'api';
@@ -572,29 +573,55 @@ const App: React.FC = () => {
   }, [files]);
 
   useEffect(() => {
-    if (files.length > 0 && messages.length === 0) {
-      updateSuggestions();
+    if ((files.length + pendingFiles.length) === 0) {
+      setSuggestions([]);
+      setIsLoadingSuggestions(false);
+      return;
     }
-  }, [files, messages]);
 
-  const updateSuggestions = async () => {
+    if (messages.length === 0) {
+      void updateSuggestions();
+    }
+  }, [files, pendingFiles, messages]);
+
+  const updateSuggestions = useCallback(async () => {
+    const suggestionFiles = [...files, ...pendingFiles].filter((file) => file.id !== 'sample-sales');
+    if (suggestionFiles.length === 0) {
+      setSuggestions([]);
+      setIsLoadingSuggestions(false);
+      return;
+    }
+
+    const localSuggestions = buildSuggestedQuestions(suggestionFiles);
+    if (localSuggestions.length > 0) {
+      setSuggestions(localSuggestions);
+    }
+
     setIsLoadingSuggestions(true);
     try {
-      const context = files.map(f => `${f.name}: ${f.columns.join(', ')}`).join('\n');
+      const context = buildSuggestionContext(suggestionFiles);
       if (!context) return;
       const res = await csrfFetch('/api/suggestions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dataContext: context })
       });
-      const sugs = await res.json();
-      setSuggestions(sugs);
+
+      const sugs = await res.json().catch(() => []);
+      if (Array.isArray(sugs) && sugs.length > 0) {
+        setSuggestions(sugs);
+      } else if (localSuggestions.length > 0) {
+        setSuggestions(localSuggestions);
+      }
     } catch (err) {
       console.error("Failed to fetch suggestions", err);
+      if (localSuggestions.length > 0) {
+        setSuggestions(localSuggestions);
+      }
     } finally {
       setIsLoadingSuggestions(false);
     }
-  };
+  }, [files, pendingFiles]);
 
   // ===== FILE UPLOAD =====
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -760,6 +787,9 @@ const App: React.FC = () => {
     if (!target) return;
 
     const filteredFile = buildFilteredFile(target, selectedColumns);
+    const confirmedFiles = [...files, filteredFile].filter((file) => file.id !== 'sample-sales');
+    const confirmedFileIds = confirmedFiles.map((file) => file.id);
+    const domain = detectOperationalDomain(confirmedFiles);
 
     const response = await csrfFetch(`/api/files/${fileId}`, {
       method: 'PATCH',
@@ -777,12 +807,18 @@ const App: React.FC = () => {
     setActiveFileIds((prev) => prev.includes(fileId) ? prev : [...prev, fileId]);
     setInspectingFileId(null);
 
-    const autoPrompt = buildUploadAutoPrompt([filteredFile.name]);
+    const autoPrompt = buildUploadAutoPrompt(
+      confirmedFiles.map((file) => file.name),
+      {
+        domain,
+        multiFile: confirmedFiles.length > 1,
+      }
+    );
     await runSilentAnalysis(autoPrompt, {
-      targetFileIds: [filteredFile.id],
+      targetFileIds: confirmedFileIds,
       personaLabel: 'System Analysis',
     });
-  }, [buildAuthHeaders, buildFilteredFile, currentUser?.id, pendingFiles, runSilentAnalysis]);
+  }, [buildAuthHeaders, buildFilteredFile, currentUser?.id, files, pendingFiles, runSilentAnalysis]);
 
   const rejectPendingFile = useCallback((fileId: string) => {
     void (async () => {
@@ -1096,7 +1132,8 @@ const App: React.FC = () => {
         inputText={inputText}
         suggestions={suggestions}
         isLoadingSuggestions={isLoadingSuggestions}
-        files={files}
+        pendingFiles={pendingFiles}
+        files={[...pendingFiles, ...files]}
         activeFiles={files.filter((file) => activeFileIds.includes(file.id))}
         showCodeId={showCodeId}
         showLogsId={showLogsId}
