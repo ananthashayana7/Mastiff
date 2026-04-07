@@ -10,7 +10,9 @@ import {
 import { DataFile, ChatMessage, AnalysisMode, User as UserType, AnalystPersona, Session, ConnectorSummary } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { ChatWindow } from '../components/ChatWindow';
+import { DataInspector } from '../components/DataInspector';
 import { buildSharePointImportAutoPrompt, buildUploadAutoPrompt } from '../lib/analysisPrompts';
+import { csrfFetch } from '../hooks/useCSRFToken';
 
 type ConnectorType = 'sheets' | 'sharepoint' | 'snowflake' | 'bigquery' | 'postgres' | 'api';
 
@@ -47,6 +49,7 @@ const App: React.FC = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [files, setFiles] = useState<DataFile[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<DataFile[]>([]);
   const [activeFileIds, setActiveFileIds] = useState<string[]>([]);
   const [connectors, setConnectors] = useState<ConnectorSummary[]>([]);
   const [linkedConnectorIds, setLinkedConnectorIds] = useState<string[]>([]);
@@ -56,6 +59,7 @@ const App: React.FC = () => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadingFileNames, setUploadingFileNames] = useState<string[]>([]);
 
   const [inputText, setInputText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -69,6 +73,9 @@ const App: React.FC = () => {
 
   const [activePersona, setActivePersona] = useState<AnalystPersona>(PERSONAS[0]);
   const [showCodeId, setShowCodeId] = useState<string | null>(null);
+  const [showLogsId, setShowLogsId] = useState<string | null>(null);
+  const [inspectingFileId, setInspectingFileId] = useState<string | null>(null);
+  const [inspectorFocusTerm, setInspectorFocusTerm] = useState<string>('');
   const [showPersonaMenu, setShowPersonaMenu] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -78,11 +85,10 @@ const App: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sessionCreationPromiseRef = useRef<Promise<string | null> | null>(null);
+  const chatAbortControllerRef = useRef<AbortController | null>(null);
 
   const buildAuthHeaders = useCallback((userId: string, includeContentType = false): Record<string, string> => {
-    const token = localStorage.getItem('mastiff_token');
     return {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       'x-user-id': userId,
       ...(includeContentType ? { 'Content-Type': 'application/json' } : {}),
     };
@@ -99,7 +105,7 @@ const App: React.FC = () => {
       throw new Error('No authenticated user');
     }
 
-    const res = await fetch('/api/sessions', {
+    const res = await csrfFetch('/api/sessions', {
       method: 'POST',
       headers: buildAuthHeaders(currentUser.id, true),
       body: JSON.stringify({ title })
@@ -168,7 +174,7 @@ const App: React.FC = () => {
   const createConnector = useCallback(async (payload: ConnectorCreatePayload) => {
     if (!currentUser) throw new Error('No authenticated user');
 
-    const response = await fetch('/api/connectors', {
+    const response = await csrfFetch('/api/connectors', {
       method: 'POST',
       headers: buildAuthHeaders(currentUser.id, true),
       body: JSON.stringify({
@@ -189,7 +195,7 @@ const App: React.FC = () => {
   const updateConnector = useCallback(async (connectorId: string, payload: ConnectorUpdatePayload) => {
     if (!currentUser) throw new Error('No authenticated user');
 
-    const response = await fetch(`/api/connectors/${connectorId}`, {
+    const response = await csrfFetch(`/api/connectors/${connectorId}`, {
       method: 'PUT',
       headers: buildAuthHeaders(currentUser.id, true),
       body: JSON.stringify(payload),
@@ -207,7 +213,7 @@ const App: React.FC = () => {
   const deleteConnectorById = useCallback(async (connectorId: string) => {
     if (!currentUser) throw new Error('No authenticated user');
 
-    const response = await fetch(`/api/connectors/${connectorId}`, {
+    const response = await csrfFetch(`/api/connectors/${connectorId}`, {
       method: 'DELETE',
       headers: buildAuthHeaders(currentUser.id),
     });
@@ -225,7 +231,7 @@ const App: React.FC = () => {
   const testConnector = useCallback(async (connectorId: string) => {
     if (!currentUser) throw new Error('No authenticated user');
 
-    const response = await fetch(`/api/connectors/${connectorId}/test`, {
+    const response = await csrfFetch(`/api/connectors/${connectorId}/test`, {
       method: 'POST',
       headers: buildAuthHeaders(currentUser.id),
     });
@@ -265,7 +271,7 @@ const App: React.FC = () => {
 
     setIsAnalyzing(true);
     try {
-      const res = await fetch('/api/chat', {
+      const res = await csrfFetch('/api/chat', {
         method: 'POST',
         headers: buildAuthHeaders(currentUser.id, true),
         body: JSON.stringify({
@@ -306,7 +312,7 @@ const App: React.FC = () => {
     const activeSessionId = await ensureActiveSession();
     if (!activeSessionId) throw new Error('No active session');
 
-    const response = await fetch(`/api/connectors/${connectorId}/import`, {
+    const response = await csrfFetch(`/api/connectors/${connectorId}/import`, {
       method: 'POST',
       headers: buildAuthHeaders(currentUser.id, true),
       body: JSON.stringify({
@@ -326,8 +332,6 @@ const App: React.FC = () => {
 
     const importedFiles = Array.isArray(data?.files) ? data.files : [];
     if (importedFiles.length > 0) {
-      const importedFileNames = importedFiles.map((file: any) => String(file?.filename || 'Imported source')).filter(Boolean);
-
       const normalized: DataFile[] = importedFiles.map((dbFile: any) => ({
         id: dbFile.id,
         name: dbFile.filename,
@@ -338,33 +342,21 @@ const App: React.FC = () => {
         metadata: dbFile.metadata,
       }));
 
-      setFiles((prev) => {
-        const existingIds = new Set(prev.map((file) => file.id));
+      setPendingFiles((prev) => {
+        const existingIds = new Set([...files, ...prev].map((file) => file.id));
         const deduped = normalized.filter((file) => !existingIds.has(file.id));
         return [...prev, ...deduped];
       });
-
-      setActiveFileIds((prev) => {
-        const merged = new Set(prev);
-        for (const file of normalized) merged.add(file.id);
-        return Array.from(merged);
-      });
-
-      const autoPrompt = buildSharePointImportAutoPrompt(importedFileNames);
-
-      await runSilentAnalysis(autoPrompt, {
-        targetFileIds: importedFiles.map((f: any) => f.id),
-        personaLabel: 'SharePoint Auto Analysis',
-      });
+      setInspectingFileId(importedFiles[0]?.id || null);
     }
 
     return {
       success: true,
-      message: data?.message || `Imported ${importedFiles.length} file(s) from SharePoint.`,
+      message: data?.message || `Imported ${importedFiles.length} file(s) from SharePoint for review.`,
       files: importedFiles,
       skipped: data?.skipped || [],
     };
-  }, [buildAuthHeaders, currentUser, ensureActiveSession, runSilentAnalysis]);
+  }, [buildAuthHeaders, currentUser, ensureActiveSession, files, pendingFiles]);
 
   const toggleLinkedConnector = useCallback((connectorId: string) => {
     setLinkedConnectorIds((prev) => {
@@ -377,10 +369,14 @@ const App: React.FC = () => {
 
   // ===== AUTH CHECK =====
   useEffect(() => {
-    const token = localStorage.getItem('mastiff_token');
     const userJson = localStorage.getItem('mastiff_user');
 
-    if (token && userJson) {
+    const bootstrapFromStoredUser = () => {
+      if (!userJson) {
+        window.location.href = '/login';
+        return;
+      }
+
       try {
         const user = JSON.parse(userJson);
         setCurrentUser({
@@ -390,17 +386,42 @@ const App: React.FC = () => {
           role: 'Analyst' as const,
           twoFactorEnabled: false
         });
+        setIsAuthChecking(false);
       } catch {
-        // Invalid stored data, redirect to login
         window.location.href = '/login';
-        return;
       }
-    } else {
-      window.location.href = '/login';
-      return;
-    }
+    };
 
-    setIsAuthChecking(false);
+    void (async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          headers: { Accept: 'application/json' },
+        });
+
+        if (response.ok) {
+          const payload = await response.json();
+          const user = payload?.user;
+          if (user?.id) {
+            const normalizedUser = {
+              id: user.id,
+              email: user.email,
+              name: user.name || user.email?.split('@')[0] || 'User',
+              role: 'Analyst' as const,
+              twoFactorEnabled: false,
+            };
+            localStorage.removeItem('mastiff_token');
+            localStorage.setItem('mastiff_user', JSON.stringify(user));
+            setCurrentUser(normalizedUser);
+            setIsAuthChecking(false);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Auth session bootstrap failed:', error);
+      }
+
+      bootstrapFromStoredUser();
+    })();
   }, []);
 
   // ===== SESSION INIT =====
@@ -460,6 +481,8 @@ const App: React.FC = () => {
 
   const loadSessionData = (session: any) => {
     setLinkedConnectorIds([]);
+    setInspectingFileId(null);
+    setPendingFiles([]);
 
     if (session.messages?.length > 0) {
       setMessages(session.messages.map((m: any) => ({
@@ -476,7 +499,7 @@ const App: React.FC = () => {
     }
 
     if (session.files?.length > 0) {
-      setFiles(session.files.map((f: any) => ({
+      const normalizedFiles: DataFile[] = session.files.map((f: any) => ({
         id: f.id,
         name: f.filename,
         type: f.fileType,
@@ -484,10 +507,17 @@ const App: React.FC = () => {
         preview: f.metadata?.sample || [],
         columns: Object.keys(f.metadata?.columns || {}),
         metadata: f.metadata
-      })));
-      setActiveFileIds(session.files.map((f: any) => f.id));
+      }));
+
+      const reviewedFiles = normalizedFiles.filter((file: DataFile) => file.metadata?.validationStatus !== 'pending');
+      const stagedFiles = normalizedFiles.filter((file: DataFile) => file.metadata?.validationStatus === 'pending');
+
+      setFiles(reviewedFiles);
+      setPendingFiles(stagedFiles);
+      setActiveFileIds(reviewedFiles.map((f: DataFile) => f.id));
     } else {
       setFiles([]);
+      setPendingFiles([]);
       setActiveFileIds([]);
     }
   };
@@ -496,6 +526,7 @@ const App: React.FC = () => {
     localStorage.setItem('mastiff_session_id', id);
     setSessionId(id);
     setLinkedConnectorIds([]);
+    setInspectingFileId(null);
     const session = sessions.find(s => s.id === id);
     if (session) {
       loadSessionData(session);
@@ -518,7 +549,7 @@ const App: React.FC = () => {
 
     try {
       if (!currentUser) return;
-      const res = await fetch(`/api/sessions/${id}`, {
+      const res = await csrfFetch(`/api/sessions/${id}`, {
         method: 'DELETE',
         headers: buildAuthHeaders(currentUser.id),
       });
@@ -536,6 +567,11 @@ const App: React.FC = () => {
   }, [messages, isAnalyzing]);
 
   useEffect(() => {
+    const validFileIds = new Set(files.map((file) => file.id));
+    setActiveFileIds((prev) => prev.filter((id) => validFileIds.has(id)));
+  }, [files]);
+
+  useEffect(() => {
     if (files.length > 0 && messages.length === 0) {
       updateSuggestions();
     }
@@ -546,7 +582,7 @@ const App: React.FC = () => {
     try {
       const context = files.map(f => `${f.name}: ${f.columns.join(', ')}`).join('\n');
       if (!context) return;
-      const res = await fetch('/api/suggestions', {
+      const res = await csrfFetch('/api/suggestions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dataContext: context })
@@ -583,15 +619,56 @@ const App: React.FC = () => {
     if (!activeSessionId) return;
 
     setIsUploading(true);
-    const uploadedFileNames: string[] = [];
+    setUploadingFileNames(fileList.map((file) => file.name));
     try {
+      const existingFiles = [...files, ...pendingFiles];
+
       for (const file of fileList) {
+        const normalizedName = file.name.trim().toLowerCase();
+        const duplicates = existingFiles.filter((existing) => existing.name.trim().toLowerCase() === normalizedName);
+
+        if (duplicates.length > 0) {
+          const shouldReplace = window.confirm(`A dataset named "${file.name}" already exists in this session. Replace it with this upload?`);
+          if (!shouldReplace) {
+            continue;
+          }
+
+          for (const duplicate of duplicates) {
+            const deleteResponse = await csrfFetch(`/api/files/${duplicate.id}`, {
+              method: 'DELETE',
+              headers: buildAuthHeaders(currentUser.id),
+            });
+
+            if (!deleteResponse.ok) {
+              const payload = await deleteResponse.json().catch(() => ({}));
+              throw new Error(payload?.error || payload?.message || 'Failed to replace existing dataset');
+            }
+          }
+
+          const replacedActive = duplicates.some((existing) => activeFileIds.includes(existing.id));
+          setFiles((prev) => prev.filter((existing) => existing.name.trim().toLowerCase() !== normalizedName));
+          setPendingFiles((prev) => prev.filter((existing) => existing.name.trim().toLowerCase() !== normalizedName));
+          setActiveFileIds((prev) => prev.filter((id) => !duplicates.some((existing) => existing.id === id)));
+          setInspectingFileId((current) => duplicates.some((existing) => existing.id === current) ? null : current);
+          setMessages((prev) => ([
+            ...prev,
+            {
+              id: `${Date.now()}-replace-${normalizedName}`,
+              role: 'assistant',
+              timestamp: Date.now(),
+              content: replacedActive
+                ? `System Notice: Replaced the previous version of ${file.name}. It has been removed from active analysis context until you confirm the new upload.`
+                : `System Notice: Replaced the previous staged version of ${file.name}. Review the new upload before activating it.`
+            }
+          ]));
+        }
+
         const formData = new FormData();
         formData.append('file', file);
         formData.append('userId', currentUser.id);
         formData.append('sessionId', activeSessionId);
 
-        const res = await fetch('/api/files/upload', {
+        const res = await csrfFetch('/api/files/upload', {
           method: 'POST',
           headers: buildAuthHeaders(currentUser.id),
           body: formData
@@ -599,12 +676,22 @@ const App: React.FC = () => {
 
         if (!res.ok) {
           const errText = await res.text();
+          let uploadMessage = 'Upload failed due to an unexpected server response.';
+
           try {
             const err = JSON.parse(errText);
-            alert(`Upload failed: ${err.error || err.message || 'Unknown error'}`);
+            uploadMessage = err.error || err.message || uploadMessage;
           } catch (e) {
-            alert(`Upload failed: ${errText.slice(0, 100)}`);
+            uploadMessage = errText.slice(0, 180) || uploadMessage;
           }
+
+          setMessages((prev) => [...prev, {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: `Upload failed for ${file.name}: ${uploadMessage}`,
+            timestamp: Date.now(),
+            persona: 'System Notice',
+          }]);
           continue;
         }
 
@@ -619,26 +706,97 @@ const App: React.FC = () => {
           metadata: dbFile.metadata
         };
 
-        setFiles(prev => [...prev, newFile]);
-        setActiveFileIds(prev => [...prev, newFile.id]);
-        uploadedFileNames.push(dbFile.filename);
+        setPendingFiles(prev => [...prev, newFile]);
+        setInspectingFileId(dbFile.id);
       }
     } catch (err) {
       console.error("Upload error:", err);
+      setMessages((prev) => [...prev, {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `Upload failed: ${err instanceof Error ? err.message : 'Unexpected network or server error.'}`,
+        timestamp: Date.now(),
+        persona: 'System Notice',
+      }]);
     } finally {
       setIsUploading(false);
+      setUploadingFileNames([]);
       lastUploadTime.current = Date.now();
-      // Auto-trigger initial analysis after upload
-      if (uploadedFileNames.length > 0) {
-        const autoPrompt = buildUploadAutoPrompt(uploadedFileNames);
-        setTimeout(() => handleAutoAnalysis(autoPrompt), 300);
-      }
     }
   };
 
   const handleAutoAnalysis = async (prompt: string) => {
     await runSilentAnalysis(prompt, { personaLabel: 'System Analysis' });
   };
+
+  const buildFilteredFile = useCallback((file: DataFile, selectedColumns: string[]): DataFile => {
+    const nextColumns = selectedColumns.length > 0 ? selectedColumns : file.columns;
+    const nextMetadataColumns: NonNullable<DataFile['metadata']>['columns'] = {};
+
+    nextColumns.forEach((column) => {
+      const value = file.metadata?.columns?.[column];
+      if (value) {
+        nextMetadataColumns[column] = value;
+      }
+    });
+
+    return {
+      ...file,
+      columns: nextColumns,
+      preview: file.preview.map((row) => Object.fromEntries(nextColumns.map((column) => [column, row?.[column] ?? null]))),
+      metadata: file.metadata ? {
+        ...file.metadata,
+        column_count: nextColumns.length,
+        validationStatus: 'active',
+        selectedColumns: nextColumns,
+        columns: nextMetadataColumns,
+        sample: (file.metadata.sample || []).map((row) => Object.fromEntries(nextColumns.map((column) => [column, row?.[column] ?? null]))),
+      } : file.metadata,
+    };
+  }, []);
+
+  const confirmPendingFile = useCallback(async (fileId: string, selectedColumns: string[]) => {
+    const target = pendingFiles.find((file) => file.id === fileId);
+    if (!target) return;
+
+    const filteredFile = buildFilteredFile(target, selectedColumns);
+
+    const response = await csrfFetch(`/api/files/${fileId}`, {
+      method: 'PATCH',
+      headers: buildAuthHeaders(currentUser?.id || '', true),
+      body: JSON.stringify({ selectedColumns }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload?.error || payload?.message || 'Failed to confirm file review');
+    }
+
+    setPendingFiles((prev) => prev.filter((file) => file.id !== fileId));
+    setFiles((prev) => [...prev, filteredFile]);
+    setActiveFileIds((prev) => prev.includes(fileId) ? prev : [...prev, fileId]);
+    setInspectingFileId(null);
+
+    const autoPrompt = buildUploadAutoPrompt([filteredFile.name]);
+    await runSilentAnalysis(autoPrompt, {
+      targetFileIds: [filteredFile.id],
+      personaLabel: 'System Analysis',
+    });
+  }, [buildAuthHeaders, buildFilteredFile, currentUser?.id, pendingFiles, runSilentAnalysis]);
+
+  const rejectPendingFile = useCallback((fileId: string) => {
+    void (async () => {
+      await csrfFetch(`/api/files/${fileId}`, {
+        method: 'DELETE',
+        headers: buildAuthHeaders(currentUser?.id || ''),
+      }).catch((error) => {
+        console.error('Failed to delete pending file:', error);
+      });
+
+      setPendingFiles((prev) => prev.filter((file) => file.id !== fileId));
+      setInspectingFileId((prev) => prev === fileId ? null : prev);
+    })();
+  }, [buildAuthHeaders, currentUser?.id]);
 
   // ===== DRAG & DROP =====
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -667,6 +825,7 @@ const App: React.FC = () => {
   // ===== SEND MESSAGE (with analysis mode) =====
   const handleSend = async (overridePrompt?: string) => {
     if (!currentUser) return;
+    if (isAnalyzing) return;
 
     const promptToUse = overridePrompt || inputText;
     if (!promptToUse.trim()) return;
@@ -678,11 +837,14 @@ const App: React.FC = () => {
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
     setIsAnalyzing(true);
+    const abortController = new AbortController();
+    chatAbortControllerRef.current = abortController;
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await csrfFetch('/api/chat', {
         method: 'POST',
         headers: buildAuthHeaders(currentUser.id, true),
+        signal: abortController.signal,
         body: JSON.stringify({
           sessionId: activeSessionId,
           content: promptToUse,
@@ -693,7 +855,22 @@ const App: React.FC = () => {
         })
       });
 
-      const assistantMsg = await res.json();
+      const rawBody = await res.text();
+      let assistantMsg: any = {};
+
+      try {
+        assistantMsg = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        if (!res.ok) {
+          throw new Error(`Server returned ${res.status} ${res.statusText}.`);
+        }
+
+        assistantMsg = { content: rawBody };
+      }
+
+      if (!res.ok) {
+        throw new Error(assistantMsg?.error || assistantMsg?.message || `Server returned ${res.status} ${res.statusText}.`);
+      }
 
       const responseContent = assistantMsg.content
         || assistantMsg.error
@@ -716,6 +893,17 @@ const App: React.FC = () => {
         setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, title: promptToUse.slice(0, 50) } : s));
       }
     } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        setMessages(prev => [...prev, {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: 'Analysis stopped. You can refine the question, reduce active datasets, or run a narrower follow-up.',
+          timestamp: Date.now(),
+          persona: 'System Notice',
+        }]);
+        return;
+      }
+
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -723,9 +911,33 @@ const App: React.FC = () => {
         timestamp: Date.now()
       }]);
     } finally {
+      chatAbortControllerRef.current = null;
       setIsAnalyzing(false);
     }
   };
+
+  const stopAnalysis = useCallback(() => {
+    chatAbortControllerRef.current?.abort();
+  }, []);
+
+  const inspectInsight = useCallback((term: string) => {
+    const normalizedTerm = term.trim().toLowerCase();
+    if (!normalizedTerm) return;
+
+    const activeFiles = files.filter((file) => activeFileIds.includes(file.id));
+    const candidate = activeFiles.find((file) => {
+      const columnMatch = file.columns.some((column) => column.toLowerCase().includes(normalizedTerm));
+      const previewMatch = (file.preview || []).some((row) => Object.values(row || {}).some((value) => String(value ?? '').toLowerCase().includes(normalizedTerm)));
+      return columnMatch || previewMatch;
+    }) || activeFiles[0] || files[0];
+
+    if (!candidate) {
+      return;
+    }
+
+    setInspectorFocusTerm(term);
+    setInspectingFileId(candidate.id);
+  }, [activeFileIds, files]);
 
   const createNewSession = async () => {
     if (!currentUser) return;
@@ -737,8 +949,10 @@ const App: React.FC = () => {
         setSessions(prev => [sess, ...prev.filter(existing => existing.id !== sess.id)]);
         setMessages([]);
         setFiles([]);
+        setPendingFiles([]);
         setActiveFileIds([]);
         setLinkedConnectorIds([]);
+        setInspectingFileId(null);
         setIsSidebarOpen(false);
       }
     } catch (err) {
@@ -749,8 +963,33 @@ const App: React.FC = () => {
 
   const deleteFile = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setFiles(prev => prev.filter(f => f.id !== id));
-    setActiveFileIds(prev => prev.filter(fid => fid !== id));
+
+    const targetFile = [...files, ...pendingFiles].find((file) => file.id === id);
+    const wasActive = activeFileIds.includes(id);
+
+    void (async () => {
+      await csrfFetch(`/api/files/${id}`, {
+        method: 'DELETE',
+        headers: buildAuthHeaders(currentUser?.id || ''),
+      }).catch((error) => {
+        console.error('Failed to delete file:', error);
+      });
+
+      setFiles(prev => prev.filter(f => f.id !== id));
+      setActiveFileIds(prev => prev.filter(fid => fid !== id));
+      setPendingFiles(prev => prev.filter(f => f.id !== id));
+      setInspectingFileId(prev => prev === id ? null : prev);
+
+      if (targetFile && wasActive) {
+        setMessages((prev) => [...prev, {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `${targetFile.name} was removed from this session. Future analysis will no longer include it unless you upload or import it again.`,
+          timestamp: Date.now(),
+          persona: 'System Notice',
+        }]);
+      }
+    })();
   };
 
   const copyToClipboard = (text: string, id: string) => {
@@ -759,13 +998,19 @@ const App: React.FC = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('mastiff_token');
-    localStorage.removeItem('mastiff_user');
-    localStorage.removeItem('mastiff_session_id');
-    setConnectors([]);
-    setLinkedConnectorIds([]);
-    window.location.href = '/login';
+  const handleLogout = async () => {
+    try {
+      await csrfFetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.error('Logout request failed:', error);
+    } finally {
+      localStorage.removeItem('mastiff_token');
+      localStorage.removeItem('mastiff_user');
+      localStorage.removeItem('mastiff_session_id');
+      setConnectors([]);
+      setLinkedConnectorIds([]);
+      window.location.href = '/login';
+    }
   };
 
   // Keyboard shortcuts
@@ -805,6 +1050,7 @@ const App: React.FC = () => {
     >
       <Sidebar
         files={files}
+        pendingFiles={pendingFiles}
         activeFileIds={activeFileIds}
         connectors={connectors}
         linkedConnectorIds={linkedConnectorIds}
@@ -823,14 +1069,19 @@ const App: React.FC = () => {
         onClearMessages={createNewSession}
         onFileUpload={handleFileUpload}
         onToggleFile={(id) => setActiveFileIds(prev => prev.includes(id) ? prev.filter(fid => fid !== id) : [...prev, id])}
-        onInspectFile={() => { }}
+        onInspectFile={(id) => {
+          setInspectorFocusTerm('');
+          setInspectingFileId(id);
+        }}
         onDeleteFile={deleteFile}
+        onDeletePendingFile={rejectPendingFile}
         fileInputRef={fileInputRef}
         sessions={sessions}
         currentSessionId={sessionId}
         onSwitchSession={onSwitchSession}
         onDeleteSession={deleteSession}
         isUploading={isUploading}
+        uploadingFileNames={uploadingFileNames}
         onLogout={handleLogout}
       />
 
@@ -846,7 +1097,9 @@ const App: React.FC = () => {
         suggestions={suggestions}
         isLoadingSuggestions={isLoadingSuggestions}
         files={files}
+        activeFiles={files.filter((file) => activeFileIds.includes(file.id))}
         showCodeId={showCodeId}
+        showLogsId={showLogsId}
         showPersonaMenu={showPersonaMenu}
         copiedId={copiedId}
         scrollRef={scrollRef}
@@ -858,8 +1111,24 @@ const App: React.FC = () => {
         onToggleSearch={() => setIsSearchEnabled(!isSearchEnabled)}
         onInputChange={(text) => setInputText(text)}
         onSend={handleSend}
+        onStopAnalysis={stopAnalysis}
+        onInspectInsight={inspectInsight}
         onToggleCode={setShowCodeId}
+        onToggleLogs={setShowLogsId}
         onCopy={copyToClipboard}
+      />
+
+      <DataInspector
+        inspectingFileId={inspectingFileId}
+        focusTerm={inspectorFocusTerm}
+        files={[...pendingFiles, ...files].filter((file) => file.id !== 'sample-sales')}
+        pendingFileIds={pendingFiles.map((file) => file.id)}
+        onConfirmPendingFile={confirmPendingFile}
+        onRejectPendingFile={rejectPendingFile}
+        onClose={() => {
+          setInspectingFileId(null);
+          setInspectorFocusTerm('');
+        }}
       />
 
     </div>

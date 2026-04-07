@@ -6,6 +6,7 @@
 
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import { getJwtSecret } from '@/lib/runtimeSecrets';
 
 export interface Session {
     id: string;
@@ -65,7 +66,7 @@ export class SessionManager {
         try {
             if (!token) return null;
 
-            const secret = process.env.JWT_SECRET || 'mastiff-ai-secret-key-change-in-production';
+            const secret = getJwtSecret();
             const payload = jwt.verify(token, secret) as {
                 userId?: string;
                 id?: string;

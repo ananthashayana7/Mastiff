@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Eye, EyeOff, ArrowRight, User } from 'lucide-react';
 
@@ -13,6 +13,56 @@ export default function SignupPage() {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [isMicrosoftEnabled, setIsMicrosoftEnabled] = useState(false);
+
+    useEffect(() => {
+        let mounted = true;
+
+        void (async () => {
+            try {
+                const response = await fetch('/api/auth/session', {
+                    headers: { Accept: 'application/json' },
+                });
+
+                if (!mounted || !response.ok) {
+                    return;
+                }
+
+                router.replace('/');
+            } catch {
+                // Ignore session bootstrap errors on the signup screen.
+            }
+        })();
+
+        return () => {
+            mounted = false;
+        };
+    }, [router]);
+
+    useEffect(() => {
+        let mounted = true;
+
+        void (async () => {
+            try {
+                const response = await fetch('/api/auth/providers', {
+                    headers: { Accept: 'application/json' },
+                });
+
+                if (!mounted || !response.ok) {
+                    return;
+                }
+
+                const providers = await response.json();
+                setIsMicrosoftEnabled(Boolean(providers?.microsoft));
+            } catch {
+                // Ignore provider discovery failures on the signup screen.
+            }
+        })();
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -45,7 +95,7 @@ export default function SignupPage() {
             }
 
             // Auto-login after signup
-            localStorage.setItem('mastiff_token', data.token);
+            localStorage.removeItem('mastiff_token');
             localStorage.setItem('mastiff_user', JSON.stringify(data.user));
             router.push('/');
         } catch (err: any) {
@@ -76,6 +126,22 @@ export default function SignupPage() {
                 {/* Signup Form */}
                 <form onSubmit={handleSignup} className="space-y-5">
                     <div className="glass rounded-2xl p-8 space-y-4 border border-zinc-800/50">
+                        {isMicrosoftEnabled && (
+                            <>
+                                <a
+                                    href="/api/auth/microsoft/start"
+                                    className="w-full py-3.5 border border-zinc-700 bg-zinc-900/70 text-white font-bold text-xs uppercase tracking-widest rounded-xl hover:border-zinc-500 transition-all flex items-center justify-center"
+                                >
+                                    Continue with Microsoft
+                                </a>
+                                <div className="flex items-center gap-3 text-zinc-600 text-[10px] font-bold uppercase tracking-[2px]">
+                                    <div className="h-px flex-1 bg-zinc-800" />
+                                    <span>Or create a Mastiff account</span>
+                                    <div className="h-px flex-1 bg-zinc-800" />
+                                </div>
+                            </>
+                        )}
+
                         <div>
                             <label className="block text-[10px] font-extrabold text-zinc-500 uppercase tracking-[2px] mb-2">Name</label>
                             <input

@@ -7,14 +7,19 @@ interface PlotlyRendererProps {
     data: any;
 }
 
+type RangePreset = 'ALL' | '1M' | '3M' | '6M' | 'YTD' | '1Y';
+type PointWindow = 'all' | '12' | '24' | '60';
+type TimeAggregation = 'raw' | 'week' | 'month' | 'quarter' | 'year';
+
 export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
     const chartRef = useRef<HTMLDivElement>(null);
     const [isLoaded, setIsLoaded] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const [renderError, setRenderError] = useState<string | null>(null);
-    const [rangePreset, setRangePreset] = useState<'ALL' | '1W' | '1M' | '3M' | '6M' | 'YTD' | '1Y'>('ALL');
-    const [pointWindow, setPointWindow] = useState<'all' | '24' | '60' | '120'>('all');
+    const [rangePreset, setRangePreset] = useState<RangePreset>('ALL');
+    const [pointWindow, setPointWindow] = useState<PointWindow>('all');
     const [maWindow, setMaWindow] = useState<'off' | '20' | '50'>('off');
+    const [timeAggregation, setTimeAggregation] = useState<TimeAggregation>('raw');
     const [useLogScale, setUseLogScale] = useState(false);
     const [normalizeSeries, setNormalizeSeries] = useState(false);
     const [showRangeSlider, setShowRangeSlider] = useState(true);
@@ -25,8 +30,8 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
     const [priceView, setPriceView] = useState<'candles' | 'line'>('candles');
 
     const MASTIFF_COLORWAY = [
-        '#E50914', '#2EC4B6', '#F4D35E', '#4EA8DE', '#EE964B',
-        '#9B5DE5', '#00BBF9', '#06D6A0', '#FF6B6B', '#C4B5FD'
+        '#38BDF8', '#F97316', '#2DD4BF', '#FACC15', '#FB7185',
+        '#818CF8', '#34D399', '#F59E0B', '#22C55E', '#E879F9'
     ];
 
     const parsedPayload = useMemo(() => {
@@ -39,22 +44,40 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
         }
     }, [data]);
 
-    const hasXAxisSeries = useMemo(() => {
-        const traces = Array.isArray(parsedPayload)
-            ? parsedPayload
-            : Array.isArray(parsedPayload?.data)
-                ? parsedPayload.data
-                : [];
-        return traces.some((trace: any) => Array.isArray(trace?.x) && trace.x.length > 2);
+    const traceList = useMemo(() => {
+        if (Array.isArray(parsedPayload)) return parsedPayload;
+        if (Array.isArray(parsedPayload?.data)) return parsedPayload.data;
+        return [];
     }, [parsedPayload]);
 
+    const layoutPayload = useMemo(() => {
+        return Array.isArray(parsedPayload) ? {} : (parsedPayload?.layout || {});
+    }, [parsedPayload]);
+
+    const hasTableTrace = useMemo(() => {
+        return traceList.some((trace: any) => String(trace?.type || '').toLowerCase() === 'table');
+    }, [traceList]);
+
+    const isMultiPanelChart = useMemo(() => {
+        if (!layoutPayload || typeof layoutPayload !== 'object') return false;
+
+        const hasGrid = Boolean((layoutPayload as any).grid?.rows || (layoutPayload as any).grid?.columns);
+        const hasSecondaryAxes = Object.keys(layoutPayload).some((key) => /^xaxis\d+$|^yaxis\d+$/.test(key));
+        const traceSubplots = traceList.some((trace: any) => {
+            const xaxis = String(trace?.xaxis || 'x');
+            const yaxis = String(trace?.yaxis || 'y');
+            return xaxis !== 'x' || yaxis !== 'y';
+        });
+
+        return hasGrid || hasSecondaryAxes || traceSubplots;
+    }, [layoutPayload, traceList]);
+
+    const hasXAxisSeries = useMemo(() => {
+        return traceList.some((trace: any) => Array.isArray(trace?.x) && trace.x.length > 2);
+    }, [traceList]);
+
     const isDateLikeSeries = useMemo(() => {
-        const traces = Array.isArray(parsedPayload)
-            ? parsedPayload
-            : Array.isArray(parsedPayload?.data)
-                ? parsedPayload.data
-                : [];
-        const sampleTrace = traces.find((trace: any) => Array.isArray(trace?.x) && trace.x.length >= 3);
+        const sampleTrace = traceList.find((trace: any) => Array.isArray(trace?.x) && trace.x.length >= 3);
         if (!sampleTrace?.x) return false;
 
         const sample = sampleTrace.x.slice(0, 10);
@@ -66,15 +89,10 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
         }).length;
 
         return parsedCount >= Math.ceil(sample.length * 0.6);
-    }, [parsedPayload]);
+    }, [traceList]);
 
     const hasOHLCSeries = useMemo(() => {
-        const traces = Array.isArray(parsedPayload)
-            ? parsedPayload
-            : Array.isArray(parsedPayload?.data)
-                ? parsedPayload.data
-                : [];
-        return traces.some((trace: any) => {
+        return traceList.some((trace: any) => {
             const type = String(trace?.type || '').toLowerCase();
             return type === 'candlestick' || type === 'ohlc' || (
                 Array.isArray(trace?.open)
@@ -83,25 +101,55 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 && Array.isArray(trace?.close)
             );
         });
-    }, [parsedPayload]);
+    }, [traceList]);
 
     const hasVolumeSeries = useMemo(() => {
-        const traces = Array.isArray(parsedPayload)
-            ? parsedPayload
-            : Array.isArray(parsedPayload?.data)
-                ? parsedPayload.data
-                : [];
-        return traces.some((trace: any) => {
+        return traceList.some((trace: any) => {
             const maybeName = String(trace?.name || '').toLowerCase();
             return maybeName.includes('volume') || maybeName.includes('vol') || Array.isArray(trace?.volume);
         });
-    }, [parsedPayload]);
+    }, [traceList]);
+
+    const hasSimpleNumericTimeSeries = useMemo(() => {
+        if (!isDateLikeSeries || isMultiPanelChart || hasTableTrace) return false;
+
+        return traceList.some((trace: any) => {
+            if (!Array.isArray(trace?.x) || !Array.isArray(trace?.y) || trace.x.length !== trace.y.length) {
+                return false;
+            }
+
+            const type = String(trace?.type || 'scatter').toLowerCase();
+            if (['table', 'pie', 'heatmap', 'surface', 'candlestick', 'ohlc'].includes(type)) {
+                return false;
+            }
+
+            return trace.y.some((value: any) => Number.isFinite(Number(value)));
+        });
+    }, [hasTableTrace, isDateLikeSeries, isMultiPanelChart, traceList]);
 
     const marketMode = hasOHLCSeries;
-    const volumePanelEnabled = marketMode && showVolume;
-    const rsiPanelEnabled = marketMode && showRSI;
-    const vwapEnabled = marketMode && showVWAP;
-    const bollingerEnabled = marketMode && showBollinger;
+    const marketControlsEnabled = marketMode && !isMultiPanelChart;
+    const supportsTimeAggregation = hasSimpleNumericTimeSeries && !marketMode;
+    const supportsRangePresets = marketControlsEnabled && isDateLikeSeries;
+    const supportsPointWindow = !isMultiPanelChart && hasXAxisSeries && !hasTableTrace;
+    const supportsMovingAverage = !isMultiPanelChart && !hasTableTrace && hasXAxisSeries;
+    const supportsSeriesScale = !isMultiPanelChart && !hasTableTrace && hasXAxisSeries;
+    const volumePanelEnabled = marketControlsEnabled && showVolume;
+    const rsiPanelEnabled = marketControlsEnabled && showRSI;
+    const vwapEnabled = marketControlsEnabled && showVWAP;
+    const bollingerEnabled = marketControlsEnabled && showBollinger;
+
+    useEffect(() => {
+        if (!supportsTimeAggregation && timeAggregation !== 'raw') {
+            setTimeAggregation('raw');
+        }
+    }, [supportsTimeAggregation, timeAggregation]);
+
+    useEffect(() => {
+        if (!supportsRangePresets && rangePreset !== 'ALL') {
+            setRangePreset('ALL');
+        }
+    }, [rangePreset, supportsRangePresets]);
 
     useEffect(() => {
         if (!chartRef.current || !data) return;
@@ -155,10 +203,120 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 return Number.isNaN(parsed) ? null : parsed;
             };
 
+            const buildTimeBucket = (value: any, aggregation: TimeAggregation) => {
+                const ms = toDateMs(value);
+                if (ms === null) return null;
+
+                const sourceDate = new Date(ms);
+                const bucketDate = new Date(sourceDate);
+
+                if (aggregation === 'year') {
+                    bucketDate.setMonth(0, 1);
+                    bucketDate.setHours(0, 0, 0, 0);
+                    return {
+                        bucketKey: `${bucketDate.getFullYear()}`,
+                        label: `${bucketDate.getFullYear()}`,
+                        sortValue: bucketDate.getTime(),
+                    };
+                }
+
+                if (aggregation === 'quarter') {
+                    const quarterMonth = Math.floor(bucketDate.getMonth() / 3) * 3;
+                    bucketDate.setMonth(quarterMonth, 1);
+                    bucketDate.setHours(0, 0, 0, 0);
+                    const quarter = Math.floor(quarterMonth / 3) + 1;
+                    return {
+                        bucketKey: `${bucketDate.getFullYear()}-Q${quarter}`,
+                        label: `Q${quarter} ${bucketDate.getFullYear()}`,
+                        sortValue: bucketDate.getTime(),
+                    };
+                }
+
+                if (aggregation === 'month') {
+                    bucketDate.setDate(1);
+                    bucketDate.setHours(0, 0, 0, 0);
+                    return {
+                        bucketKey: `${bucketDate.getFullYear()}-${bucketDate.getMonth()}`,
+                        label: bucketDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }),
+                        sortValue: bucketDate.getTime(),
+                    };
+                }
+
+                if (aggregation === 'week') {
+                    const weekday = bucketDate.getDay();
+                    const diff = weekday === 0 ? -6 : 1 - weekday;
+                    bucketDate.setDate(bucketDate.getDate() + diff);
+                    bucketDate.setHours(0, 0, 0, 0);
+                    return {
+                        bucketKey: `W-${bucketDate.getFullYear()}-${bucketDate.getMonth()}-${bucketDate.getDate()}`,
+                        label: bucketDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }),
+                        sortValue: bucketDate.getTime(),
+                    };
+                }
+
+                return null;
+            };
+
+            const aggregateTraceByPeriod = (trace: any) => {
+                if (!supportsTimeAggregation || timeAggregation === 'raw') {
+                    return trace;
+                }
+
+                if (!Array.isArray(trace?.x) || !Array.isArray(trace?.y) || trace.x.length !== trace.y.length) {
+                    return trace;
+                }
+
+                const type = String(trace?.type || 'scatter').toLowerCase();
+                if (['table', 'pie', 'heatmap', 'surface', 'candlestick', 'ohlc'].includes(type)) {
+                    return trace;
+                }
+
+                const buckets = new Map<string, { label: string; sortValue: number; values: number[] }>();
+
+                trace.x.forEach((xValue: any, index: number) => {
+                    const bucket = buildTimeBucket(xValue, timeAggregation);
+                    const numericValue = Number(trace.y[index]);
+                    if (!bucket || !Number.isFinite(numericValue)) {
+                        return;
+                    }
+
+                    const existing = buckets.get(bucket.bucketKey);
+                    if (existing) {
+                        existing.values.push(numericValue);
+                        return;
+                    }
+
+                    buckets.set(bucket.bucketKey, {
+                        label: bucket.label,
+                        sortValue: bucket.sortValue,
+                        values: [numericValue],
+                    });
+                });
+
+                const entries = Array.from(buckets.values()).sort((left, right) => left.sortValue - right.sortValue);
+                if (entries.length < 2) {
+                    return trace;
+                }
+
+                const reducer = type === 'bar'
+                    ? (values: number[]) => values.reduce((sum, value) => sum + value, 0)
+                    : (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
+
+                return {
+                    ...trace,
+                    x: entries.map((entry) => entry.label),
+                    y: entries.map((entry) => reducer(entry.values)),
+                    text: undefined,
+                    hovertext: undefined,
+                    customdata: undefined,
+                    ids: undefined,
+                };
+            };
+
             const resolveStartIndex = (xValues: any[]): number => {
                 if (!Array.isArray(xValues) || xValues.length < 2) return 0;
 
-                if (isDateLikeSeries && rangePreset !== 'ALL') {
+                if (supportsRangePresets && rangePreset !== 'ALL') {
                     const timeline = xValues
                         .map((value, index) => ({ index, ms: toDateMs(value) }))
                         .filter((entry) => entry.ms !== null) as Array<{ index: number; ms: number }>;
@@ -169,9 +327,6 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
 
                         let cutoff = 0;
                         switch (rangePreset) {
-                            case '1W':
-                                cutoff = latestMs - (7 * 24 * 60 * 60 * 1000);
-                                break;
                             case '1M':
                                 cutoff = latestMs - (30 * 24 * 60 * 60 * 1000);
                                 break;
@@ -198,7 +353,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     }
                 }
 
-                if (pointWindow !== 'all') {
+                if (supportsPointWindow && pointWindow !== 'all') {
                     const take = Math.max(2, Number(pointWindow));
                     return Math.max(0, xValues.length - take);
                 }
@@ -231,10 +386,11 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 return next;
             };
 
-            const durationFilteredTraces = rawTraces.map((trace: any) => applyDurationFilter(trace));
+            const aggregatedTraces = rawTraces.map((trace: any) => aggregateTraceByPeriod(trace));
+            const durationFilteredTraces = aggregatedTraces.map((trace: any) => applyDurationFilter(trace));
 
             const maybeNormalizeTrace = (trace: any) => {
-                if (!normalizeSeries || !Array.isArray(trace?.y)) {
+                if (!supportsSeriesScale || !normalizeSeries || !Array.isArray(trace?.y)) {
                     return trace;
                 }
 
@@ -254,7 +410,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
             const normalizedTraces = durationFilteredTraces.map((trace: any) => maybeNormalizeTrace(trace));
 
             const addMovingAverageTrace = (traces: any[]) => {
-                if (maWindow === 'off') return traces;
+                if (!supportsMovingAverage || maWindow === 'off') return traces;
 
                 const windowSize = Number(maWindow);
                 if (!Number.isFinite(windowSize) || windowSize < 2) return traces;
@@ -497,31 +653,50 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
             };
 
             const indicatorTraces = buildTradingTraces(withMovingAverage);
+            const preferBottomLegend = isMultiPanelChart || indicatorTraces.length > 6 || hasTableTrace;
+            const defaultTopMargin = preferBottomLegend ? 76 : 92;
+            const defaultBottomMargin = preferBottomLegend ? 112 : 56;
+
+            const sanitizeAnnotationText = (value: unknown): string => {
+                return String(value || '')
+                    .replace(/[^\x20-\x7E]/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            };
+
+            const sanitizedAnnotations = Array.isArray(parsedData.layout?.annotations)
+                ? parsedData.layout.annotations.map((annotation: any) => ({
+                    ...annotation,
+                    text: sanitizeAnnotationText(annotation?.text),
+                }))
+                : parsedData.layout?.annotations;
 
             // Deep merge layout for Mastiff dark theme
             const layout: any = {
                 ...(parsedData.layout || {}),
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(15, 23, 42, 0.28)',
+                paper_bgcolor: 'rgba(5, 10, 20, 0)',
+                plot_bgcolor: 'rgba(15, 23, 42, 0.56)',
                 font: {
-                    color: '#d4d4d8',
+                    color: '#E5E7EB',
                     family: 'IBM Plex Sans, system-ui, sans-serif',
                     size: 11
                 },
                 margin: {
-                    t: parsedData.layout?.margin?.t ?? (parsedData.layout?.title ? 48 : 24),
+                    t: parsedData.layout?.margin?.t ?? ((parsedData.layout?.title || preferBottomLegend) ? defaultTopMargin : 24),
                     r: parsedData.layout?.margin?.r ?? 24,
                     l: parsedData.layout?.margin?.l ?? 56,
-                    b: parsedData.layout?.margin?.b ?? 48,
+                    b: parsedData.layout?.margin?.b ?? defaultBottomMargin,
                 },
                 autosize: true,
+                dragmode: 'pan',
                 xaxis: {
                     ...(parsedData.layout?.xaxis || {}),
                     gridcolor: 'rgba(148, 163, 184, 0.15)',
                     zerolinecolor: 'rgba(148, 163, 184, 0.2)',
                     linecolor: 'rgba(148, 163, 184, 0.25)',
                     tickfont: { color: '#a1a1aa', size: 10 },
-                    rangeslider: parsedData.layout?.xaxis?.rangeslider ?? { visible: hasXAxisSeries && (marketMode ? showRangeSlider : false) },
+                    automargin: true,
+                    rangeslider: parsedData.layout?.xaxis?.rangeslider ?? { visible: supportsRangePresets && showRangeSlider },
                     showspikes: true,
                     spikemode: 'across',
                     spikecolor: 'rgba(229, 9, 20, 0.6)',
@@ -533,20 +708,49 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     zerolinecolor: 'rgba(148, 163, 184, 0.2)',
                     linecolor: 'rgba(148, 163, 184, 0.25)',
                     tickfont: { color: '#a1a1aa', size: 10 },
-                    type: useLogScale ? 'log' : parsedData.layout?.yaxis?.type,
+                    automargin: true,
+                    type: supportsSeriesScale && useLogScale ? 'log' : parsedData.layout?.yaxis?.type,
                     showspikes: true,
                     spikemode: 'across',
                     spikecolor: 'rgba(46, 196, 182, 0.45)',
                     spikethickness: 1,
                     title: normalizeSeries ? { text: 'Change (%)' } : parsedData.layout?.yaxis?.title,
                 },
+                title: parsedData.layout?.title
+                    ? {
+                        ...(typeof parsedData.layout.title === 'string' ? { text: parsedData.layout.title } : parsedData.layout.title),
+                        x: 0.02,
+                        xanchor: 'left',
+                        y: 0.98,
+                        yanchor: 'top',
+                        font: {
+                            size: 15,
+                            color: '#F8FAFC',
+                            family: 'IBM Plex Sans, system-ui, sans-serif',
+                            ...(typeof parsedData.layout.title === 'object' ? parsedData.layout.title.font : {}),
+                        },
+                    }
+                    : undefined,
                 legend: {
                     ...(parsedData.layout?.legend || {}),
-                    font: { color: '#d4d4d8', size: 10 },
-                    bgcolor: 'rgba(0,0,0,0)'
+                    orientation: 'h',
+                    yanchor: preferBottomLegend ? 'top' : 'bottom',
+                    y: preferBottomLegend ? -0.12 : 1.02,
+                    xanchor: 'left',
+                    x: 0,
+                    font: { color: '#CBD5E1', size: 10 },
+                    bgcolor: 'rgba(0,0,0,0)',
+                    tracegroupgap: 8,
                 },
                 colorway: MASTIFF_COLORWAY,
-                hovermode: 'x unified',
+                hovermode: isMultiPanelChart ? 'closest' : (hasXAxisSeries ? 'x unified' : 'closest'),
+                annotations: sanitizedAnnotations,
+                newshape: {
+                    line: {
+                        color: '#F8FAFC',
+                        width: 2,
+                    },
+                },
                 hoverlabel: {
                     bgcolor: '#111827',
                     bordercolor: 'rgba(148, 163, 184, 0.4)',
@@ -554,10 +758,10 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 },
             };
 
-            if (hasXAxisSeries) {
+            if (supportsRangePresets) {
                 layout.xaxis.rangeselector = parsedData.layout?.xaxis?.rangeselector ?? {
                     bgcolor: 'rgba(15, 23, 42, 0.7)',
-                    activecolor: '#E50914',
+                    activecolor: '#38BDF8',
                     bordercolor: 'rgba(148, 163, 184, 0.25)',
                 };
             }
@@ -633,6 +837,28 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     'pie',
                 ].includes(traceType);
 
+                if (traceType === 'table') {
+                    return {
+                        ...trace,
+                        header: {
+                            ...(trace.header || {}),
+                            fill: { color: '#D1FAE5' },
+                            font: { color: '#0F172A', size: 11, ...(trace.header?.font || {}) },
+                            line: { color: 'rgba(148, 163, 184, 0.35)' },
+                            align: 'left',
+                            height: 28,
+                        },
+                        cells: {
+                            ...(trace.cells || {}),
+                            fill: { color: '#F8FAFC' },
+                            font: { color: '#0F172A', size: 10, ...(trace.cells?.font || {}) },
+                            line: { color: 'rgba(148, 163, 184, 0.2)' },
+                            align: 'left',
+                            height: 24,
+                        },
+                    };
+                }
+
                 if (keepIntrinsicColor) {
                     return trace;
                 }
@@ -654,6 +880,14 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 (window as any).Plotly.newPlot(chartRef.current, traces, layout, {
                     responsive: true,
                     displayModeBar: true,
+                    editable: true,
+                    edits: {
+                        shapePosition: true,
+                        annotationPosition: false,
+                        annotationText: false,
+                        titleText: false,
+                        legendPosition: false,
+                    },
                     modeBarButtonsToRemove: ['lasso2d', 'select2d'],
                     modeBarButtonsToAdd: ['hoverclosest', 'hovercompare', 'drawline', 'drawopenpath', 'eraseshape'],
                     displaylogo: false,
@@ -681,6 +915,8 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
         hasXAxisSeries,
         hasVolumeSeries,
         isDateLikeSeries,
+        isMultiPanelChart,
+        hasTableTrace,
         maWindow,
         marketMode,
         normalizeSeries,
@@ -690,9 +926,15 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
         rangePreset,
         rsiPanelEnabled,
         showRangeSlider,
+        supportsMovingAverage,
+        supportsPointWindow,
+        supportsRangePresets,
+        supportsSeriesScale,
+        supportsTimeAggregation,
         useLogScale,
         volumePanelEnabled,
         vwapEnabled,
+        timeAggregation,
     ]);
 
     // Re-render when expanded
@@ -733,7 +975,13 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
     const calculateChartHeight = (chartData: any): string => {
         try {
             const p = typeof chartData === 'string' ? JSON.parse(chartData) : chartData;
-            return p?.layout?.height ? `${Math.max(Number(p.layout.height), 400)}px` : '560px';
+            const layout = p?.layout || {};
+            const gridRows = Number(layout?.grid?.rows || 0);
+            const gridHeight = gridRows > 0 ? (gridRows * 260) + 140 : 0;
+            const hasExtraAxes = Object.keys(layout).some((key) => /^xaxis\d+$|^yaxis\d+$/.test(key));
+            const traceCount = Array.isArray(p?.data) ? p.data.length : 0;
+            const minimumHeight = gridHeight || (hasExtraAxes || traceCount > 6 ? 880 : 560);
+            return `${Math.max(Number(layout?.height || 0), minimumHeight, 400)}px`;
         } catch {
             return '560px';
         }
@@ -762,17 +1010,17 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     <span className="text-[8px] font-semibold font-mono text-zinc-400 uppercase tracking-[0.24em]">Interactive Analysis</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                    {hasXAxisSeries && (
+                    {supportsPointWindow && (
                         <select
                             value={pointWindow}
-                            onChange={(e) => setPointWindow(e.target.value as 'all' | '24' | '60' | '120')}
+                            onChange={(e) => setPointWindow(e.target.value as PointWindow)}
                             className="h-7 rounded-md border border-zinc-700/80 bg-zinc-950/90 px-2 text-[10px] font-semibold font-mono text-zinc-300 focus:border-zinc-300/80 focus:outline-none"
                             title="Select visible sample window"
                         >
-                            <option value="all">All</option>
-                            <option value="120">120 points</option>
+                            <option value="all">All points</option>
                             <option value="60">60 points</option>
                             <option value="24">24 points</option>
+                            <option value="12">12 points</option>
                         </select>
                     )}
                     <button onClick={handleResetZoom} title="Reset zoom" className="p-1.5 rounded-md border border-zinc-800 text-zinc-500 hover:text-zinc-100 hover:border-zinc-600 hover:bg-zinc-900 transition-all">
@@ -788,7 +1036,29 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
             </div>
 
             <div className="px-4 py-2 border-b border-zinc-800/60 bg-zinc-950/40 flex flex-wrap items-center gap-1.5">
-                {(['ALL', '1W', '1M', '3M', '6M', 'YTD', '1Y'] as const).map((preset) => (
+                {supportsTimeAggregation && (
+                    <>
+                        {([
+                            ['raw', 'Raw'],
+                            ['week', 'Weekly'],
+                            ['month', 'Monthly'],
+                            ['quarter', 'Quarterly'],
+                            ['year', 'Yearly'],
+                        ] as const).map(([aggregation, label]) => (
+                            <button
+                                key={aggregation}
+                                onClick={() => setTimeAggregation(aggregation)}
+                                className={chipClass(timeAggregation === aggregation)}
+                                title={`Aggregate series by ${label.toLowerCase()}`}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                        <span className="mx-1 h-4 w-px bg-zinc-700/60" />
+                    </>
+                )}
+
+                {supportsRangePresets && (['ALL', '1M', '3M', '6M', 'YTD', '1Y'] as const).map((preset) => (
                     <button
                         key={preset}
                         onClick={() => setRangePreset(preset)}
@@ -799,41 +1069,51 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     </button>
                 ))}
 
-                <span className="mx-1 h-4 w-px bg-zinc-700/60" />
+                {(supportsRangePresets || supportsTimeAggregation) && (
+                    <span className="mx-1 h-4 w-px bg-zinc-700/60" />
+                )}
 
-                <button
-                    onClick={() => setMaWindow(maWindow === '20' ? 'off' : '20')}
-                    className={chipClass(maWindow === '20')}
-                    title="Toggle moving average 20"
-                >
-                    MA20
-                </button>
+                {supportsMovingAverage && (
+                    <>
+                        <button
+                            onClick={() => setMaWindow(maWindow === '20' ? 'off' : '20')}
+                            className={chipClass(maWindow === '20')}
+                            title="Toggle moving average 20"
+                        >
+                            MA20
+                        </button>
 
-                <button
-                    onClick={() => setMaWindow(maWindow === '50' ? 'off' : '50')}
-                    className={chipClass(maWindow === '50')}
-                    title="Toggle moving average 50"
-                >
-                    MA50
-                </button>
+                        <button
+                            onClick={() => setMaWindow(maWindow === '50' ? 'off' : '50')}
+                            className={chipClass(maWindow === '50')}
+                            title="Toggle moving average 50"
+                        >
+                            MA50
+                        </button>
+                    </>
+                )}
 
-                <button
-                    onClick={() => setNormalizeSeries((prev) => !prev)}
-                    className={chipClass(normalizeSeries)}
-                    title="Normalize values to percent change"
-                >
-                    %
-                </button>
+                {supportsSeriesScale && (
+                    <button
+                        onClick={() => setNormalizeSeries((prev) => !prev)}
+                        className={chipClass(normalizeSeries)}
+                        title="Normalize values to percent change"
+                    >
+                        %
+                    </button>
+                )}
 
-                <button
-                    onClick={() => setUseLogScale((prev) => !prev)}
-                    className={chipClass(useLogScale)}
-                    title="Toggle logarithmic scale"
-                >
-                    LOG
-                </button>
+                {supportsSeriesScale && (
+                    <button
+                        onClick={() => setUseLogScale((prev) => !prev)}
+                        className={chipClass(useLogScale)}
+                        title="Toggle logarithmic scale"
+                    >
+                        LOG
+                    </button>
+                )}
 
-                {marketMode && (
+                {supportsRangePresets && (
                     <button
                         onClick={() => setShowRangeSlider((prev) => !prev)}
                         className={chipClass(showRangeSlider)}
@@ -843,7 +1123,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     </button>
                 )}
 
-                {marketMode && (
+                {marketControlsEnabled && (
                     <>
                         <span className="mx-1 h-4 w-px bg-zinc-700/60" />
                         <button
@@ -889,6 +1169,12 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                             VWAP
                         </button>
                     </>
+                )}
+
+                {!marketControlsEnabled && isMultiPanelChart && (
+                    <span className="text-[9px] font-medium text-zinc-400">
+                        Dashboard view: advanced indicators are disabled on multi-panel charts to keep axes and labels aligned.
+                    </span>
                 )}
             </div>
 

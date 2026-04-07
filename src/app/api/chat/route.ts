@@ -8,7 +8,9 @@ import { kernelService } from '@/services/kernel';
 import { generateDataIntelligenceReport, formatWarningsForPrompt, analyseFile, formatForPrompt, DataIntelligenceReport } from '@/services/dataIntelligenceService';
 import { AnalysisMode } from '@/src/types';
 import { authenticateRequest } from '@/lib/auth';
+import { validateCSRFRequest } from '../csrf-token/route';
 import { buildRecoverySnippet } from './recoverySnippets';
+import { buildDeterministicFinancialSummary } from '../../../lib/financialSummaryGuard';
 import { buildContractFallbackSummary, containsTechnicalArtifacts, validateSummaryContract } from '../../../lib/chatResponseContract';
 import { buildAnalysisResponseEnvelope, renderEnvelopeAsSummary } from '../../../lib/chatResponseEnvelope';
 
@@ -296,6 +298,11 @@ async function emitResponseQualityEvent(data: {
 
 export async function POST(req: NextRequest) {
     try {
+        const csrfValidation = await validateCSRFRequest(req);
+        if (!csrfValidation.valid) {
+            return NextResponse.json({ error: csrfValidation.error || 'Invalid CSRF token' }, { status: 403 });
+        }
+
         const user = await authenticateRequest(req);
         if (!user?.id) {
             return NextResponse.json({
@@ -734,12 +741,20 @@ export async function POST(req: NextRequest) {
 
             const hasChart = ((executionResult.charts?.length || 0) + (executionResult.plotly_charts?.length || 0)) > 0;
             const hasCode = Boolean(analysis.code?.trim());
-            const envelopeResult = buildAnalysisResponseEnvelope(finalSummary, {
-                hasChart,
-                hasCode,
-            });
+            const deterministicFinancialSummary = buildDeterministicFinancialSummary(content, hasChart);
+            const bypassEnvelope = Boolean(deterministicFinancialSummary);
+            if (deterministicFinancialSummary) {
+                finalSummary = deterministicFinancialSummary;
+            }
 
-            if (envelopeResult.usedFallback) {
+            const envelopeResult = bypassEnvelope
+                ? { envelope: null, usedFallback: false }
+                : buildAnalysisResponseEnvelope(finalSummary, {
+                    hasChart,
+                    hasCode,
+                });
+
+            if (!bypassEnvelope && envelopeResult.usedFallback) {
                 finalSummary = renderEnvelopeAsSummary(envelopeResult.envelope);
             }
 

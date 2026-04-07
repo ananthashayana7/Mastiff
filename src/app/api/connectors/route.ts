@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { rateLimiter } from '@/lib/rateLimiting';
 import { validateInput } from '@/lib/validation';
 import { authenticateRequest } from '@/lib/auth';
+import { validateCSRFRequest } from '../csrf-token/route';
 import { z } from 'zod';
 import { db } from '@/db';
 import { connectors } from '@/db/connectorSchema';
@@ -31,6 +32,11 @@ const createConnectorSchema = z.object({
  */
 export async function POST(request: NextRequest) {
     try {
+        const csrfValidation = await validateCSRFRequest(request);
+        if (!csrfValidation.valid) {
+            return NextResponse.json({ error: csrfValidation.error || 'Invalid CSRF token' }, { status: 403 });
+        }
+
         const clientId = request.ip || 'unknown';
         await rateLimiter.checkLimit('connector:create', clientId, 50, 3600);
 

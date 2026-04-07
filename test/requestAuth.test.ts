@@ -6,6 +6,7 @@ import { getUserIdFromRequest } from '../src/lib/requestAuth';
 const DEFAULT_SECRET = 'mastiff-ai-secret-key-change-in-production';
 const originalNodeEnv = process.env.NODE_ENV;
 const originalAllowHeaderAuth = process.env.ALLOW_HEADER_AUTH;
+const originalJwtSecret = process.env.JWT_SECRET;
 
 function buildRequest(headers: Record<string, string>): NextRequest {
   return new NextRequest('http://localhost/api/test', { headers });
@@ -18,12 +19,18 @@ afterEach(() => {
   } else {
     process.env.ALLOW_HEADER_AUTH = originalAllowHeaderAuth;
   }
+  if (originalJwtSecret === undefined) {
+    delete process.env.JWT_SECRET;
+  } else {
+    process.env.JWT_SECRET = originalJwtSecret;
+  }
 });
 
 describe('request auth identity resolution', () => {
   it('prefers bearer token identity over header fallback', () => {
     (process.env as any).NODE_ENV = 'production';
     process.env.ALLOW_HEADER_AUTH = 'true';
+    process.env.JWT_SECRET = DEFAULT_SECRET;
 
     const token = jwt.sign({ userId: 'token-user' }, process.env.JWT_SECRET || DEFAULT_SECRET);
     const req = buildRequest({

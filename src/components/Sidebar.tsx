@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    Plus, X, FileUp, Trash2, Settings, Clock, Database,
+    Plus, X, FileUp, Trash2, Settings, Clock, Database, Info,
     FileText, FileSpreadsheet, File, Loader2, MessageSquare,
     LogOut, Link2, Unlink, FlaskConical, List, Pencil,
     Save, CheckCircle2, AlertCircle, HelpCircle
@@ -35,6 +35,7 @@ interface ConnectorActionResult {
 
 interface SidebarProps {
     files: DataFile[];
+    pendingFiles?: DataFile[];
     activeFileIds: string[];
     connectors?: ConnectorSummary[];
     linkedConnectorIds?: string[];
@@ -55,17 +56,20 @@ interface SidebarProps {
     onToggleFile: (id: string) => void;
     onInspectFile: (id: string) => void;
     onDeleteFile: (id: string, e: React.MouseEvent) => void;
+    onDeletePendingFile?: (id: string) => void;
     fileInputRef: React.RefObject<HTMLInputElement | null>;
     sessions: Session[];
     currentSessionId: string | null;
     onSwitchSession: (id: string) => void;
     onDeleteSession: (id: string, e: React.MouseEvent) => void;
     isUploading?: boolean;
+    uploadingFileNames?: string[];
     onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
     files,
+    pendingFiles = [],
     activeFileIds,
     connectors = [],
     linkedConnectorIds = [],
@@ -77,12 +81,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onToggleFile,
     onInspectFile,
     onDeleteFile,
+    onDeletePendingFile,
     fileInputRef,
     sessions,
     currentSessionId,
     onSwitchSession,
     onDeleteSession,
     isUploading = false,
+    uploadingFileNames = [],
     isLoadingConnectors = false,
     onRefreshConnectors,
     onCreateConnector,
@@ -96,6 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
 
     const [isConnectorModalOpen, setIsConnectorModalOpen] = useState(false);
+    const [connectorSearch, setConnectorSearch] = useState('');
     const [editingConnector, setEditingConnector] = useState<ConnectorSummary | null>(null);
     const [activeConnectorActionId, setActiveConnectorActionId] = useState<string | null>(null);
     const [expandedSourcesConnectorId, setExpandedSourcesConnectorId] = useState<string | null>(null);
@@ -665,6 +672,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }, [sessions]);
 
     const uploadedFiles = files.filter(f => f.id !== 'sample-sales');
+    const stagedFiles = pendingFiles.filter(f => f.id !== 'sample-sales');
     const connectorsByType = useMemo(() => {
         const counter: Record<string, number> = {
             sheets: 0,
@@ -681,6 +689,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         return counter;
     }, [connectors]);
+    const filteredConnectors = useMemo(() => {
+        const query = connectorSearch.trim().toLowerCase();
+        if (!query) {
+            return connectors;
+        }
+
+        return connectors.filter((connector) => {
+            const name = connector.name?.toLowerCase() || '';
+            const description = connector.description?.toLowerCase() || '';
+            const type = connectorTypeLabels[connector.type]?.toLowerCase() || connector.type?.toLowerCase() || '';
+
+            return name.includes(query) || description.includes(query) || type.includes(query);
+        });
+    }, [connectorSearch, connectors]);
+    const configuredConnectorTypes = availableConnectorTypes.filter((type) => connectorsByType[type] > 0);
+    const connectorBrandCards: Array<{ type: ConnectorType; label: string; accent: string; badge: string }> = [
+        { type: 'sheets', label: 'Sheets', accent: 'text-emerald-300 border-emerald-500/20 bg-emerald-500/8', badge: 'GS' },
+        { type: 'sharepoint', label: 'SharePoint', accent: 'text-sky-300 border-sky-500/20 bg-sky-500/8', badge: 'SP' },
+        { type: 'snowflake', label: 'Snowflake', accent: 'text-cyan-300 border-cyan-500/20 bg-cyan-500/8', badge: 'SF' },
+        { type: 'bigquery', label: 'BigQuery', accent: 'text-amber-300 border-amber-500/20 bg-amber-500/8', badge: 'BQ' },
+        { type: 'postgres', label: 'Postgres', accent: 'text-indigo-300 border-indigo-500/20 bg-indigo-500/8', badge: 'PG' },
+        { type: 'api', label: 'API', accent: 'text-rose-300 border-rose-500/20 bg-rose-500/8', badge: 'API' },
+    ];
+    const uploadStatusLabel = uploadingFileNames.length > 0
+        ? `Processing ${uploadingFileNames.length} file${uploadingFileNames.length === 1 ? '' : 's'}`
+        : 'Processing file';
+    const uploadStatusDetail = uploadingFileNames.length > 0
+        ? uploadingFileNames.slice(0, 2).join(', ')
+        : 'Schema extraction and profiling in progress';
 
     return (
         <>
@@ -742,9 +779,63 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </div>
 
                         {isUploading && (
-                            <div className="flex items-center gap-2 p-2.5 glass rounded-xl mb-2 animate-fade-in">
-                                <Loader2 size={12} className="animate-spin text-[#E50914]" />
-                                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Processing file...</span>
+                            <div className="p-2.5 glass rounded-xl mb-2 animate-fade-in space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <Loader2 size={12} className="animate-spin text-[#E50914]" />
+                                    <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-wider">{uploadStatusLabel}</span>
+                                </div>
+                                <p className="text-[10px] text-zinc-500 leading-tight">{uploadStatusDetail}</p>
+                                <div className="h-1 w-full rounded-full bg-zinc-950 overflow-hidden">
+                                    <div className="h-full w-2/3 bg-gradient-to-r from-[#E50914] to-[#ff6b6b] animate-shimmer" />
+                                </div>
+                            </div>
+                        )}
+
+                        {stagedFiles.length > 0 && (
+                            <div className="mb-2 space-y-1.5">
+                                <p className="px-1 text-[8px] font-extrabold text-amber-500 uppercase tracking-[2px]">Pending Review</p>
+                                {stagedFiles.map((f) => (
+                                    <div
+                                        key={f.id}
+                                        onClick={() => onInspectFile(f.id)}
+                                        className="group flex items-center gap-2.5 p-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 cursor-pointer transition-all hover:border-amber-400/40 hover:bg-amber-500/10"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center shrink-0">
+                                            {getFileIcon(f.type)}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[10px] font-bold text-white truncate">{f.name}</p>
+                                            <p className="text-[8px] text-zinc-500 font-medium">
+                                                {f.metadata?.row_count?.toLocaleString() || '?'} rows • {f.columns.length} cols
+                                            </p>
+                                            <p className="text-[8px] font-bold uppercase tracking-wide mt-1 text-amber-400">
+                                                Review before activation
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onInspectFile(f.id);
+                                            }}
+                                            className="p-1 text-zinc-600 hover:text-white opacity-0 group-hover:opacity-100 transition-all"
+                                            title="Review schema"
+                                        >
+                                            <Info size={11} />
+                                        </button>
+                                        {onDeletePendingFile && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onDeletePendingFile(f.id);
+                                                }}
+                                                className="p-1 text-zinc-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                                                title="Remove pending file"
+                                            >
+                                                <Trash2 size={11} />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         )}
 
@@ -757,7 +848,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             ? 'bg-[#E50914]/8 border border-[#E50914]/20'
                                             : 'hover:bg-zinc-900/50'
                                             }`}
-                                        onClick={() => onInspectFile(f.id)}
+                                        onClick={() => onToggleFile(f.id)}
                                     >
                                         <div className="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center shrink-0">
                                             {getFileIcon(f.type)}
@@ -767,7 +858,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             <p className="text-[8px] text-zinc-600 font-medium">
                                                 {f.metadata?.row_count?.toLocaleString() || '?'} rows • {f.columns.length} cols
                                             </p>
+                                            <p className={`text-[8px] font-bold uppercase tracking-wide mt-1 ${activeFileIds.includes(f.id) ? 'text-[#ff6b6b]' : 'text-zinc-700'}`}>
+                                                {activeFileIds.includes(f.id) ? 'Active in chat context' : 'Click to include in chat context'}
+                                            </p>
                                         </div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onInspectFile(f.id);
+                                            }}
+                                            className="p-1 text-zinc-700 hover:text-white opacity-0 group-hover:opacity-100 transition-all"
+                                            title="Inspect data sample"
+                                        >
+                                            <Info size={11} />
+                                        </button>
                                         <button
                                             onClick={(e) => onDeleteFile(f.id, e)}
                                             className="p-1 text-zinc-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
@@ -784,6 +888,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             >
                                 <FileUp size={16} className="mx-auto text-zinc-700 group-hover:text-[#E50914] mb-1.5 transition-colors" />
                                 <p className="text-[9px] font-bold text-zinc-600 group-hover:text-zinc-400 transition-colors">Upload files</p>
+                                <p className="mt-1 text-[10px] text-zinc-700 leading-tight">CSV, Excel, PDF, Word, text, JSON, TSV, and Parquet are supported. Multi-sheet or nested files may need cleanup after import.</p>
                             </button>
                         )}
                     </div>
@@ -832,20 +937,49 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </div>
                         )}
 
-                        <div className="grid grid-cols-2 gap-1.5 mb-2">
-                            {availableConnectorTypes.map((type) => (
-                                <div
-                                    key={type}
-                                    className="px-2.5 py-2 rounded-lg border border-zinc-800/70 bg-zinc-950/40"
-                                >
-                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide truncate">
-                                        {connectorTypeLabels[type]}
-                                    </p>
-                                    <p className="text-[11px] font-extrabold text-white mt-0.5">
-                                        {connectorsByType[type]} configured
+                        <div className="mb-2 rounded-xl border border-zinc-800/70 bg-zinc-950/40 px-3 py-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                                <div>
+                                    <p className="text-[9px] font-extrabold text-zinc-400 uppercase tracking-[2px]">Configured Sources</p>
+                                    <p className="text-[10px] text-zinc-600 mt-1">
+                                        {connectors.length > 0 ? `${connectors.length} connector${connectors.length === 1 ? '' : 's'} ready` : 'No live sources configured yet. Add one to pull fresh data into this session.'}
                                     </p>
                                 </div>
-                            ))}
+                                {onCreateConnector && (
+                                    <button
+                                        onClick={openCreateConnectorModal}
+                                        className="px-2.5 py-1.5 rounded-lg border border-[#E50914]/30 bg-[#E50914]/10 text-[9px] font-extrabold uppercase tracking-widest text-[#ff6b6b] hover:text-white transition-colors"
+                                    >
+                                        <span className="inline-flex items-center gap-1.5">
+                                            <Plus size={11} />
+                                            {connectors.length > 0 ? 'Add Source' : 'Connect Now'}
+                                        </span>
+                                    </button>
+                                )}
+                            </div>
+
+                            {configuredConnectorTypes.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                    {configuredConnectorTypes.map((type) => (
+                                        <span
+                                            key={type}
+                                            className="inline-flex items-center gap-1 rounded-full border border-zinc-800 bg-black/40 px-2 py-1 text-[9px] font-bold text-zinc-300"
+                                        >
+                                            <span>{connectorTypeLabels[type]}</span>
+                                            <span className="text-zinc-500">{connectorsByType[type]}</span>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mb-2 rounded-xl border border-zinc-800/70 bg-zinc-950/40 px-3 py-2">
+                            <input
+                                value={connectorSearch}
+                                onChange={(e) => setConnectorSearch(e.target.value)}
+                                placeholder="Search connectors by name or type"
+                                className="w-full bg-transparent text-[11px] text-white placeholder:text-zinc-700 outline-none"
+                            />
                         </div>
 
                         {isLoadingConnectors ? (
@@ -853,9 +987,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 <Loader2 size={14} className="animate-spin text-[#E50914]" />
                                 <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Loading connectors...</span>
                             </div>
-                        ) : connectors.length > 0 ? (
+                        ) : filteredConnectors.length > 0 ? (
                             <div className="space-y-1.5">
-                                {connectors.map((connector) => (
+                                {filteredConnectors.map((connector) => (
                                     <div
                                         key={connector.id}
                                         className="p-3 rounded-xl bg-zinc-900/30 border border-zinc-800/60"
@@ -962,9 +1096,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     </div>
                                 ))}
                             </div>
+                        ) : connectors.length > 0 ? (
+                            <div className="p-3 rounded-xl border border-dashed border-zinc-800 text-center space-y-1.5">
+                                <p className="text-[11px] font-semibold text-zinc-400">No connectors match this search</p>
+                                <p className="text-[10px] text-zinc-600">Try a source type like Snowflake, Sheets, or API.</p>
+                            </div>
                         ) : (
-                            <div className="p-3 rounded-xl border border-dashed border-zinc-800 text-center">
-                                <p className="text-[11px] font-semibold text-zinc-600">No connectors configured yet</p>
+                            <div className="p-3 rounded-xl border border-dashed border-zinc-800 text-center space-y-2">
+                                <p className="text-[11px] font-semibold text-zinc-400">No connectors configured yet</p>
+                                <p className="text-[10px] text-zinc-600 leading-tight">Start with a quick connector for live sources, or upload a file first if you want to analyze static data immediately.</p>
+                                <div className="grid grid-cols-3 gap-2 pt-1">
+                                    {connectorBrandCards.map((card) => (
+                                        <button
+                                            key={card.type}
+                                            onClick={openCreateConnectorModal}
+                                            className={`rounded-xl border px-2 py-2 text-left transition-all hover:-translate-y-[1px] ${card.accent}`}
+                                        >
+                                            <div className="text-[9px] font-black uppercase tracking-widest">{card.badge}</div>
+                                            <div className="mt-1 text-[10px] font-bold">{card.label}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                                {onCreateConnector && (
+                                    <button
+                                        onClick={openCreateConnectorModal}
+                                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-[#E50914]/10 border border-[#E50914]/30 text-[10px] font-extrabold uppercase tracking-widest text-[#ff6b6b] hover:text-white transition-colors"
+                                    >
+                                        <Plus size={12} /> Connect Now
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
@@ -1026,10 +1186,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         {onLogout && (
                             <button
                                 onClick={onLogout}
-                                className="p-1.5 text-zinc-600 hover:text-red-400 rounded-lg transition-colors"
+                                className="min-h-[44px] min-w-[44px] p-3 text-zinc-600 hover:text-red-400 rounded-xl transition-colors flex items-center justify-center"
                                 title="Sign out"
                             >
-                                <LogOut size={13} />
+                                <LogOut size={16} />
                             </button>
                         )}
                     </div>

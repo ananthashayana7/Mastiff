@@ -4,10 +4,10 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { getJwtSecret } from '@/lib/runtimeSecrets';
+import { setAuthCookies } from '@/lib/authCookies';
 
 export const dynamic = 'force-dynamic';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'mastiff-ai-secret-key-change-in-production';
 
 export async function POST(req: NextRequest) {
     try {
@@ -39,11 +39,11 @@ export async function POST(req: NextRequest) {
         // Generate JWT
         const token = jwt.sign(
             { userId: user.id, email: user.email, name: user.name },
-            JWT_SECRET,
+            getJwtSecret(),
             { expiresIn: '7d' }
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             token,
             user: {
                 id: user.id,
@@ -51,6 +51,15 @@ export async function POST(req: NextRequest) {
                 name: user.name,
             }
         });
+
+        setAuthCookies(response, {
+            token,
+            userId: user.id,
+            email: user.email,
+            name: user.name,
+        });
+
+        return response;
     } catch (error: any) {
         console.error("Login Error:", error);
         return NextResponse.json({ error: error.message || "Login failed" }, { status: 500 });

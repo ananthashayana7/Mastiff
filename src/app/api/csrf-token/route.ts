@@ -6,7 +6,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { csrfProtection, validateCSRFToken } from '@/services/csrfProtection';
+import {
+    csrfProtection,
+    CSRF_COOKIE_NAME,
+    getCSRFCookieOptions,
+    validateCSRFToken,
+} from '../../../services/csrfProtection';
 
 /**
  * GET /api/csrf-token
@@ -15,23 +20,11 @@ import { csrfProtection, validateCSRFToken } from '@/services/csrfProtection';
  */
 export async function GET(request: NextRequest) {
     const tokenPair = csrfProtection.generateToken();
-    
-    // Set the token in cookie
-    await csrfProtection.setCSRFCookie(tokenPair.cookie);
 
-    // Return token for client to send in requests
-    return NextResponse.json(
-        { token: tokenPair.token },
-        {
-            headers: {
-                'Content-Type': 'application/json',
-                // Ensure cookie is set
-                'Set-Cookie': `__Host-csrf_token=${tokenPair.cookie}; Path=/; HttpOnly; SameSite=Strict${
-                    process.env.NODE_ENV === 'production' ? '; Secure' : ''
-                }; Max-Age=${1000 * 60 * 60 * 24}`,
-            },
-        }
-    );
+    const response = NextResponse.json({ token: tokenPair.token });
+    response.cookies.set(CSRF_COOKIE_NAME, tokenPair.cookie, getCSRFCookieOptions());
+
+    return response;
 }
 
 /**

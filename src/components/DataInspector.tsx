@@ -1,12 +1,16 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Info, Table, BarChart2, List, Hash, Database, AlertCircle, Sparkles } from 'lucide-react';
 import { DataFile } from '../types';
 
 interface DataInspectorProps {
     inspectingFileId: string | null;
+    focusTerm?: string;
     files: DataFile[];
+    pendingFileIds?: string[];
+    onConfirmPendingFile?: (fileId: string, selectedColumns: string[]) => void | Promise<void>;
+    onRejectPendingFile?: (fileId: string) => void;
     onClose: () => void;
 }
 
@@ -14,22 +18,94 @@ type TabType = 'overview' | 'columns' | 'stats' | 'workbench';
 
 export const DataInspector: React.FC<DataInspectorProps> = ({
     inspectingFileId,
+    focusTerm = '',
     files,
+    pendingFileIds = [],
+    onConfirmPendingFile,
+    onRejectPendingFile,
     onClose
 }) => {
     const [activeTab, setActiveTab] = useState<TabType>('overview');
     const [internalFileId, setInternalFileId] = useState<string | null>(null);
+    const [selectedColumnsByFile, setSelectedColumnsByFile] = useState<Record<string, string[]>>({});
 
     const currentFileId = internalFileId || inspectingFileId;
     const activeFile = files.find(f => f.id === currentFileId);
 
+    useEffect(() => {
+        setInternalFileId(null);
+    }, [inspectingFileId]);
+
+    useEffect(() => {
+        if (!activeFile) return;
+
+        setSelectedColumnsByFile((prev) => {
+            if (prev[activeFile.id]?.length) {
+                return prev;
+            }
+
+            return {
+                ...prev,
+                [activeFile.id]: activeFile.columns,
+            };
+        });
+    }, [activeFile]);
+
     if (!activeFile) return null;
 
     const metadata = activeFile.metadata;
-    console.log("Inspecting File:", activeFile.name, "Metadata:", metadata);
+    const isPending = pendingFileIds.includes(activeFile.id);
+    const selectedColumns = selectedColumnsByFile[activeFile.id] || activeFile.columns;
+    const previewColumns = (selectedColumns.length > 0 ? selectedColumns : activeFile.columns).slice(0, 6);
+    const normalizedFocusTerm = focusTerm.trim().toLowerCase();
+    const filteredPreviewRows = normalizedFocusTerm
+        ? (activeFile.preview || []).filter((row) => Object.entries(row || {}).some(([key, value]) => {
+            return key.toLowerCase().includes(normalizedFocusTerm) || String(value ?? '').toLowerCase().includes(normalizedFocusTerm);
+        }))
+        : (activeFile.preview || []);
+    const previewRows = filteredPreviewRows.slice(0, 10);
+    const suspiciousHeaderColumns = activeFile.columns.filter((column) => /^(column_\d+|unnamed:?\s*\d*)$/i.test(column));
+    const sparseColumns = activeFile.columns.filter((column) => (metadata?.columns?.[column]?.null_percentage || 0) >= 60);
+    const likelyMergedCellIssue = (activeFile.type === 'xlsx' || activeFile.type === 'xls')
+        && (suspiciousHeaderColumns.length > 0 || sparseColumns.length >= Math.ceil(Math.max(activeFile.columns.length, 1) / 3));
+
+    const toggleColumn = (columnName: string) => {
+        if (!isPending) return;
+
+        setSelectedColumnsByFile((prev) => {
+            const current = prev[activeFile.id] || activeFile.columns;
+            const next = current.includes(columnName)
+                ? current.filter((column) => column !== columnName)
+                : [...current, columnName];
+
+            return {
+                ...prev,
+                [activeFile.id]: next,
+            };
+        });
+    };
+
+    const renderCellValue = (value: unknown) => {
+        const stringValue = String(value ?? '');
+
+        if (!normalizedFocusTerm || !stringValue.toLowerCase().includes(normalizedFocusTerm)) {
+            return stringValue;
+        }
+
+        const lower = stringValue.toLowerCase();
+        const matchIndex = lower.indexOf(normalizedFocusTerm);
+
+        return (
+            <>
+                {stringValue.slice(0, matchIndex)}
+                <mark className="bg-amber-400/20 text-amber-200 px-0.5 rounded-sm">{stringValue.slice(matchIndex, matchIndex + focusTerm.length)}</mark>
+                {stringValue.slice(matchIndex + focusTerm.length)}
+            </>
+        );
+    };
 
     return (
-        <aside className="fixed inset-y-0 right-0 w-85 bg-black border-l border-zinc-900 flex flex-col z-[130] animate-in slide-in-from-right shadow-2xl">
+        <aside className="fixed inset-y-0 right-0 w-full max-w-[26rem] bg-black border-l border-zinc-900 flex flex-col z-[130] animate-in slide-in-from-right shadow-2xl">
             <div className="p-5 flex items-center justify-between border-b border-zinc-900 bg-black/50 backdrop-blur-md shrink-0">
                 <div className="flex items-center gap-2.5">
                     <div className="p-2 bg-[#E50914]/10 rounded-lg text-[#E50914]">
@@ -71,6 +147,51 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-8">
+                {isPending && (
+                    <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
+                        <p className="text-[8px] font-black text-amber-400 uppercase tracking-[3px]">Pending Activation</p>
+                        <p className="text-[11px] text-zinc-300 leading-relaxed">
+                            Review the normalized sample before Mastiff uses this file in chat. The detected schema is inferred from the upload parser.
+                        </p>
+                        <p className="text-[10px] text-zinc-500 leading-relaxed">
+                            Data types are available now. Custom header row and sheet remapping still need a backend reparse hook.
+                        </p>
+                    </div>
+                )}
+
+                {(metadata?.extraction_warning || likelyMergedCellIssue) && (
+                    <div className="rounded-2xl border border-red-900/40 bg-red-950/20 p-4 space-y-2">
+                        <p className="text-[8px] font-black text-red-400 uppercase tracking-[3px]">Parsing Warning</p>
+                        {metadata?.extraction_warning && (
+                            <p className="text-[11px] text-zinc-300 leading-relaxed">
+                                {metadata.extraction_warning}
+                            </p>
+                        )}
+                        {likelyMergedCellIssue && (
+                            <p className="text-[11px] text-zinc-300 leading-relaxed">
+                                This spreadsheet looks like it may contain merged headers or formatting rows. Mastiff detected placeholder headers or very sparse columns after flattening. Review the sample carefully before activation.
+                            </p>
+                        )}
+                        {suspiciousHeaderColumns.length > 0 && (
+                            <p className="text-[10px] text-zinc-500 leading-relaxed">
+                                Suspicious headers: {suspiciousHeaderColumns.slice(0, 4).join(', ')}{suspiciousHeaderColumns.length > 4 ? '...' : ''}
+                            </p>
+                        )}
+                    </div>
+                )}
+
+                {normalizedFocusTerm && (
+                    <div className="rounded-2xl border border-[#E50914]/20 bg-[#E50914]/6 p-4 space-y-2">
+                        <p className="text-[8px] font-black text-[#ff6b6b] uppercase tracking-[3px]">Focused Inspection</p>
+                        <p className="text-[11px] text-zinc-300 leading-relaxed">
+                            Filtering the sample for matches related to <span className="font-mono text-zinc-100">{focusTerm}</span>.
+                        </p>
+                        <p className="text-[10px] text-zinc-500 leading-relaxed">
+                            Showing {previewRows.length} matching preview row{previewRows.length === 1 ? '' : 's'} from the current sample.
+                        </p>
+                    </div>
+                )}
+
                 {activeTab === 'overview' && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="grid grid-cols-2 gap-3">
@@ -100,29 +221,36 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                             </div>
                         </div>
 
-                        {activeFile.preview.length > 0 && (
+                        {previewRows.length > 0 && (
                             <div className="space-y-3">
-                                <p className="text-[8px] font-black text-zinc-600 uppercase tracking-[3px]">Data Sample</p>
+                                <p className="text-[8px] font-black text-zinc-600 uppercase tracking-[3px]">{normalizedFocusTerm ? 'Matching Sample Rows' : 'Data Sample'}</p>
                                 <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900/20">
                                     <table className="w-full text-left border-collapse">
                                         <thead>
                                             <tr className="bg-zinc-900/50">
-                                                {activeFile.columns.slice(0, 3).map(col => (
+                                                {previewColumns.map(col => (
                                                     <th key={col} className="px-3 py-2 text-[8px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800">{col}</th>
                                                 ))}
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {activeFile.preview.slice(0, 3).map((row, i) => (
+                                            {previewRows.slice(0, 5).map((row, i) => (
                                                 <tr key={i} className="border-b border-zinc-900/50 last:border-0">
-                                                    {activeFile.columns.slice(0, 3).map(col => (
-                                                        <td key={col} className="px-3 py-2 text-[9px] font-bold text-zinc-400 truncate max-w-[80px]">{String(row[col])}</td>
+                                                    {previewColumns.map(col => (
+                                                        <td key={col} className="px-3 py-2 text-[9px] font-bold text-zinc-400 truncate max-w-[80px]">{renderCellValue(row[col])}</td>
                                                     ))}
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+                        )}
+
+                        {normalizedFocusTerm && previewRows.length === 0 && (
+                            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/20 p-4">
+                                <p className="text-[10px] font-bold text-zinc-400">No preview rows matched this concern in the current sample.</p>
+                                <p className="text-[9px] text-zinc-600 mt-1">Try a narrower follow-up in chat or inspect a different active dataset.</p>
                             </div>
                         )}
                     </div>
@@ -132,10 +260,19 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                     <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                         {activeFile.columns.map(col => {
                             const info = metadata?.columns[col];
+                            const isSelected = selectedColumns.includes(col);
                             return (
-                                <div key={col} className="group p-4 bg-zinc-900/40 border border-zinc-800 hover:border-[#E50914]/50 rounded-2xl transition-all space-y-3">
+                                <div key={col} className={`group p-4 border rounded-2xl transition-all space-y-3 ${isPending && !isSelected ? 'bg-zinc-950/40 border-zinc-900 opacity-60' : 'bg-zinc-900/40 border-zinc-800 hover:border-[#E50914]/50'}`}>
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
+                                            {isPending && (
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => toggleColumn(col)}
+                                                    className="accent-[#E50914]"
+                                                />
+                                            )}
                                             <div className="p-1.5 bg-zinc-800 rounded-lg text-zinc-400 group-hover:text-white transition-colors">
                                                 {info?.dtype.includes('int') || info?.dtype.includes('float') ? <Hash size={12} /> : <List size={12} />}
                                             </div>
@@ -273,12 +410,36 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
             </div>
 
             <div className="p-4 bg-black border-t border-zinc-900">
-                <button
-                    onClick={onClose}
-                    className="w-full py-2.5 bg-zinc-900 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-zinc-800 transition-all border border-zinc-800"
-                >
-                    Close Inspector
-                </button>
+                {isPending ? (
+                    <div className="grid grid-cols-3 gap-2">
+                        <button
+                            onClick={() => onRejectPendingFile?.(activeFile.id)}
+                            className="py-2.5 bg-zinc-950 text-zinc-300 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-zinc-900 transition-all border border-zinc-800"
+                        >
+                            Remove
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="py-2.5 bg-zinc-900 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-zinc-800 transition-all border border-zinc-800"
+                        >
+                            Close
+                        </button>
+                        <button
+                            onClick={() => onConfirmPendingFile?.(activeFile.id, selectedColumns)}
+                            disabled={selectedColumns.length === 0}
+                            className="py-2.5 bg-[#E50914] text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-[#ff2430] transition-all border border-[#E50914] disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Confirm & Analyze
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        onClick={onClose}
+                        className="w-full py-2.5 bg-zinc-900 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-zinc-800 transition-all border border-zinc-800"
+                    >
+                        Close Inspector
+                    </button>
+                )}
             </div>
         </aside>
     );

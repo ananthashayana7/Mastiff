@@ -18,6 +18,7 @@ import { files as dbFiles, sessions } from '@/db/schema';
 import { encryptionService } from '@/services/encryptionService';
 import { authenticateRequest } from '@/lib/auth';
 import { rateLimiter } from '@/lib/rateLimiting';
+import { validateCSRFRequest } from '../../../csrf-token/route';
 import { buildTabularMetadataFallback } from '@/app/api/files/upload/route';
 
 export const dynamic = 'force-dynamic';
@@ -144,6 +145,11 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    const csrfValidation = await validateCSRFRequest(request);
+    if (!csrfValidation.valid) {
+      return NextResponse.json({ error: csrfValidation.error || 'Invalid CSRF token' }, { status: 403 });
+    }
+
     const clientIdForLimit = request.headers.get('x-forwarded-for') || 'unknown';
     await rateLimiter.checkLimit('connector:import', clientIdForLimit, 100, 3600);
 
@@ -248,7 +254,10 @@ export async function POST(
           fileType: inferFileType(sourceName),
           filePath: storedPath,
           fileSize: buffer.byteLength,
-          metadata: metadata as any,
+          metadata: {
+            ...(metadata || {}),
+            validationStatus: 'pending',
+          } as any,
         }).returning();
 
         imported.push(dbFile);

@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { rateLimiter } from '@/lib/rateLimiting';
 import { validateInput } from '@/lib/validation';
 import { authenticateRequest } from '@/lib/auth';
+import { validateCSRFRequest } from '../../csrf-token/route';
 import { z } from 'zod';
 import { db } from '@/db';
 import { connectors } from '@/db/connectorSchema';
@@ -73,6 +74,11 @@ export async function PUT(
     { params }: { params: { id: string } }
 ) {
     try {
+        const csrfValidation = await validateCSRFRequest(request);
+        if (!csrfValidation.valid) {
+            return NextResponse.json({ error: csrfValidation.error || 'Invalid CSRF token' }, { status: 403 });
+        }
+
         const clientId = request.ip || 'unknown';
         await rateLimiter.checkLimit('connector:update', clientId, 100, 3600);
 
@@ -125,6 +131,11 @@ export async function DELETE(
     { params }: { params: { id: string } }
 ) {
     try {
+        const csrfValidation = await validateCSRFRequest(request);
+        if (!csrfValidation.valid) {
+            return NextResponse.json({ error: csrfValidation.error || 'Invalid CSRF token' }, { status: 403 });
+        }
+
         const clientId = request.ip || 'unknown';
         await rateLimiter.checkLimit('connector:delete', clientId, 50, 3600);
 

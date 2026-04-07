@@ -7,17 +7,50 @@ import crypto from 'crypto';
  * Uses AES-256-GCM for authenticated encryption
  */
 
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16; // 128 bits
 const AUTH_TAG_LENGTH = 16; // 128 bits
+
+let cachedEncryptionKey: Buffer | null = null;
+let warnedAboutEncryptionKey = false;
+
+function resolveEncryptionKey(): Buffer {
+  if (cachedEncryptionKey) {
+    return cachedEncryptionKey;
+  }
+
+  const configuredKey = process.env.ENCRYPTION_KEY?.trim();
+  if (!configuredKey) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('ENCRYPTION_KEY must be configured in production.');
+    }
+
+    if (!warnedAboutEncryptionKey) {
+      warnedAboutEncryptionKey = true;
+      console.warn('[encryption] ENCRYPTION_KEY is not set; using an ephemeral development key.');
+    }
+
+    cachedEncryptionKey = crypto.randomBytes(32);
+    return cachedEncryptionKey;
+  }
+
+  const isHexKey = /^[a-fA-F0-9]{64}$/.test(configuredKey);
+  const keyBuffer = isHexKey ? Buffer.from(configuredKey, 'hex') : Buffer.from(configuredKey, 'base64');
+
+  if (keyBuffer.length !== 32) {
+    throw new Error('ENCRYPTION_KEY must decode to exactly 32 bytes.');
+  }
+
+  cachedEncryptionKey = keyBuffer;
+  return cachedEncryptionKey;
+}
 
 /**
  * Encrypt sensitive data
  */
 export function encryptData(plaintext: string): string {
   try {
-    const key = Buffer.from(ENCRYPTION_KEY, 'hex');
+    const key = resolveEncryptionKey();
     const iv = crypto.randomBytes(IV_LENGTH);
     const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
 
@@ -45,7 +78,7 @@ export function decryptData(ciphertext: string): string {
     }
 
     const [ivHex, encryptedHex, authTagHex] = parts;
-    const key = Buffer.from(ENCRYPTION_KEY, 'hex');
+    const key = resolveEncryptionKey();
     const iv = Buffer.from(ivHex, 'hex');
     const encrypted = Buffer.from(encryptedHex, 'hex');
     const authTag = Buffer.from(authTagHex, 'hex');
@@ -89,14 +122,14 @@ export function generateToken(length: number = 32): string {
 /**
  * Generate HMAC signature for data integrity
  */
-export function generateHMAC(data: string, secret: string = ENCRYPTION_KEY): string {
+export function generateHMAC(data: string, secret: string | Buffer = resolveEncryptionKey()): string {
   return crypto.createHmac('sha256', secret).update(data).digest('hex');
 }
 
 /**
  * Verify HMAC signature
  */
-export function verifyHMAC(data: string, signature: string, secret: string = ENCRYPTION_KEY): boolean {
+export function verifyHMAC(data: string, signature: string, secret: string | Buffer = resolveEncryptionKey()): boolean {
   const expected = generateHMAC(data, secret);
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }

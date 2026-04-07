@@ -46,6 +46,9 @@ export interface DataFile {
   metadata?: {
     row_count: number;
     column_count: number;
+    validationStatus?: 'pending' | 'active';
+    selectedColumns?: string[];
+    extraction_warning?: string;
     columns: Record<string, {
       dtype: string;
       null_count: number;

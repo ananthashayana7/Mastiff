@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { sessions, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { authenticateRequest } from '@/lib/auth';
+import { validateCSRFRequest } from '../csrf-token/route';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
     try {
+        const csrfValidation = await validateCSRFRequest(req);
+        if (!csrfValidation.valid) {
+            return NextResponse.json({ error: csrfValidation.error || 'Invalid CSRF token' }, { status: 403 });
+        }
+
         const user = await authenticateRequest(req);
         const userId = user?.id;
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

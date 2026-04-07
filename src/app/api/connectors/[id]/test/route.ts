@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { rateLimiter } from '@/lib/rateLimiting';
 import { authenticateRequest } from '@/lib/auth';
+import { validateCSRFRequest } from '../../csrf-token/route';
 import { db } from '@/db';
 import { connectors } from '@/db/connectorSchema';
 import { encryptionService } from '@/services/encryptionService';
@@ -39,6 +40,11 @@ export async function POST(
     { params }: { params: { id: string } }
 ) {
     try {
+        const csrfValidation = await validateCSRFRequest(request);
+        if (!csrfValidation.valid) {
+            return NextResponse.json({ error: csrfValidation.error || 'Invalid CSRF token' }, { status: 403 });
+        }
+
         const clientId = request.ip || 'unknown';
         await rateLimiter.checkLimit('connector:test', clientId, 50, 3600);
 

@@ -8,14 +8,114 @@ export const exportToPDF = async (containerId: string, sessionTitle: string) => 
     if (!element) return;
 
     try {
-        const canvas = await html2canvas(element, {
-            scale: 2,
-            useCORS: true,
-            backgroundColor: '#0a0a0a',
-            ignoreElements: (el: any) => {
-                return el.tagName === 'HEADER' || el.classList.contains('input-area');
+        const plotly = (window as any).Plotly;
+        const plotNodes = Array.from(element.querySelectorAll('.js-plotly-plot')) as any[];
+        const container = element as HTMLElement;
+        const originalContainerStyle = {
+            background: container.style.background,
+            color: container.style.color,
+        };
+
+        const exportOverridesByNode = new Map<any, Record<string, any>>();
+        const axisColorKeys = ['gridcolor', 'zerolinecolor', 'linecolor'];
+        const tickFontKeys = ['color'];
+        const titleFontKeys = ['color'];
+
+        const applyExportTheme = async () => {
+            container.style.background = '#ffffff';
+            container.style.color = '#111827';
+
+            if (!plotly || plotNodes.length === 0) return;
+
+            for (const graphDiv of plotNodes) {
+                const layout = graphDiv?.layout || {};
+                const overrides: Record<string, any> = {
+                    paper_bgcolor: '#ffffff',
+                    plot_bgcolor: '#f8fafc',
+                    'font.color': '#111827',
+                    'legend.font.color': '#111827',
+                    'title.font.color': '#0f172a',
+                    'hoverlabel.bgcolor': '#ffffff',
+                    'hoverlabel.font.color': '#111827',
+                    'hoverlabel.bordercolor': '#cbd5e1',
+                };
+
+                const restores: Record<string, any> = {
+                    paper_bgcolor: layout.paper_bgcolor,
+                    plot_bgcolor: layout.plot_bgcolor,
+                    'font.color': layout.font?.color,
+                    'legend.font.color': layout.legend?.font?.color,
+                    'title.font.color': layout.title?.font?.color,
+                    'hoverlabel.bgcolor': layout.hoverlabel?.bgcolor,
+                    'hoverlabel.font.color': layout.hoverlabel?.font?.color,
+                    'hoverlabel.bordercolor': layout.hoverlabel?.bordercolor,
+                };
+
+                for (const [key, value] of Object.entries(layout)) {
+                    if (!/^xaxis\d*$|^yaxis\d*$/.test(key) || !value || typeof value !== 'object') {
+                        continue;
+                    }
+
+                    for (const axisKey of axisColorKeys) {
+                        const path = `${key}.${axisKey}`;
+                        restores[path] = value[axisKey];
+                    }
+                    for (const fontKey of tickFontKeys) {
+                        const path = `${key}.tickfont.${fontKey}`;
+                        restores[path] = value.tickfont?.[fontKey];
+                    }
+                    for (const fontKey of titleFontKeys) {
+                        const path = `${key}.title.font.${fontKey}`;
+                        restores[path] = value.title?.font?.[fontKey];
+                    }
+
+                    overrides[`${key}.gridcolor`] = '#d7dee8';
+                    overrides[`${key}.zerolinecolor`] = '#cbd5e1';
+                    overrides[`${key}.linecolor`] = '#cbd5e1';
+                    overrides[`${key}.tickfont.color`] = '#475569';
+                    overrides[`${key}.title.font.color`] = '#111827';
+                }
+
+                exportOverridesByNode.set(graphDiv, restores);
+                await plotly.relayout(graphDiv, overrides);
             }
-        });
+        };
+
+        const restoreTheme = async () => {
+            container.style.background = originalContainerStyle.background;
+            container.style.color = originalContainerStyle.color;
+
+            if (!plotly || exportOverridesByNode.size === 0) return;
+
+            for (const [graphDiv, restores] of exportOverridesByNode.entries()) {
+                await plotly.relayout(graphDiv, restores);
+            }
+        };
+
+        let canvas: HTMLCanvasElement;
+        await applyExportTheme();
+
+        try {
+            canvas = await html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                onclone: (clonedDocument) => {
+                    const clonedTarget = clonedDocument.getElementById(containerId);
+                    if (clonedTarget) {
+                        (clonedTarget as HTMLElement).style.background = '#ffffff';
+                        (clonedTarget as HTMLElement).style.color = '#111827';
+                    }
+                    clonedDocument.body.style.background = '#ffffff';
+                    clonedDocument.body.style.color = '#111827';
+                },
+                ignoreElements: (el: any) => {
+                    return el.tagName === 'HEADER' || el.classList.contains('input-area');
+                }
+            });
+        } finally {
+            await restoreTheme();
+        }
 
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF('p', 'mm', 'a4');

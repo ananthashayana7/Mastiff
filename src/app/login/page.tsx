@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Eye, EyeOff, ArrowRight } from 'lucide-react';
 
@@ -11,6 +11,56 @@ export default function LoginPage() {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [isMicrosoftEnabled, setIsMicrosoftEnabled] = useState(false);
+
+    useEffect(() => {
+        let mounted = true;
+
+        void (async () => {
+            try {
+                const response = await fetch('/api/auth/session', {
+                    headers: { Accept: 'application/json' },
+                });
+
+                if (!mounted || !response.ok) {
+                    return;
+                }
+
+                router.replace('/');
+            } catch {
+                // Ignore session bootstrap errors on the login screen.
+            }
+        })();
+
+        return () => {
+            mounted = false;
+        };
+    }, [router]);
+
+    useEffect(() => {
+        let mounted = true;
+
+        void (async () => {
+            try {
+                const response = await fetch('/api/auth/providers', {
+                    headers: { Accept: 'application/json' },
+                });
+
+                if (!mounted || !response.ok) {
+                    return;
+                }
+
+                const providers = await response.json();
+                setIsMicrosoftEnabled(Boolean(providers?.microsoft));
+            } catch {
+                // Ignore provider discovery failures on the login screen.
+            }
+        })();
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -31,7 +81,7 @@ export default function LoginPage() {
                 return;
             }
 
-            localStorage.setItem('mastiff_token', data.token);
+            localStorage.removeItem('mastiff_token');
             localStorage.setItem('mastiff_user', JSON.stringify(data.user));
             router.push('/');
         } catch (err: any) {
@@ -62,6 +112,22 @@ export default function LoginPage() {
                 {/* Login Form */}
                 <form onSubmit={handleLogin} className="space-y-5">
                     <div className="glass rounded-2xl p-8 space-y-5 border border-zinc-800/50">
+                        {isMicrosoftEnabled && (
+                            <>
+                                <a
+                                    href="/api/auth/microsoft/start"
+                                    className="w-full py-3.5 border border-zinc-700 bg-zinc-900/70 text-white font-bold text-xs uppercase tracking-widest rounded-xl hover:border-zinc-500 transition-all flex items-center justify-center"
+                                >
+                                    Continue with Microsoft
+                                </a>
+                                <div className="flex items-center gap-3 text-zinc-600 text-[10px] font-bold uppercase tracking-[2px]">
+                                    <div className="h-px flex-1 bg-zinc-800" />
+                                    <span>Or use Mastiff password login</span>
+                                    <div className="h-px flex-1 bg-zinc-800" />
+                                </div>
+                            </>
+                        )}
+
                         <div>
                             <label className="block text-[10px] font-extrabold text-zinc-500 uppercase tracking-[2px] mb-2">Email</label>
                             <input

@@ -2,8 +2,8 @@ import { cookies, headers } from 'next/headers';
 import { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { getUserIdFromRequest, shouldAllowHeaderIdentityFallback } from './requestAuth';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'mastiff-ai-secret-key-change-in-production';
+import { getJwtSecret } from './runtimeSecrets';
+import { authCookieNames } from './authCookies';
 
 export interface SessionUser {
     id: string;
@@ -30,7 +30,7 @@ function decodeToken(token: string | null): SessionUser | null {
     if (!token) return null;
 
     try {
-        const payload = jwt.verify(token, JWT_SECRET) as {
+        const payload = jwt.verify(token, getJwtSecret()) as {
             userId?: string;
             id?: string;
             email?: string;
@@ -56,6 +56,10 @@ export async function authenticateRequest(request: NextRequest): Promise<Session
     const authUser = decodeToken(parseBearerToken(request.headers.get('authorization')));
     if (authUser) return authUser;
 
+    const cookieToken = request.cookies.get(authCookieNames.authToken)?.value || null;
+    const cookieUser = decodeToken(cookieToken);
+    if (cookieUser) return cookieUser;
+
     const userId = getUserIdFromRequest(request);
     return userId ? { id: userId } : null;
 }
@@ -70,10 +74,13 @@ export async function getSessionUser(request?: NextRequest): Promise<SessionUser
     if (authUser) return authUser;
 
     const cookieStore = await cookies();
+    const cookieAuthUser = decodeToken(cookieStore.get(authCookieNames.authToken)?.value || null);
+    if (cookieAuthUser) return cookieAuthUser;
+
     const headerUserId = shouldAllowHeaderIdentityFallback() ? headerStore.get('x-user-id') : null;
-    const userId = headerUserId || cookieStore.get('userId')?.value || null;
-    const email = cookieStore.get('userEmail')?.value;
-    const name = cookieStore.get('userName')?.value;
+    const userId = headerUserId || cookieStore.get(authCookieNames.userId)?.value || null;
+    const email = cookieStore.get(authCookieNames.userEmail)?.value;
+    const name = cookieStore.get(authCookieNames.userName)?.value;
 
     return userId ? { id: userId, email: email || undefined, name: name || undefined } : null;
 }
@@ -83,7 +90,7 @@ export async function getSession(): Promise<SessionInfo | null> {
     if (!user) return null;
 
     const cookieStore = await cookies();
-    const organizationId = cookieStore.get('organizationId')?.value || null;
+    const organizationId = cookieStore.get(authCookieNames.organizationId)?.value || null;
 
     return {
         user,
@@ -99,7 +106,7 @@ export async function getCookies(): Promise<{ userId: string | null; organizatio
     const headerUserId = shouldAllowHeaderIdentityFallback() ? headerStore.get('x-user-id') : null;
 
     return {
-        userId: headerUserId || cookieStore.get('userId')?.value || null,
-        organizationId: headerStore.get('x-organization-id') || cookieStore.get('organizationId')?.value || null,
+        userId: headerUserId || cookieStore.get(authCookieNames.userId)?.value || null,
+        organizationId: headerStore.get('x-organization-id') || cookieStore.get(authCookieNames.organizationId)?.value || null,
     };
 }

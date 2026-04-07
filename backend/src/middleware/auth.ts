@@ -6,7 +6,18 @@ interface JwtPayload {
   id?: string;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'mastiff-ai-secret-key-change-in-production';
+function getJwtSecret(): string {
+  const configuredSecret = process.env.JWT_SECRET?.trim();
+  if (configuredSecret) {
+    return configuredSecret;
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET must be configured in production.');
+  }
+
+  return 'mastiff-ai-secret-key-change-in-production';
+}
 
 function parseBearerToken(authHeader: string | undefined): string | null {
   if (!authHeader) return null;
@@ -24,7 +35,7 @@ export function resolveRequestUserId(req: Request): string | null {
   const bearer = parseBearerToken(req.header('authorization') || undefined);
   if (bearer) {
     try {
-      const payload = jwt.verify(bearer, JWT_SECRET) as JwtPayload;
+      const payload = jwt.verify(bearer, getJwtSecret()) as JwtPayload;
       if (payload?.userId) return payload.userId;
       if (payload?.id) return payload.id;
     } catch {

@@ -24,7 +24,9 @@ export function useCSRFToken() {
         const fetchToken = async () => {
             try {
                 setLoading(true);
-                const response = await fetch('/api/csrf-token');
+                const response = await fetch('/api/csrf-token', {
+                    credentials: 'same-origin',
+                });
 
                 if (!response.ok) {
                     throw new Error(`Failed to fetch CSRF token: ${response.statusText}`);
@@ -110,18 +112,21 @@ export function addCSRFTokenToHeaders(headers: HeadersInit = {}): HeadersInit {
  */
 export async function csrfFetch(
     url: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    retryOnCsrfFailure = true
 ): Promise<Response> {
     const token = sessionStorage.getItem(CSRF_TOKEN_KEY);
 
     if (!token) {
         console.warn('CSRF token not found. Fetching new token...');
         // Try to fetch a new token before making the request
-        const tokenResponse = await fetch('/api/csrf-token');
+        const tokenResponse = await fetch('/api/csrf-token', {
+            credentials: 'same-origin',
+        });
         if (tokenResponse.ok) {
             const data = await tokenResponse.json();
             sessionStorage.setItem(CSRF_TOKEN_KEY, data.token);
-            return csrfFetch(url, options); // Retry with new token
+            return csrfFetch(url, options, false);
         }
         throw new Error('Failed to obtain CSRF token');
     }
@@ -129,10 +134,30 @@ export async function csrfFetch(
     const headers = new Headers(options.headers);
     headers.set(CSRF_HEADER_NAME, token);
 
-    return fetch(url, {
+    const response = await fetch(url, {
         ...options,
         headers,
+        credentials: options.credentials ?? 'same-origin',
     });
+
+    if (retryOnCsrfFailure && response.status === 403) {
+        const payload = await response.clone().json().catch(() => null);
+        const errorMessage = typeof payload?.error === 'string' ? payload.error : typeof payload?.message === 'string' ? payload.message : '';
+
+        if (errorMessage.toLowerCase().includes('csrf')) {
+            const tokenResponse = await fetch('/api/csrf-token', {
+                credentials: 'same-origin',
+            });
+
+            if (tokenResponse.ok) {
+                const data = await tokenResponse.json();
+                sessionStorage.setItem(CSRF_TOKEN_KEY, data.token);
+                return csrfFetch(url, options, false);
+            }
+        }
+    }
+
+    return response;
 }
 
 /**

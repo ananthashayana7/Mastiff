@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { validateCSRFRequest } from '../csrf-token/route';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,11 @@ function isModelNotFoundError(error: any): boolean {
 
 export async function POST(req: NextRequest) {
     try {
+        const csrfValidation = await validateCSRFRequest(req);
+        if (!csrfValidation.valid) {
+            return NextResponse.json({ error: csrfValidation.error || 'Invalid CSRF token' }, { status: 403 });
+        }
+
         const { dataContext } = await req.json();
 
         if (!process.env.API_KEY || process.env.API_KEY === 'your_gemini_api_key_here') {

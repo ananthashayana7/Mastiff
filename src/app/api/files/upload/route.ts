@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import mammoth from 'mammoth';
 import * as xlsx from 'xlsx';
 import { authenticateRequest } from '@/lib/auth';
+import { validateCSRFRequest } from '../../csrf-token/route';
 
 export const dynamic = 'force-dynamic';
 
@@ -434,6 +435,11 @@ async function runMetadataExtraction(filePath: string): Promise<any> {
 
 export async function POST(req: NextRequest) {
     try {
+        const csrfValidation = await validateCSRFRequest(req);
+        if (!csrfValidation.valid) {
+            return NextResponse.json({ error: csrfValidation.error || 'Invalid CSRF token' }, { status: 403 });
+        }
+
         const user = await authenticateRequest(req);
         if (!user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -523,7 +529,10 @@ export async function POST(req: NextRequest) {
             fileType: path.extname(file.name).substring(1),
             filePath: analysisPath,
             fileSize: file.size,
-            metadata: metadata as any,
+            metadata: {
+                ...(metadata || {}),
+                validationStatus: 'pending',
+            } as any,
         }).returning();
 
         return NextResponse.json(dbFile);
