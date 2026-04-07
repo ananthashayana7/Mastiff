@@ -35,6 +35,7 @@ class KernelService {
             ...res,
             charts: normalizeArray(res.charts),
             plotly_charts: normalizeArray(res.plotly_charts),
+            updated_df_sample: normalizeArray(res.updated_df_sample),
         };
     }
 

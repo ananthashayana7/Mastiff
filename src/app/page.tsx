@@ -1067,8 +1067,8 @@ const App: React.FC = () => {
     return (
       <div className="relative flex h-screen items-center justify-center overflow-hidden bg-transparent px-6">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-[12%] top-[14%] h-72 w-72 rounded-full bg-sky-400/12 blur-[120px]" />
-          <div className="absolute right-[10%] top-[12%] h-64 w-64 rounded-full bg-rose-400/12 blur-[120px]" />
+          <div className="absolute left-[12%] top-[14%] h-72 w-72 rounded-full bg-sky-400/[0.12] blur-[120px]" />
+          <div className="absolute right-[10%] top-[12%] h-64 w-64 rounded-full bg-rose-400/[0.12] blur-[120px]" />
           <div className="absolute bottom-[10%] left-[40%] h-72 w-72 rounded-full bg-teal-400/10 blur-[140px]" />
         </div>
         <div className="relative glass min-w-[320px] rounded-[32px] px-10 py-12 text-center shadow-[0_30px_100px_rgba(2,6,23,0.42)]">
@@ -1105,7 +1105,7 @@ const App: React.FC = () => {
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-[-5%] top-[-2%] h-80 w-80 rounded-full bg-sky-400/10 blur-[140px]" />
         <div className="absolute right-[-4%] top-[8%] h-80 w-80 rounded-full bg-rose-400/10 blur-[140px]" />
-        <div className="absolute bottom-[-8%] left-[38%] h-96 w-96 rounded-full bg-teal-400/8 blur-[160px]" />
+          <div className="absolute bottom-[-8%] left-[38%] h-96 w-96 rounded-full bg-teal-400/[0.08] blur-[160px]" />
       </div>
 
       <Sidebar

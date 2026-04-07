@@ -730,7 +730,7 @@ export class LLMService {
         dataIntelligenceContext: string = ''
     ) {
         const modeConfig = MODE_CONFIGS[mode];
-        const wantsVisualization = VISUALIZATION_HINTS.test(userQuery);
+        const wantsVisualization = mode === 'analysis' || files.length > 0 || VISUALIZATION_HINTS.test(userQuery);
 
         const filesContext = files.map((f) => `
 --- FILE: ${f.name} ---

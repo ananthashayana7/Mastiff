@@ -14,9 +14,9 @@ import { Download, Table as TableIcon, FileText, ArrowUp, ArrowDown, Search, Fil
 import html2canvas from 'html2canvas';
 
 const COLORS = [
-  '#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A',
-  '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52',
-  '#E50914', '#1F77B4', '#2CA02C', '#D62728', '#9467BD',
+  '#38BDF8', '#FB7185', '#2DD4BF', '#F59E0B', '#818CF8',
+  '#22C55E', '#F97316', '#A78BFA', '#FACC15', '#14B8A6',
+  '#E11D48', '#60A5FA', '#34D399', '#F43F5E', '#C084FC',
   '#8C564B', '#17BECF', '#BCBD22', '#FF7F0E', '#7F7F7F'
 ];
 
@@ -41,6 +41,11 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
     const xAxisLabel = config.xAxis || 'this category';
     const value = dataPoint[xAxisLabel] || 'this point';
     onDrillDown(`Provide a detailed analysis of the data for "${value}" in this chart.`);
+  };
+
+  const getPayloadFromChartEvent = (event: any) => {
+    const payload = Array.isArray(event?.activePayload) ? event.activePayload[0]?.payload : null;
+    return payload || event?.payload || null;
   };
 
   const handleExportCSV = () => {
@@ -178,7 +183,10 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
     switch (type) {
       case 'bar':
         return (
-          <BarChart data={data} {...commonProps} onClick={(e) => (e as any)?.activePayload && handleDataClick((e as any).activePayload[0].payload)}>
+          <BarChart data={data} {...commonProps} onClick={(event) => {
+            const payload = getPayloadFromChartEvent(event);
+            if (payload) handleDataClick(payload);
+          }}>
             <defs>
               {config.keys?.map((key, i) => (
                 <linearGradient key={`bar-grad-${key}`} id={`bar-gradient-${i}`} x1="0" y1="0" x2="0" y2="1">
@@ -202,7 +210,10 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
         );
       case 'composedbar':
         return (
-          <ComposedChart data={data} {...commonProps} onClick={(e) => (e as any)?.activePayload && handleDataClick((e as any).activePayload[0].payload)}>
+          <ComposedChart data={data} {...commonProps} onClick={(event) => {
+            const payload = getPayloadFromChartEvent(event);
+            if (payload) handleDataClick(payload);
+          }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1a1a1a" />
             <XAxis dataKey={config.xAxis} {...axisProps} />
             <YAxis {...axisProps} />
@@ -220,7 +231,10 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
         );
       case 'line':
         return (
-          <LineChart data={data} {...commonProps} onClick={(e) => (e as any)?.activePayload && handleDataClick((e as any).activePayload[0].payload)}>
+          <LineChart data={data} {...commonProps} onClick={(event) => {
+            const payload = getPayloadFromChartEvent(event);
+            if (payload) handleDataClick(payload);
+          }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1a1a1a" />
             <XAxis dataKey={config.xAxis} {...axisProps} />
             <YAxis {...axisProps} />
@@ -234,7 +248,10 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
         );
       case 'area':
         return (
-          <AreaChart data={data} {...commonProps} onClick={(e) => (e as any)?.activePayload && handleDataClick((e as any).activePayload[0].payload)}>
+          <AreaChart data={data} {...commonProps} onClick={(event) => {
+            const payload = getPayloadFromChartEvent(event);
+            if (payload) handleDataClick(payload);
+          }}>
             <defs>
               {config.keys?.map((key, i) => (
                 <linearGradient key={`grad-${key}`} id={`gradient-${i}`} x1="0" y1="0" x2="0" y2="1">
@@ -265,7 +282,10 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
         );
       case 'scatter':
         return (
-          <ScatterChart {...commonProps} onClick={(e) => (e as any)?.activePayload && handleDataClick((e as any).activePayload[0].payload)}>
+          <ScatterChart {...commonProps} onClick={(event) => {
+            const payload = getPayloadFromChartEvent(event);
+            if (payload) handleDataClick(payload);
+          }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1a1a1a" />
             <XAxis type="number" dataKey={config.xAxis} name={config.xAxis} {...axisProps} />
             <YAxis type="number" dataKey={config.yAxis} name={config.yAxis} {...axisProps} />
@@ -381,25 +401,25 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
   };
 
   return (
-    <div ref={containerRef} className={`w-full glass rounded-2xl p-5 shadow-2xl animate-fade-in group transition-all ${isExpanded ? 'fixed inset-4 z-50' : ''}`}>
+    <div ref={containerRef} className={`w-full overflow-hidden rounded-[28px] border border-sky-300/15 bg-[linear-gradient(180deg,rgba(15,24,40,0.96),rgba(7,14,25,0.84))] p-5 shadow-[0_24px_80px_rgba(2,6,23,0.3)] animate-fade-in group transition-all ${isExpanded ? 'fixed inset-4 z-50' : ''}`}>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-extrabold text-white tracking-tight flex items-center gap-2">
-            <span className="w-1 h-5 bg-[#E50914] rounded-full" />
+            <span className="h-5 w-1 rounded-full bg-[linear-gradient(180deg,#38BDF8,#FB7185,#2DD4BF)]" />
             {title}
           </h3>
-          <p className="text-[8px] text-zinc-600 font-bold uppercase tracking-[2px] ml-3 mt-0.5 flex items-center gap-1">
+          <p className="ml-3 mt-0.5 flex items-center gap-1 text-[8px] font-bold uppercase tracking-[2px] text-slate-400">
             <MousePointer2 size={8} /> Click to drill down
           </p>
         </div>
         <div className="flex gap-1.5">
-          <button onClick={() => setIsExpanded(!isExpanded)} className="p-1.5 glass rounded-lg text-zinc-600 hover:text-white transition-all">
+          <button onClick={() => setIsExpanded(!isExpanded)} className="rounded-lg border border-white/10 bg-white/[0.04] p-1.5 text-slate-400 transition-all hover:border-sky-300/30 hover:text-white">
             {isExpanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
           </button>
-          <button onClick={handleExportCSV} className="p-1.5 glass rounded-lg text-zinc-600 hover:text-white transition-all" title="Export CSV">
+          <button onClick={handleExportCSV} className="rounded-lg border border-white/10 bg-white/[0.04] p-1.5 text-slate-400 transition-all hover:border-sky-300/30 hover:text-white" title="Export CSV">
             <FileText size={12} />
           </button>
-          <button onClick={handleExportImage} className="p-1.5 glass rounded-lg text-zinc-600 hover:text-white transition-all" title="Export Image">
+          <button onClick={handleExportImage} className="rounded-lg border border-white/10 bg-white/[0.04] p-1.5 text-slate-400 transition-all hover:border-sky-300/30 hover:text-white" title="Export Image">
             <Download size={12} />
           </button>
         </div>

@@ -226,7 +226,7 @@ function shouldRunDataAnalysis(content: string, mode: AnalysisMode, hasFiles: bo
 function shouldEnforceVisualization(content: string, hasFiles: boolean): boolean {
     if (!hasFiles) return false;
     if (isTheoryOnlyQuery(content, hasFiles)) return false;
-    return NUMERIC_INTENT_PATTERNS.test(content) || VISUALIZATION_PATTERNS.test(content) || ANALYSIS_PATTERNS.test(content);
+    return true;
 }
 
 function countVisualizationArtifacts(executionResult: {
@@ -361,7 +361,7 @@ export async function POST(req: NextRequest) {
             : [];
 
         let linkedConnectorContext = '';
-        if (normalizedLinkedConnectorIds.length > 0) {
+        if (normalizedLinkedConnectorIds.length > 0 && session.userId) {
             const linkedRows = await db
                 .select({
                     id: connectors.id,
@@ -754,13 +754,13 @@ export async function POST(req: NextRequest) {
                     hasCode,
                 });
 
-            if (!bypassEnvelope && envelopeResult.usedFallback) {
+            if (!bypassEnvelope && envelopeResult.usedFallback && envelopeResult.envelope) {
                 finalSummary = renderEnvelopeAsSummary(envelopeResult.envelope);
             }
 
             await emitResponseQualityEvent({
                 sessionId,
-                userId: session.userId,
+                userId: session.userId ?? undefined,
                 usedEnvelopeFallback: envelopeResult.usedFallback,
                 contractRepairAttempted,
                 contractRepaired,
@@ -779,7 +779,7 @@ export async function POST(req: NextRequest) {
                     charts: executionResult.charts,
                     plotly_charts: executionResult.plotly_charts,
                     updated_df_sample: executionResult.updated_df_sample,
-                    responseEnvelope: envelopeResult.envelope,
+                    responseEnvelope: envelopeResult.envelope ?? undefined,
                     responseEnvelopeMeta: {
                         usedFallback: envelopeResult.usedFallback,
                         contractRepairAttempted,
@@ -789,7 +789,7 @@ export async function POST(req: NextRequest) {
                 },
                 visualizationUrl: executionResult.charts?.[0]
                     ? `data:image/png;base64,${executionResult.charts[0]}`
-                    : null,
+                    : undefined,
             }).returning();
 
             if (session.messages.length === 0) {

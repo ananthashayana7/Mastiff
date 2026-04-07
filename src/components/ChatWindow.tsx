@@ -105,7 +105,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <div className="flex justify-start animate-fade-in">
             <div className="glass rounded-2xl p-5 shadow-lg min-w-[300px] max-w-[400px] glow-accent">
                 <div className="flex items-center gap-3 mb-4">
-                    <div className="w-9 h-9 rounded-xl bg-[#E50914] flex items-center justify-center text-white shadow-lg">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(251,113,133,0.9),rgba(45,212,191,0.82))] text-white shadow-lg">
                         {isSearchEnabled ? <Globe size={18} className="animate-pulse" /> : <BrainCircuit size={18} className="animate-pulse" />}
                     </div>
                     <div>
@@ -126,7 +126,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         { label: 'Formatting Forensic Insights', active: false, done: false },
                     ].map((step, i) => (
                         <div key={i} className="flex items-center gap-3">
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black transition-all ${step.done ? 'bg-green-500/20 text-green-400' : step.active ? 'bg-[#E50914]/20 text-[#E50914]' : 'bg-zinc-900 text-zinc-700'}`}>
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black transition-all ${step.done ? 'bg-green-500/20 text-green-400' : step.active ? 'bg-sky-400/20 text-sky-300' : 'bg-zinc-900 text-zinc-700'}`}>
                                 {step.done ? '✓' : step.active ? <Loader2 size={10} className="animate-spin" /> : (i + 1)}
                             </div>
                             <span className={`text-[10px] font-bold uppercase tracking-wider ${step.done ? 'text-green-400' : step.active ? 'text-white' : 'text-zinc-700'}`}>
@@ -146,7 +146,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 </div>
 
                 <div className="mt-4 h-1 w-full bg-zinc-900 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-[#E50914] to-[#ff4d4d] animate-shimmer" style={{ width: '40%' }} />
+                    <div className="h-full animate-shimmer bg-gradient-to-r from-sky-400 via-rose-400 to-teal-300" style={{ width: '40%' }} />
                 </div>
             </div>
         </div>
@@ -360,7 +360,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <div className="relative">
                         <button
                             onClick={onTogglePersonaMenu}
-                            className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 transition-all hover:border-sky-300/30 hover:bg-white/8"
+                            className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 transition-all hover:border-sky-300/30 hover:bg-white/[0.08]"
                         >
                             <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-[linear-gradient(135deg,rgba(56,189,248,0.9),rgba(251,113,133,0.85))] text-[9px] font-black text-white shadow-sm">
                                 {activePersona.icon}
@@ -400,7 +400,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <button
                         onClick={onToggleSearch}
                         className={`flex items-center gap-2 rounded-2xl border px-3 py-2 transition-all duration-200 ${isSearchEnabled
-                            ? 'border-sky-300/35 bg-sky-400/18 text-white glow-accent-strong'
+                            ? 'border-sky-300/35 bg-sky-400/[0.18] text-white glow-accent-strong'
                             : 'border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30 hover:text-white'
                             }`}
                     >
@@ -437,40 +437,39 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     <BrandLockup
                                         align="center"
                                         size={72}
-                                        subtitle="Colorful, interactive, management-ready"
                                         title="Mastiff"
                                         className="justify-center"
                                     />
-                                    <p className="mx-auto max-w-xl text-sm font-medium leading-relaxed text-slate-300/78">
+                                    <p className="mx-auto max-w-xl text-sm font-medium leading-relaxed text-slate-300/[0.78]">
                                         Forecast-first analysis, drill-down charts, and crisp action points for the teams that need answers quickly.
                                     </p>
                                 </div>
 
                                 <div className="grid grid-cols-1 gap-3 text-left sm:grid-cols-3">
-                                    <div className="rounded-3xl border border-white/10 bg-white/6 px-4 py-4">
+                                    <div className="rounded-3xl border border-white/10 bg-white/[0.06] px-4 py-4">
                                         <TrendingUp size={18} className="text-sky-300" />
                                         <p className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-sky-200/75">Forecast First</p>
-                                        <p className="mt-2 text-[13px] leading-relaxed text-slate-200/88">Lead with the next likely move, risk, and action instead of drowning in narrative.</p>
+                                        <p className="mt-2 text-[13px] leading-relaxed text-slate-200/[0.88]">Lead with the next likely move, risk, and action instead of drowning in narrative.</p>
                                     </div>
-                                    <div className="rounded-3xl border border-white/10 bg-white/6 px-4 py-4">
+                                    <div className="rounded-3xl border border-white/10 bg-white/[0.06] px-4 py-4">
                                         <BarChart3 size={18} className="text-rose-300" />
                                         <p className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-rose-200/75">Interactive Views</p>
-                                        <p className="mt-2 text-[13px] leading-relaxed text-slate-200/88">Use filters, range controls, and drill-down charts to move from headline to root cause.</p>
+                                        <p className="mt-2 text-[13px] leading-relaxed text-slate-200/[0.88]">Use filters, range controls, and drill-down charts to move from headline to root cause.</p>
                                     </div>
-                                    <div className="rounded-3xl border border-white/10 bg-white/6 px-4 py-4">
+                                    <div className="rounded-3xl border border-white/10 bg-white/[0.06] px-4 py-4">
                                         <Database size={18} className="text-teal-300" />
                                         <p className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-teal-200/75">File + Connector Native</p>
-                                        <p className="mt-2 text-[13px] leading-relaxed text-slate-200/88">Blend uploads and live sources without bouncing between tools or losing context.</p>
+                                        <p className="mt-2 text-[13px] leading-relaxed text-slate-200/[0.88]">Blend uploads and live sources without bouncing between tools or losing context.</p>
                                     </div>
                                 </div>
 
                                 {/* Upload Zone */}
                                 <div
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="group mx-auto max-w-2xl cursor-pointer rounded-[32px] border border-dashed border-slate-500/45 bg-[linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] p-7 transition-all duration-300 hover:-translate-y-[1px] hover:border-sky-300/45 hover:bg-sky-300/6"
+                                    className="group mx-auto max-w-2xl cursor-pointer rounded-[32px] border border-dashed border-slate-500/[0.45] bg-[linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] p-7 transition-all duration-300 hover:-translate-y-[1px] hover:border-sky-300/[0.45] hover:bg-sky-300/[0.06]"
                                 >
                                     <div className="flex flex-col items-center gap-4">
-                                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950/70 transition-all group-hover:bg-sky-400/12">
+                                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950/70 transition-all group-hover:bg-sky-400/[0.12]">
                                             <Upload size={22} className="text-slate-300 transition-colors group-hover:text-sky-200" />
                                         </div>
                                         <div>
@@ -497,8 +496,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     <h3 className="text-[10px] font-extrabold uppercase tracking-[0.3em] text-slate-300/75">Suggested Analyses</h3>
                                 </div>
                                 {hasPendingDatasets && (
-                                    <div className="max-w-2xl mx-auto rounded-2xl border border-[#E50914]/20 bg-[#E50914]/6 px-4 py-3 text-left">
-                                        <p className="text-[9px] font-extrabold uppercase tracking-[2px] text-[#ff6b6b]">New data staged</p>
+                                    <div className="mx-auto max-w-2xl rounded-2xl border border-amber-400/20 bg-amber-400/[0.08] px-4 py-3 text-left">
+                                        <p className="text-[9px] font-extrabold uppercase tracking-[2px] text-amber-200">New data staged</p>
                                         <p className="mt-1 text-[11px] text-zinc-300 leading-relaxed">
                                             {pendingFiles.length} staged file{pendingFiles.length === 1 ? '' : 's'} detected. Suggestions are ready immediately, and you can still review the schema in the inspector before drilling deeper.
                                         </p>
@@ -506,14 +505,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 )}
                                 {isLoadingSuggestions ? (
                                     <div className="w-full max-w-md mx-auto p-6 glass rounded-2xl relative overflow-hidden">
-                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#E50914]/5 to-transparent animate-neural-scan -translate-x-full" />
+                                        <div className="absolute inset-0 animate-neural-scan bg-gradient-to-r from-transparent via-sky-400/[0.08] to-transparent -translate-x-full" />
                                         <div className="relative flex flex-col items-center gap-4">
                                             <div className="flex items-center gap-3">
-                                                <Loader2 size={16} className="animate-spin text-[#E50914]" />
+                                                <Loader2 size={16} className="animate-spin text-sky-300" />
                                                 <span className="text-[10px] font-extrabold uppercase tracking-[2px] text-white/80">Analyzing your data...</span>
                                             </div>
                                             <div className="w-full max-w-xs h-1 bg-zinc-950 rounded-full overflow-hidden">
-                                                <div className="h-full bg-[#E50914] animate-shimmer" style={{ width: '60%' }} />
+                                                <div className="h-full animate-shimmer bg-gradient-to-r from-sky-400 via-rose-400 to-teal-300" style={{ width: '60%' }} />
                                             </div>
                                         </div>
                                     </div>
@@ -523,11 +522,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                             <button
                                                 key={i}
                                                 onClick={() => onSend(s)}
-                                                className="group rounded-2xl border border-white/10 bg-white/5 p-3.5 text-left transition-all hover:-translate-y-[1px] hover:border-sky-300/35 hover:bg-white/8"
+                                                className="group rounded-2xl border border-white/10 bg-white/5 p-3.5 text-left transition-all hover:-translate-y-[1px] hover:border-sky-300/35 hover:bg-white/[0.08]"
                                             >
                                                 <div className="flex items-start gap-2.5">
                                                     <ArrowRight size={12} className="mt-0.5 shrink-0 text-sky-300 transition-colors group-hover:text-rose-200" />
-                                                    <p className="text-[11px] font-semibold leading-tight text-slate-200/82 transition-colors group-hover:text-white">{s}</p>
+                                                    <p className="text-[11px] font-semibold leading-tight text-slate-200/[0.82] transition-colors group-hover:text-white">{s}</p>
                                                 </div>
                                             </button>
                                         ))}
@@ -552,9 +551,131 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 {(() => {
                                     const actionItems = extractRecommendedActions(m.content);
                                     const hasLogs = Boolean(m.result?.output || m.result?.error || m.result?.traceback);
+                                    const plotlyChartCount = m.result?.plotly_charts?.length || 0;
+                                    const imageChartCount = m.result?.charts?.length || 0;
+                                    const chartCount = plotlyChartCount + imageChartCount;
+                                    const hasVisualizationCard = Boolean(m.visualization);
+                                    const hasVisualOutput = chartCount > 0 || hasVisualizationCard;
+                                    const hasAutoChartData = Array.isArray(m.result?.updated_df_sample) && m.result.updated_df_sample.length > 0;
+                                    const executionOutput = m.result?.output?.trim() || '';
+                                    const isEmptyDataNotice = /data is empty after loading/i.test(executionOutput);
+                                    const shouldShowExecutionResult = Boolean(executionOutput)
+                                        && executionOutput !== 'Analysis complete'
+                                        && executionOutput !== 'Execution successful'
+                                        && !isEmptyDataNotice;
+                                    const executiveInsights = m.result?.responseEnvelope?.insights?.filter(Boolean) || [];
+                                    const executiveForecast = m.result?.responseEnvelope?.forecast || '';
+                                    const visualRecoveryPrompt = activeFiles.length > 0
+                                        ? `Use only these active datasets: ${activeFiles.map((file) => file.name).join(', ')}. Build an executive chart pack with an overview chart, a trend chart, and a driver breakdown.`
+                                        : 'Build an executive chart pack from the current analysis context with an overview chart, a trend chart, and a driver breakdown.';
+                                    const showVisualDashboard = hasVisualOutput || hasAutoChartData || isEmptyDataNotice || executiveInsights.length > 0 || actionItems.length > 0 || Boolean(executiveForecast);
 
                                     return (
                                         <>
+                                {showVisualDashboard && (
+                                    <div className="grid gap-3 xl:grid-cols-[minmax(0,1.45fr)_320px]">
+                                        <div className="overflow-hidden rounded-[28px] border border-sky-300/15 bg-[linear-gradient(160deg,rgba(14,24,42,0.96),rgba(8,16,31,0.84))] shadow-[0_22px_70px_rgba(2,6,23,0.28)]">
+                                            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+                                                <div>
+                                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.3em] text-sky-200/75">Visual Brief</p>
+                                                    <p className="mt-1 text-sm font-semibold text-white">Interactive chart layer</p>
+                                                </div>
+                                                {chartCount > 0 && (
+                                                    <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[8px] font-extrabold uppercase tracking-[0.22em] text-sky-100">
+                                                        {chartCount} live view{chartCount === 1 ? '' : 's'}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="p-4">
+                                                {hasVisualOutput ? (
+                                                    <div className="space-y-3">
+                                                        {m.result?.plotly_charts?.map((pChart, idx) => (
+                                                            <div key={`${m.id}-plotly-${idx}`} className="w-full overflow-visible">
+                                                                <PlotlyRenderer data={pChart} />
+                                                            </div>
+                                                        ))}
+                                                        {m.result?.charts?.map((chart, idx) => (
+                                                            <div
+                                                                key={`${m.id}-chart-${idx}`}
+                                                                className="w-full overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-950/50 p-4"
+                                                            >
+                                                                <img src={`data:image/png;base64,${chart}`} alt={`Analysis Chart ${idx + 1}`} className="h-auto w-full rounded-xl" />
+                                                            </div>
+                                                        ))}
+                                                        {plotlyChartCount === 0 && imageChartCount === 0 && hasVisualizationCard && (
+                                                            <div className="w-full overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-950/50 p-4">
+                                                                {typeof m.visualization === 'string' ? (
+                                                                    <img src={m.visualization} alt="Visual Analysis" className="h-auto w-full rounded-xl" />
+                                                                ) : (
+                                                                    <ChartRenderer viz={m.visualization} onDrillDown={onSend} />
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : hasAutoChartData ? (
+                                                    <AutoChartSuggestion data={m.result?.updated_df_sample || []} title="Executive View" />
+                                                ) : (
+                                                    <div className="rounded-[24px] border border-amber-400/20 bg-amber-400/[0.08] p-4">
+                                                        <p className="text-[8px] font-extrabold uppercase tracking-[0.28em] text-amber-200">Charts need recovery</p>
+                                                        <p className="mt-2 text-sm leading-relaxed text-zinc-100">
+                                                            {isEmptyDataNotice
+                                                                ? 'The last execution lost usable rows before the chart stage, so the visual layer never mounted.'
+                                                                : 'This answer returned narrative insight without a usable chart payload, so the dashboard needs a visualization recovery run.'}
+                                                        </p>
+                                                        <button
+                                                            onClick={() => onSend(visualRecoveryPrompt)}
+                                                            className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(251,113,133,0.92))] px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.22em] text-white transition-all hover:brightness-110"
+                                                        >
+                                                            <BarChart3 size={12} />
+                                                            Regenerate chart pack
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            {executiveForecast && (
+                                                <div className="rounded-[24px] border border-sky-300/15 bg-[linear-gradient(180deg,rgba(13,23,40,0.96),rgba(8,14,25,0.86))] p-4 shadow-[0_16px_50px_rgba(2,6,23,0.22)]">
+                                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.26em] text-sky-200/75">Forecast</p>
+                                                    <p className="mt-2 text-sm leading-relaxed text-zinc-100">{renderInsightText(executiveForecast)}</p>
+                                                </div>
+                                            )}
+
+                                            {executiveInsights.length > 0 && (
+                                                <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,21,36,0.94),rgba(8,13,24,0.86))] p-4 shadow-[0_16px_50px_rgba(2,6,23,0.18)]">
+                                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.26em] text-rose-200/75">Top Signals</p>
+                                                    <div className="mt-3 space-y-2">
+                                                        {executiveInsights.slice(0, 3).map((insight, index) => (
+                                                            <div key={`${m.id}-signal-${index}`} className="rounded-2xl border border-white/8 bg-white/[0.04] px-3 py-2.5">
+                                                                <p className="text-[8px] font-extrabold uppercase tracking-[0.18em] text-slate-400">Signal {index + 1}</p>
+                                                                <p className="mt-1 text-[12px] leading-relaxed text-zinc-100">{renderInsightText(insight)}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {actionItems.length > 0 && (
+                                                <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,21,36,0.94),rgba(8,13,24,0.86))] p-4 shadow-[0_16px_50px_rgba(2,6,23,0.18)]">
+                                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.26em] text-teal-200/75">Action Queue</p>
+                                                    <div className="mt-3 space-y-2">
+                                                        {actionItems.slice(0, 4).map((action) => (
+                                                            <button
+                                                                key={`${m.id}-${action}`}
+                                                                onClick={() => onSend(buildActionPrompt(action))}
+                                                                className="w-full rounded-2xl border border-rose-300/20 bg-rose-400/[0.08] px-3 py-2.5 text-left text-[11px] font-semibold leading-relaxed text-zinc-100 transition-all hover:bg-rose-400/[0.14]"
+                                                            >
+                                                                {action}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* ── TEXT CARD ── */}
                                 <div className="w-full overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,24,39,0.92),rgba(10,15,27,0.74))] shadow-[0_18px_50px_rgba(2,6,23,0.24)]">
@@ -574,7 +695,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         <MarkdownRenderer content={m.content} className="text-[13px] leading-relaxed text-zinc-200" />
                                     </div>
 
-                                    {actionItems.length > 0 && (
+                                    {!showVisualDashboard && actionItems.length > 0 && (
                                         <div className="px-5 pb-4 space-y-2 border-t border-zinc-800/30 pt-3">
                                             <p className="text-[8px] font-extrabold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
                                                 <PlayCircle size={10} /> Recommended Actions
@@ -584,7 +705,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                     <button
                                                         key={`${m.id}-${action}`}
                                                         onClick={() => onSend(buildActionPrompt(action))}
-                                                        className="px-3 py-1.5 rounded-full border border-[#E50914]/30 bg-[#E50914]/8 text-[10px] font-semibold text-zinc-200 hover:text-white hover:bg-[#E50914]/14 transition-all text-left"
+                                                        className="rounded-full border border-rose-300/25 bg-rose-400/[0.08] px-3 py-1.5 text-left text-[10px] font-semibold text-zinc-200 transition-all hover:bg-rose-400/[0.14] hover:text-white"
                                                     >
                                                         {action}
                                                     </button>
@@ -612,7 +733,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     )}
 
                                     {/* Execution result output */}
-                                    {m.result?.output && m.result.output !== 'Analysis complete' && m.result.output !== 'Execution successful' && (
+                                    {shouldShowExecutionResult && (
                                         <div className="px-5 pb-4 border-t border-zinc-800/40 pt-3">
                                             <p className="text-[8px] font-extrabold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5 mb-2">
                                                 <Table size={10} /> Result
@@ -644,9 +765,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                 {showCodeId === m.id ? 'Hide Code' : 'View Code'}
                                             </button>
                                         )}
-                                        {((m.result?.plotly_charts?.length || 0) + (m.result?.charts?.length || 0)) > 1 && (
+                                        {chartCount > 1 && (
                                             <span className="ml-auto text-[8px] font-extrabold text-zinc-700 uppercase tracking-widest">
-                                                {(m.result?.plotly_charts?.length || 0) + (m.result?.charts?.length || 0)} charts below
+                                                {chartCount} charts in dashboard
                                             </span>
                                         )}
                                     </div>
@@ -706,37 +827,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 )}
 
                                 {/* ── CHARTS SECTION — full-width, stacked vertically ── */}
-                                {((m.result?.plotly_charts && m.result.plotly_charts.length > 0) || (m.result?.charts && m.result.charts.length > 0) || m.visualization) && (
-                                    <div className="w-full space-y-3 relative isolate pb-1">
-                                        {m.result?.plotly_charts?.map((pChart, idx) => (
-                                            <div key={`${m.id}-plotly-${idx}`} className="w-full overflow-visible">
-                                                <PlotlyRenderer data={pChart} />
-                                            </div>
-                                        ))}
-                                        {m.result?.charts?.map((chart, idx) => (
-                                            <div key={`${m.id}-chart-${idx}`}
-                                                className="w-full rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-950/50 p-4">
-                                                <img src={`data:image/png;base64,${chart}`} alt={`Analysis Chart ${idx + 1}`} className="w-full h-auto rounded-xl" />
-                                            </div>
-                                        ))}
-                                        {!m.result?.charts && !m.result?.plotly_charts && m.visualization && (
-                                            <div className="w-full rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-950/50 p-4">
-                                                {typeof m.visualization === 'string' ? (
-                                                    <img src={m.visualization} alt="Visual Analysis" className="w-full h-auto rounded-xl" />
-                                                ) : (
-                                                    <ChartRenderer viz={m.visualization} onDrillDown={onSend} />
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Auto-chart for tabular data with no explicit charts */}
-                                {m.result?.updated_df_sample && Array.isArray(m.result.updated_df_sample) && m.result.updated_df_sample.length > 0 && !m.result?.plotly_charts?.length && !m.result?.charts?.length && (
-                                    <div className="w-full">
-                                        <AutoChartSuggestion data={m.result.updated_df_sample} title="Data Insight" />
-                                    </div>
-                                )}
                                         </>
                                     );
                                 })()}
@@ -792,12 +882,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                 <button
                                                     key={`${latestAssistantMessage?.id || 'drawer'}-insight-${index}`}
                                                     onClick={() => onSend(buildConcernPrompt(insight))}
-                                                    className="w-full rounded-xl border border-zinc-800/50 bg-zinc-900/40 px-3 py-2.5 text-left transition-all hover:border-[#E50914]/35 hover:bg-zinc-900/70"
+                                                    className="w-full rounded-xl border border-zinc-800/50 bg-zinc-900/40 px-3 py-2.5 text-left transition-all hover:border-sky-300/30 hover:bg-zinc-900/70"
                                                 >
                                                     <div className="flex items-center justify-between gap-2 mb-1">
                                                         <p className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-600">Concern {index + 1}</p>
                                                         <div className="flex items-center gap-2">
-                                                            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-[#ff6b6b]">
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-200">
                                                                 <PlayCircle size={11} /> Run Deep Dive
                                                             </span>
                                                             <span
@@ -834,8 +924,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                             )}
 
                                             {latestForecast && (
-                                                <div className="rounded-xl border border-[#E50914]/20 bg-[#E50914]/6 px-3 py-2.5">
-                                                    <p className="text-[10px] font-extrabold uppercase tracking-widest text-[#ff6b6b] mb-1">Forecast</p>
+                                                <div className="rounded-xl border border-sky-300/20 bg-sky-400/[0.08] px-3 py-2.5">
+                                                    <p className="mb-1 text-[10px] font-extrabold uppercase tracking-widest text-sky-200">Forecast</p>
                                                     <p className="text-[12px] leading-relaxed text-zinc-200">{renderInsightText(latestForecast)}</p>
                                                 </div>
                                             )}
@@ -844,7 +934,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                                     <section className="rounded-2xl border border-zinc-800/60 bg-black/20 p-4">
                                         <div className="flex items-center gap-2 mb-3">
-                                            <PlayCircle size={14} className="text-[#ff6b6b]" />
+                                            <PlayCircle size={14} className="text-rose-200" />
                                             <p className="text-[9px] font-extrabold uppercase tracking-[2px] text-zinc-400">Recommended Actions</p>
                                         </div>
                                         <div className="space-y-2.5">
@@ -852,15 +942,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                 <button
                                                     key={`${latestAssistantMessage?.id || 'drawer'}-action-${action}`}
                                                     onClick={() => onSend(buildActionPrompt(action))}
-                                                    className="w-full rounded-xl border border-[#E50914]/25 bg-[#E50914]/8 px-3 py-3 text-left transition-all hover:bg-[#E50914]/14 hover:border-[#E50914]/40"
+                                                    className="w-full rounded-xl border border-rose-300/25 bg-rose-400/[0.08] px-3 py-3 text-left transition-all hover:border-rose-300/40 hover:bg-rose-400/[0.14]"
                                                 >
-                                                    <p className="text-[10px] font-extrabold uppercase tracking-widest text-[#ff6b6b] mb-1">Run This Follow-Up</p>
+                                                    <p className="mb-1 text-[10px] font-extrabold uppercase tracking-widest text-rose-200">Run This Follow-Up</p>
                                                     <p className="text-[12px] leading-relaxed text-zinc-100">{action}</p>
                                                 </button>
                                             )) : isAnalyzing ? (
                                                 <div className="space-y-2 animate-pulse">
-                                                    <div className="h-14 rounded-xl bg-[#E50914]/8 border border-[#E50914]/15" />
-                                                    <div className="h-14 rounded-xl bg-[#E50914]/8 border border-[#E50914]/15" />
+                                                    <div className="h-14 rounded-xl border border-rose-300/[0.15] bg-rose-400/[0.08]" />
+                                                    <div className="h-14 rounded-xl border border-rose-300/[0.15] bg-rose-400/[0.08]" />
                                                 </div>
                                             ) : (
                                                 <p className="text-[11px] text-zinc-600">Action prompts will appear here when the agent returns concrete next steps.</p>
@@ -883,7 +973,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             {activeFiles.length > 0 ? activeFiles.slice(0, 4).map((file) => (
                                 <span
                                     key={file.id}
-                                    className="inline-flex items-center gap-1 rounded-full border border-sky-300/20 bg-sky-400/8 px-2.5 py-1 text-[9px] font-bold text-slate-100 transition-all hover:-translate-y-[1px] hover:border-sky-300/38 hover:bg-sky-400/12"
+                                    className="inline-flex items-center gap-1 rounded-full border border-sky-300/20 bg-sky-400/[0.08] px-2.5 py-1 text-[9px] font-bold text-slate-100 transition-all hover:-translate-y-[1px] hover:border-sky-300/[0.38] hover:bg-sky-400/[0.12]"
                                 >
                                     <Database size={10} className="text-sky-200" />
                                     <span className="max-w-[140px] truncate">{file.name}</span>
@@ -916,7 +1006,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 {contextMeter.status !== 'Comfortable' && (
                                     <div className="text-right">
                                         <p className="text-[9px] font-bold text-slate-100">Reduce active files or confirm fewer columns.</p>
-                                        <p className="text-[9px] text-slate-400/75">This keeps prompts inside a reliable analysis range.</p>
+                                        <p className="text-[9px] text-slate-400/[0.75]">This keeps prompts inside a reliable analysis range.</p>
                                     </div>
                                 )}
                             </div>
@@ -936,7 +1026,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
                                         <p className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-300">Suggested Questions</p>
-                                        <p className="mt-1 text-[10px] text-slate-400/75">Use these to move fast from uploaded data to decisions.</p>
+                                        <p className="mt-1 text-[10px] text-slate-400/[0.75]">Use these to move fast from uploaded data to decisions.</p>
                                     </div>
                                     {isLoadingSuggestions && (
                                         <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-400">
@@ -950,7 +1040,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         <button
                                             key={prompt}
                                             onClick={() => onSend(prompt)}
-                                            className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1.5 text-[10px] font-semibold text-slate-200/90 transition-all hover:border-sky-300/35 hover:text-white"
+                                            className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1.5 text-[10px] font-semibold text-slate-200/[0.9] transition-all hover:border-sky-300/35 hover:text-white"
                                         >
                                             {prompt}
                                         </button>
@@ -976,16 +1066,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                     {isSearchEnabled && (
                         <div className="absolute -top-9 left-0 right-0 flex justify-center animate-fade-in">
-                            <div className="flex items-center gap-2 rounded-full border border-sky-300/20 bg-sky-400/16 px-3 py-1 text-[8px] font-extrabold uppercase tracking-[0.24em] text-white shadow-lg glow-accent">
+                            <div className="flex items-center gap-2 rounded-full border border-sky-300/20 bg-sky-400/[0.16] px-3 py-1 text-[8px] font-extrabold uppercase tracking-[0.24em] text-white shadow-lg glow-accent">
                                 <Search size={10} /> Web Search Active
                             </div>
                         </div>
                     )}
-                    <div className={`rounded-[30px] border p-[1px] transition-all duration-300 ${inputText ? 'border-sky-300/35 bg-[linear-gradient(135deg,rgba(56,189,248,0.42),rgba(251,113,133,0.22),rgba(45,212,191,0.18))] glow-accent' : 'border-white/10 bg-white/8'}`}>
+                    <div className={`rounded-[30px] border p-[1px] transition-all duration-300 ${inputText ? 'border-sky-300/35 bg-[linear-gradient(135deg,rgba(56,189,248,0.42),rgba(251,113,133,0.22),rgba(45,212,191,0.18))] glow-accent' : 'border-white/10 bg-white/[0.08]'}`}>
                         <div className="flex items-end gap-2.5 rounded-[29px] bg-[linear-gradient(180deg,rgba(15,22,39,0.95),rgba(9,14,24,0.9))] p-2.5 shadow-xl backdrop-blur-xl">
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="rounded-2xl border border-white/10 bg-slate-950/60 p-2.5 text-slate-300 transition-all hover:border-sky-300/28 hover:text-white"
+                                className="rounded-2xl border border-white/10 bg-slate-950/60 p-2.5 text-slate-300 transition-all hover:border-sky-300/[0.28] hover:text-white"
                             >
                                 <Paperclip size={17} />
                             </button>

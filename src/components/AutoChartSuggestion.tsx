@@ -9,8 +9,8 @@ import {
 import { BarChart3, TrendingUp, PieChart as PieIcon, Activity, ChevronDown, ChevronUp } from 'lucide-react';
 
 const CHART_COLORS = [
-  '#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A',
-  '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52',
+  '#38BDF8', '#FB7185', '#2DD4BF', '#F59E0B', '#818CF8',
+  '#22C55E', '#F97316', '#A78BFA', '#FACC15', '#14B8A6',
 ];
 
 interface AutoChartSuggestionProps {
@@ -98,8 +98,8 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
   if (!analysis || !data || data.length === 0) return null;
 
   const { xAxis, metricKeys, pieData } = analysis;
-  const tooltipStyle = { backgroundColor: '#0a0a0a', borderRadius: '10px', border: '1px solid #1f1f1f', color: '#fff', fontSize: '10px', fontWeight: '700', padding: '6px 10px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' };
-  const axisProps = { axisLine: false, tickLine: false, tick: { fontSize: 9, fill: '#666', fontWeight: 600 } };
+  const tooltipStyle = { backgroundColor: '#08111f', borderRadius: '12px', border: '1px solid rgba(125,211,252,0.22)', color: '#fff', fontSize: '10px', fontWeight: '700', padding: '8px 12px', boxShadow: '0 10px 28px rgba(3,7,18,0.45)' };
+  const axisProps = { axisLine: false, tickLine: false, tick: { fontSize: 9, fill: '#94a3b8', fontWeight: 700 } };
 
   // Convert data for chart (ensure numbers)
   const chartData = data.slice(0, 50).map(row => {
@@ -182,28 +182,28 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
   };
 
   return (
-    <div className="w-full glass rounded-2xl overflow-hidden shadow-xl animate-fade-in border border-zinc-800/30">
+    <div className="w-full overflow-hidden rounded-[26px] border border-sky-300/15 bg-[linear-gradient(180deg,rgba(15,24,40,0.96),rgba(7,14,25,0.86))] shadow-[0_24px_72px_rgba(2,6,23,0.28)] animate-fade-in">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-zinc-800/40 flex items-center justify-between">
+      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
         <div className="flex items-center gap-2.5">
-          <div className="p-1 bg-gradient-to-br from-[#636EFA] to-[#AB63FA] rounded-lg">
+          <div className="rounded-xl bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(251,113,133,0.9),rgba(45,212,191,0.82))] p-1.5 shadow-lg">
             <BarChart3 size={12} className="text-white" />
           </div>
-          <span className="text-[10px] font-extrabold text-zinc-300 uppercase tracking-widest">
+          <span className="bg-[linear-gradient(135deg,#c7f2ff,#fecdd3,#b2f5ea)] bg-clip-text text-[10px] font-extrabold uppercase tracking-[0.22em] text-transparent">
             {title ? `Chart · ${title}` : 'Auto-Generated Chart'}
           </span>
         </div>
         <div className="flex items-center gap-2">
           {/* Chart type switcher */}
-          <div className="flex gap-0.5 bg-zinc-900/60 rounded-lg p-0.5">
+          <div className="flex gap-0.5 rounded-xl border border-white/10 bg-white/[0.04] p-1">
             {CHART_OPTIONS.map(opt => (
               <button
                 key={opt.type}
                 onClick={() => setActiveChart(opt.type)}
                 className={`flex items-center gap-1 px-2 py-1 rounded-md text-[8px] font-bold uppercase tracking-wider transition-all ${
                   chartType === opt.type
-                    ? 'bg-[#636EFA] text-white shadow-lg'
-                    : 'text-zinc-600 hover:text-zinc-300'
+                    ? 'bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(251,113,133,0.88))] text-white shadow-lg'
+                    : 'text-slate-400 hover:text-white'
                 }`}
               >
                 {opt.icon}
@@ -213,7 +213,7 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
           </div>
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1 text-zinc-600 hover:text-white transition-colors"
+            className="p-1 text-slate-400 transition-colors hover:text-white"
           >
             {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
           </button>
@@ -222,7 +222,7 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
 
       {/* Chart */}
       {!isCollapsed && (
-        <div className="w-full h-[260px] p-3">
+        <div className="h-[280px] w-full p-4">
           <ResponsiveContainer width="100%" height="100%">
             {renderChart() || <div />}
           </ResponsiveContainer>

@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Eye, EyeOff, ArrowRight, User } from 'lucide-react';
+import { ArrowRight, BarChart3, Eye, EyeOff, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
+import { BrandLockup, BrandMark } from '../../components/BrandMark';
 
 export default function SignupPage() {
     const router = useRouter();
@@ -13,6 +14,7 @@ export default function SignupPage() {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isMicrosoftEnabled, setIsMicrosoftEnabled] = useState(false);
 
     useEffect(() => {
@@ -74,7 +76,7 @@ export default function SignupPage() {
         }
 
         if (password.length < 6) {
-            setError("Password must be at least 6 characters");
+            setError('Password must be at least 6 characters');
             return;
         }
 
@@ -84,7 +86,7 @@ export default function SignupPage() {
             const res = await fetch('/api/auth/signup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, password })
+                body: JSON.stringify({ name, email, password }),
             });
 
             const data = await res.json();
@@ -94,11 +96,10 @@ export default function SignupPage() {
                 return;
             }
 
-            // Auto-login after signup
             localStorage.removeItem('mastiff_token');
             localStorage.setItem('mastiff_user', JSON.stringify(data.user));
             router.push('/');
-        } catch (err: any) {
+        } catch {
             setError('Network error. Please try again.');
         } finally {
             setIsLoading(false);
@@ -106,82 +107,129 @@ export default function SignupPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
-            {/* Background effects */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-[#E50914]/5 rounded-full blur-[120px] animate-pulse" />
-                <div className="absolute bottom-1/3 left-1/4 w-96 h-96 bg-[#E50914]/3 rounded-full blur-[150px]" />
+        <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+            <div className="pointer-events-none fixed inset-0 overflow-hidden">
+                <div className="absolute left-[7%] top-[10%] h-80 w-80 rounded-full bg-sky-400/[0.12] blur-[130px]" />
+                <div className="absolute right-[10%] top-[8%] h-72 w-72 rounded-full bg-rose-400/[0.1] blur-[130px]" />
+                <div className="absolute bottom-[8%] left-[36%] h-80 w-80 rounded-full bg-teal-400/[0.1] blur-[150px]" />
             </div>
 
-            <div className="w-full max-w-md relative z-10">
-                {/* Logo */}
-                <div className="text-center mb-10">
-                    <div className="w-16 h-16 bg-gradient-to-br from-[#E50914] to-[#ff4d4d] rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-2xl shadow-[#E50914]/20">
-                        <span className="text-white text-2xl font-black">M</span>
+            <div className="relative z-10 grid w-full max-w-6xl overflow-hidden rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(12,18,30,0.92),rgba(8,13,24,0.8))] shadow-[0_40px_120px_rgba(2,6,23,0.45)] backdrop-blur-2xl lg:grid-cols-[1.05fr_0.95fr]">
+                <div className="relative overflow-hidden border-b border-white/10 p-8 sm:p-10 lg:border-b-0 lg:border-r">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(56,189,248,0.14),transparent_32%),radial-gradient(circle_at_82%_16%,rgba(251,113,133,0.12),transparent_28%),radial-gradient(circle_at_56%_88%,rgba(45,212,191,0.1),transparent_34%)]" />
+                    <div className="relative">
+                        <BrandLockup size={64} subtitle="Team-ready analytics" title="Mastiff" />
+                        <p className="mt-6 max-w-md text-[15px] leading-7 text-slate-200/80">
+                            Stand up a cleaner analytics workspace with forecast-first summaries, deeper drill-downs, and management-ready outputs from day one.
+                        </p>
+
+                        <div className="mt-8 grid gap-3">
+                            <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-400/[0.14] text-sky-200">
+                                        <BarChart3 size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-200/70">Interactive Dashboards</p>
+                                        <p className="mt-1 text-sm font-semibold text-white">Upload, filter, drill down, and move from overview to root cause fast.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-400/[0.14] text-rose-200">
+                                        <Sparkles size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-rose-200/70">Action-Driven Output</p>
+                                        <p className="mt-1 text-sm font-semibold text-white">Get concise recommendations instead of walls of analysis text.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-400/[0.14] text-teal-200">
+                                        <ShieldCheck size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-teal-200/70">Shared Team Context</p>
+                                        <p className="mt-1 text-sm font-semibold text-white">Keep connectors, files, and reproducible analysis inside one workspace.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <h1 className="text-3xl font-black text-white tracking-tight">Create Account</h1>
-                    <p className="text-sm text-zinc-500 mt-2 font-medium">Start analyzing data with Mastiff AI</p>
                 </div>
 
-                {/* Signup Form */}
-                <form onSubmit={handleSignup} className="space-y-5">
-                    <div className="glass rounded-2xl p-8 space-y-4 border border-zinc-800/50">
+                <div className="p-6 sm:p-8 lg:p-10">
+                    <div className="mb-8 flex items-center justify-between">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-slate-300/70">Create account</p>
+                            <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-white">Open your workspace</h1>
+                        </div>
+                        <BrandMark size={48} className="hidden sm:inline-flex" />
+                    </div>
+
+                    <form onSubmit={handleSignup} className="space-y-5">
                         {isMicrosoftEnabled && (
                             <>
                                 <a
                                     href="/api/auth/microsoft/start"
-                                    className="w-full py-3.5 border border-zinc-700 bg-zinc-900/70 text-white font-bold text-xs uppercase tracking-widest rounded-xl hover:border-zinc-500 transition-all flex items-center justify-center"
+                                    className="flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-xs font-bold uppercase tracking-[0.24em] text-white transition-all hover:border-sky-300/30 hover:bg-white/10"
                                 >
                                     Continue with Microsoft
                                 </a>
-                                <div className="flex items-center gap-3 text-zinc-600 text-[10px] font-bold uppercase tracking-[2px]">
-                                    <div className="h-px flex-1 bg-zinc-800" />
+                                <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                                    <div className="h-px flex-1 bg-white/10" />
                                     <span>Or create a Mastiff account</span>
-                                    <div className="h-px flex-1 bg-zinc-800" />
+                                    <div className="h-px flex-1 bg-white/10" />
                                 </div>
                             </>
                         )}
 
                         <div>
-                            <label className="block text-[10px] font-extrabold text-zinc-500 uppercase tracking-[2px] mb-2">Name</label>
+                            <label className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-300/75">Name</label>
                             <input
                                 type="text"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm font-medium placeholder:text-zinc-700 focus:outline-none focus:border-[#E50914]/50 focus:ring-1 focus:ring-[#E50914]/30 transition-all"
+                                className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-medium text-white placeholder:text-slate-500 transition-all focus:border-sky-300/[0.38] focus:ring-1 focus:ring-sky-300/20"
                                 placeholder="Your name"
+                                required
                                 autoFocus
                             />
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-extrabold text-zinc-500 uppercase tracking-[2px] mb-2">Email</label>
+                            <label className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-300/75">Email</label>
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm font-medium placeholder:text-zinc-700 focus:outline-none focus:border-[#E50914]/50 focus:ring-1 focus:ring-[#E50914]/30 transition-all"
+                                className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-medium text-white placeholder:text-slate-500 transition-all focus:border-sky-300/[0.38] focus:ring-1 focus:ring-sky-300/20"
                                 placeholder="you@company.com"
                                 required
                             />
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-extrabold text-zinc-500 uppercase tracking-[2px] mb-2">Password</label>
+                            <label className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-300/75">Password</label>
                             <div className="relative">
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 pr-12 text-white text-sm font-medium placeholder:text-zinc-700 focus:outline-none focus:border-[#E50914]/50 focus:ring-1 focus:ring-[#E50914]/30 transition-all"
-                                    placeholder="Min 6 characters"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 pr-12 text-sm font-medium text-white placeholder:text-slate-500 transition-all focus:border-sky-300/[0.38] focus:ring-1 focus:ring-sky-300/20"
+                                    placeholder="At least 6 characters"
                                     required
                                     minLength={6}
                                 />
                                 <button
                                     type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors"
+                                    onClick={() => setShowPassword((prev) => !prev)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-white"
                                 >
                                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
@@ -189,20 +237,29 @@ export default function SignupPage() {
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-extrabold text-zinc-500 uppercase tracking-[2px] mb-2">Confirm Password</label>
-                            <input
-                                type="password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm font-medium placeholder:text-zinc-700 focus:outline-none focus:border-[#E50914]/50 focus:ring-1 focus:ring-[#E50914]/30 transition-all"
-                                placeholder="••••••••"
-                                required
-                                minLength={6}
-                            />
+                            <label className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-300/75">Confirm password</label>
+                            <div className="relative">
+                                <input
+                                    type={showConfirmPassword ? 'text' : 'password'}
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 pr-12 text-sm font-medium text-white placeholder:text-slate-500 transition-all focus:border-sky-300/[0.38] focus:ring-1 focus:ring-sky-300/20"
+                                    placeholder="Re-enter your password"
+                                    required
+                                    minLength={6}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-white"
+                                >
+                                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                            </div>
                         </div>
 
                         {error && (
-                            <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-400 text-xs font-semibold animate-fade-in">
+                            <div className="animate-fade-in rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-xs font-semibold text-red-200">
                                 {error}
                             </div>
                         )}
@@ -210,7 +267,7 @@ export default function SignupPage() {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full py-3.5 bg-gradient-to-r from-[#E50914] to-[#b20710] text-white font-extrabold text-xs uppercase tracking-widest rounded-xl hover:shadow-lg hover:shadow-[#E50914]/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(251,113,133,0.92))] py-3.5 text-xs font-extrabold uppercase tracking-[0.24em] text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {isLoading ? (
                                 <Loader2 size={16} className="animate-spin" />
@@ -218,15 +275,15 @@ export default function SignupPage() {
                                 <>Create Account <ArrowRight size={14} /></>
                             )}
                         </button>
-                    </div>
-                </form>
+                    </form>
 
-                <p className="text-center mt-6 text-sm text-zinc-600">
-                    Already have an account?{' '}
-                    <a href="/login" className="text-[#E50914] hover:text-[#ff4d4d] font-bold transition-colors">
-                        Sign in
-                    </a>
-                </p>
+                    <p className="mt-6 text-center text-sm text-slate-400/80">
+                        Already have an account?{' '}
+                        <a href="/login" className="font-bold text-sky-300 transition-colors hover:text-white">
+                            Sign in
+                        </a>
+                    </p>
+                </div>
             </div>
         </div>
     );

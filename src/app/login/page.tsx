@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Eye, EyeOff, ArrowRight, BarChart3, Sparkles, ShieldCheck } from 'lucide-react';
+import { ArrowRight, BarChart3, Eye, EyeOff, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 import { BrandLockup, BrandMark } from '../../components/BrandMark';
 
 export default function LoginPage() {
@@ -72,7 +72,7 @@ export default function LoginPage() {
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({ email, password }),
             });
 
             const data = await res.json();
@@ -85,7 +85,7 @@ export default function LoginPage() {
             localStorage.removeItem('mastiff_token');
             localStorage.setItem('mastiff_user', JSON.stringify(data.user));
             router.push('/');
-        } catch (err: any) {
+        } catch {
             setError('Network error. Please try again.');
         } finally {
             setIsLoading(false);
@@ -95,7 +95,7 @@ export default function LoginPage() {
     return (
         <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
-                <div className="absolute left-[8%] top-[12%] h-80 w-80 rounded-full bg-sky-400/12 blur-[130px]" />
+                <div className="absolute left-[8%] top-[12%] h-80 w-80 rounded-full bg-sky-400/[0.12] blur-[130px]" />
                 <div className="absolute right-[10%] top-[10%] h-72 w-72 rounded-full bg-rose-400/10 blur-[130px]" />
                 <div className="absolute bottom-[8%] left-[38%] h-80 w-80 rounded-full bg-teal-400/10 blur-[150px]" />
             </div>
@@ -110,9 +110,9 @@ export default function LoginPage() {
                         </p>
 
                         <div className="mt-8 grid gap-3">
-                            <div className="rounded-3xl border border-white/10 bg-white/6 p-4">
+                            <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-400/14 text-sky-200">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-400/[0.14] text-sky-200">
                                         <BarChart3 size={18} />
                                     </div>
                                     <div>
@@ -122,9 +122,9 @@ export default function LoginPage() {
                                 </div>
                             </div>
 
-                            <div className="rounded-3xl border border-white/10 bg-white/6 p-4">
+                            <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-400/14 text-rose-200">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-400/[0.14] text-rose-200">
                                         <Sparkles size={18} />
                                     </div>
                                     <div>
@@ -134,9 +134,9 @@ export default function LoginPage() {
                                 </div>
                             </div>
 
-                            <div className="rounded-3xl border border-white/10 bg-white/6 p-4">
+                            <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-400/14 text-teal-200">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-400/[0.14] text-teal-200">
                                         <ShieldCheck size={18} />
                                     </div>
                                     <div>
@@ -163,7 +163,7 @@ export default function LoginPage() {
                             <>
                                 <a
                                     href="/api/auth/microsoft/start"
-                                    className="flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/6 py-3.5 text-xs font-bold uppercase tracking-[0.24em] text-white transition-all hover:border-sky-300/30 hover:bg-white/10"
+                                    className="flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-xs font-bold uppercase tracking-[0.24em] text-white transition-all hover:border-sky-300/30 hover:bg-white/10"
                                 >
                                     Continue with Microsoft
                                 </a>
@@ -181,7 +181,7 @@ export default function LoginPage() {
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-medium text-white placeholder:text-slate-500 transition-all focus:border-sky-300/38 focus:ring-1 focus:ring-sky-300/20"
+                                className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-medium text-white placeholder:text-slate-500 transition-all focus:border-sky-300/[0.38] focus:ring-1 focus:ring-sky-300/20"
                                 placeholder="you@company.com"
                                 required
                                 autoFocus
@@ -195,14 +195,14 @@ export default function LoginPage() {
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full rounded-2xl border border-white/10 bg-white/6 px-4 py-3 pr-12 text-sm font-medium text-white placeholder:text-slate-500 transition-all focus:border-sky-300/38 focus:ring-1 focus:ring-sky-300/20"
-                                    placeholder="••••••••"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 pr-12 text-sm font-medium text-white placeholder:text-slate-500 transition-all focus:border-sky-300/[0.38] focus:ring-1 focus:ring-sky-300/20"
+                                    placeholder="Enter your password"
                                     required
                                     minLength={6}
                                 />
                                 <button
                                     type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
+                                    onClick={() => setShowPassword((prev) => !prev)}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-white"
                                 >
                                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}

@@ -309,21 +309,30 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
     useEffect(() => {
         if (!chartRef.current || !data) return;
         setRenderError(null);
+        let loadTimeout: number | undefined;
 
         // Load Plotly from CDN if not present
         if (!(window as any).Plotly) {
             const script = document.createElement('script');
             script.src = 'https://cdn.plot.ly/plotly-2.35.0.min.js';
             script.async = true;
+            loadTimeout = window.setTimeout(() => {
+                if (!(window as any).Plotly) {
+                    setRenderError('Plotly runtime timed out, so Mastiff is switching to a local chart fallback.');
+                }
+            }, 3500);
             script.onload = () => {
+                if (loadTimeout) window.clearTimeout(loadTimeout);
                 setIsLoaded(true);
                 renderChart();
             };
             script.onerror = () => {
+                if (loadTimeout) window.clearTimeout(loadTimeout);
                 setRenderError('Failed to load Plotly runtime. Check network or ad-block settings.');
             };
             document.head.appendChild(script);
         } else {
+            if (loadTimeout) window.clearTimeout(loadTimeout);
             setIsLoaded(true);
             renderChart();
         }
@@ -1059,6 +1068,9 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
         }
 
         return () => {
+            if (loadTimeout) {
+                window.clearTimeout(loadTimeout);
+            }
             if ((window as any).Plotly && chartRef.current) {
                 try { (window as any).Plotly.purge(chartRef.current); } catch { }
             }
@@ -1144,8 +1156,8 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
 
     const chipBase = 'h-6 px-2.5 rounded-md border text-[9px] font-semibold font-mono uppercase tracking-[0.12em] transition-all';
     const chipClass = (active: boolean) => `${chipBase} ${active
-        ? 'bg-zinc-100 text-zinc-900 border-zinc-100 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]'
-        : 'bg-zinc-900/70 text-zinc-400 border-zinc-700/70 hover:text-zinc-100 hover:bg-zinc-800/90'
+        ? 'border-transparent bg-[linear-gradient(135deg,rgba(56,189,248,0.96),rgba(251,113,133,0.88))] text-white shadow-[0_10px_30px_rgba(56,189,248,0.18)]'
+        : 'border-white/10 bg-white/[0.04] text-slate-400 hover:border-sky-300/25 hover:bg-white/[0.08] hover:text-white'
         }`;
 
     return (
@@ -1157,19 +1169,19 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     aria-hidden="true"
                 />
             )}
-            <div className={`w-full rounded-2xl overflow-hidden border border-zinc-700/40 bg-zinc-950/75 shadow-[0_24px_80px_rgba(0,0,0,0.42)] animate-fade-in transition-all ${isExpanded ? 'relative h-full' : ''}`}>
+            <div className={`w-full overflow-hidden rounded-[28px] border border-sky-300/15 bg-[linear-gradient(180deg,rgba(15,24,40,0.96),rgba(7,14,25,0.84))] shadow-[0_24px_80px_rgba(2,6,23,0.32)] animate-fade-in transition-all ${isExpanded ? 'relative h-full' : ''}`}>
             {/* Header */}
-            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-zinc-800/60 bg-zinc-950/70">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[linear-gradient(180deg,rgba(10,18,32,0.84),rgba(9,15,27,0.72))] px-4 py-2.5">
                 <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#E50914]" />
-                    <span className="text-[8px] font-semibold font-mono text-zinc-400 uppercase tracking-[0.24em]">Interactive Analysis</span>
+                    <span className="h-2 w-2 rounded-full bg-[linear-gradient(135deg,#38BDF8,#FB7185,#2DD4BF)] shadow-[0_0_14px_rgba(56,189,248,0.45)]" />
+                    <span className="bg-[linear-gradient(135deg,#c7f2ff,#fecdd3,#b2f5ea)] bg-clip-text text-[8px] font-semibold font-mono uppercase tracking-[0.24em] text-transparent">Interactive Analysis</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                     {supportsPointWindow && (
                         <select
                             value={pointWindow}
                             onChange={(e) => setPointWindow(e.target.value as PointWindow)}
-                            className="h-7 rounded-md border border-zinc-700/80 bg-zinc-950/90 px-2 text-[10px] font-semibold font-mono text-zinc-300 focus:border-zinc-300/80 focus:outline-none"
+                            className="h-7 rounded-md border border-white/10 bg-white/[0.05] px-2 text-[10px] font-semibold font-mono text-slate-200 focus:border-sky-300/50 focus:outline-none"
                             title="Select visible sample window"
                         >
                             <option value="all">All points</option>
@@ -1178,19 +1190,19 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                             <option value="12">12 points</option>
                         </select>
                     )}
-                    <button onClick={handleResetZoom} title="Reset zoom" className="p-1.5 rounded-md border border-zinc-800 text-zinc-500 hover:text-zinc-100 hover:border-zinc-600 hover:bg-zinc-900 transition-all">
+                    <button onClick={handleResetZoom} title="Reset zoom" className="rounded-md border border-white/10 bg-white/[0.04] p-1.5 text-slate-400 transition-all hover:border-sky-300/30 hover:bg-white/[0.08] hover:text-white">
                         <RotateCcw size={12} />
                     </button>
-                    <button onClick={() => setIsExpanded(!isExpanded)} className="p-1.5 rounded-md border border-zinc-800 text-zinc-500 hover:text-zinc-100 hover:border-zinc-600 hover:bg-zinc-900 transition-all">
+                    <button onClick={() => setIsExpanded(!isExpanded)} className="rounded-md border border-white/10 bg-white/[0.04] p-1.5 text-slate-400 transition-all hover:border-sky-300/30 hover:bg-white/[0.08] hover:text-white">
                         {isExpanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
                     </button>
-                    <button onClick={handleExport} className="p-1.5 rounded-md border border-zinc-800 text-zinc-500 hover:text-zinc-100 hover:border-zinc-600 hover:bg-zinc-900 transition-all">
+                    <button onClick={handleExport} className="rounded-md border border-white/10 bg-white/[0.04] p-1.5 text-slate-400 transition-all hover:border-sky-300/30 hover:bg-white/[0.08] hover:text-white">
                         <Download size={12} />
                     </button>
                 </div>
             </div>
 
-            <div className="px-4 py-2 border-b border-zinc-800/60 bg-zinc-950/40 flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-white/10 bg-white/[0.02] px-4 py-2">
                 {supportsTimeAggregation && (
                     <>
                         {([
@@ -1339,14 +1351,14 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 {!isLoaded && (
                     <div className="w-full h-full flex items-center justify-center">
                         <div className="flex items-center gap-3">
-                            <div className="w-4 h-4 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin" />
-                            <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">Loading chart...</span>
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-sky-300 border-t-transparent" />
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Loading chart...</span>
                         </div>
                     </div>
                 )}
                 {renderError && fallbackVisualization && (
                     <div className="w-full h-full overflow-auto p-3 custom-scrollbar">
-                        <div className="mb-3 rounded-xl border border-amber-500/25 bg-amber-500/8 px-3 py-2 text-[10px] font-semibold text-amber-100">
+                        <div className="mb-3 rounded-xl border border-amber-500/25 bg-amber-500/[0.08] px-3 py-2 text-[10px] font-semibold text-amber-100">
                             Plotly interactive runtime was unavailable, so Mastiff switched to a local fallback chart.
                         </div>
                         <ChartRenderer viz={fallbackVisualization} />

@@ -4,8 +4,8 @@
 
 :root {
   --foreground-rgb: 236, 243, 255;
-  --background-start-rgb: 7, 14, 27;
-  --background-end-rgb: 6, 11, 21;
+  --background-start-rgb: 8, 18, 34;
+  --background-end-rgb: 5, 10, 20;
   --accent: #38BDF8;
   --accent-strong: #FB7185;
   --accent-soft: #2DD4BF;
@@ -29,11 +29,12 @@ body {
   color: rgb(var(--foreground-rgb));
   background-color: rgb(var(--background-end-rgb));
   background-image:
-    radial-gradient(circle at 12% 18%, rgba(56, 189, 248, 0.16), transparent 30%),
-    radial-gradient(circle at 84% 16%, rgba(251, 113, 133, 0.14), transparent 24%),
-    radial-gradient(circle at 72% 74%, rgba(45, 212, 191, 0.12), transparent 28%),
-    linear-gradient(145deg, #06101e 0%, #091522 34%, #08111d 100%);
-  font-family: "Aptos", "Trebuchet MS", "Segoe UI Variable Text", sans-serif;
+    radial-gradient(circle at 8% 14%, rgba(56, 189, 248, 0.24), transparent 28%),
+    radial-gradient(circle at 88% 12%, rgba(251, 113, 133, 0.2), transparent 24%),
+    radial-gradient(circle at 68% 76%, rgba(45, 212, 191, 0.18), transparent 26%),
+    radial-gradient(circle at 42% 52%, rgba(168, 85, 247, 0.09), transparent 20%),
+    linear-gradient(140deg, #061222 0%, #0b1830 38%, #08111f 100%);
+  font-family: "Aptos Display", "Aptos", "Trebuchet MS", "Segoe UI Variable Text", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   position: relative;
@@ -47,9 +48,9 @@ body::before {
   background-image:
     linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
-  background-size: 44px 44px;
+  background-size: 52px 52px;
   mask-image: radial-gradient(circle at center, black 34%, transparent 92%);
-  opacity: 0.22;
+  opacity: 0.18;
 }
 
 body::after {
@@ -88,25 +89,31 @@ body::after {
 
 /* === Glassmorphism === */
 .glass {
-  background: linear-gradient(180deg, rgba(14, 21, 36, 0.84), rgba(10, 15, 27, 0.72));
-  backdrop-filter: blur(24px) saturate(130%);
-  -webkit-backdrop-filter: blur(24px) saturate(130%);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background:
+    linear-gradient(180deg, rgba(16, 25, 43, 0.9), rgba(8, 14, 26, 0.76)),
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.09), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(251, 113, 133, 0.08), transparent 28%);
+  backdrop-filter: blur(24px) saturate(135%);
+  -webkit-backdrop-filter: blur(24px) saturate(135%);
+  border: 1px solid rgba(148, 163, 184, 0.16);
   box-shadow:
-    0 24px 70px rgba(2, 6, 23, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 26px 80px rgba(2, 6, 23, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .glass-hover:hover {
-  background: linear-gradient(180deg, rgba(18, 28, 46, 0.92), rgba(12, 18, 31, 0.8));
+  background:
+    linear-gradient(180deg, rgba(18, 28, 46, 0.94), rgba(12, 18, 31, 0.82)),
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.11), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(251, 113, 133, 0.1), transparent 28%);
   border-color: rgba(148, 163, 184, 0.24);
 }
 
 /* === Glow Effects === */
 .glow-accent {
   box-shadow:
-    0 0 24px rgba(56, 189, 248, 0.18),
-    0 0 72px rgba(251, 113, 133, 0.08);
+    0 0 28px rgba(56, 189, 248, 0.2),
+    0 0 88px rgba(251, 113, 133, 0.1);
 }
 
 .glow-accent-strong {

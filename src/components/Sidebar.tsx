@@ -706,12 +706,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }, [connectorSearch, connectors]);
     const configuredConnectorTypes = availableConnectorTypes.filter((type) => connectorsByType[type] > 0);
     const connectorBrandCards: Array<{ type: ConnectorType; label: string; accent: string; badge: string }> = [
-        { type: 'sheets', label: 'Sheets', accent: 'text-emerald-300 border-emerald-500/20 bg-emerald-500/8', badge: 'GS' },
-        { type: 'sharepoint', label: 'SharePoint', accent: 'text-sky-300 border-sky-500/20 bg-sky-500/8', badge: 'SP' },
-        { type: 'snowflake', label: 'Snowflake', accent: 'text-cyan-300 border-cyan-500/20 bg-cyan-500/8', badge: 'SF' },
-        { type: 'bigquery', label: 'BigQuery', accent: 'text-amber-300 border-amber-500/20 bg-amber-500/8', badge: 'BQ' },
-        { type: 'postgres', label: 'Postgres', accent: 'text-indigo-300 border-indigo-500/20 bg-indigo-500/8', badge: 'PG' },
-        { type: 'api', label: 'API', accent: 'text-rose-300 border-rose-500/20 bg-rose-500/8', badge: 'API' },
+        { type: 'sheets', label: 'Sheets', accent: 'text-emerald-300 border-emerald-500/20 bg-emerald-500/[0.08]', badge: 'GS' },
+        { type: 'sharepoint', label: 'SharePoint', accent: 'text-sky-300 border-sky-500/20 bg-sky-500/[0.08]', badge: 'SP' },
+        { type: 'snowflake', label: 'Snowflake', accent: 'text-cyan-300 border-cyan-500/20 bg-cyan-500/[0.08]', badge: 'SF' },
+        { type: 'bigquery', label: 'BigQuery', accent: 'text-amber-300 border-amber-500/20 bg-amber-500/[0.08]', badge: 'BQ' },
+        { type: 'postgres', label: 'Postgres', accent: 'text-indigo-300 border-indigo-500/20 bg-indigo-500/[0.08]', badge: 'PG' },
+        { type: 'api', label: 'API', accent: 'text-rose-300 border-rose-500/20 bg-rose-500/[0.08]', badge: 'API' },
     ];
     const uploadStatusLabel = uploadingFileNames.length > 0
         ? `Processing ${uploadingFileNames.length} file${uploadingFileNames.length === 1 ? '' : 's'}`
@@ -743,14 +743,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <p className="mt-1 text-lg font-black tracking-[-0.04em] text-white">
                                 {uploadedFiles.length + stagedFiles.length}
                             </p>
-                            <p className="text-[10px] text-slate-300/65">confirmed + staged</p>
+                            <p className="text-[10px] text-slate-300/[0.65]">confirmed + staged</p>
                         </div>
                         <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
                             <p className="text-[9px] font-black uppercase tracking-[0.24em] text-rose-200/70">Sources</p>
                             <p className="mt-1 text-lg font-black tracking-[-0.04em] text-white">
                                 {connectors.length}
                             </p>
-                            <p className="text-[10px] text-slate-300/65">live connectors</p>
+                            <p className="text-[10px] text-slate-300/[0.65]">live connectors</p>
                         </div>
                     </div>
                 </div>
@@ -791,7 +791,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </div>
 
                         {isUploading && (
-                            <div className="mb-2 space-y-2 rounded-2xl border border-sky-300/15 bg-sky-400/6 p-3 animate-fade-in">
+                            <div className="mb-2 animate-fade-in space-y-2 rounded-2xl border border-sky-300/[0.15] bg-sky-400/[0.06] p-3">
                                 <div className="flex items-center gap-2">
                                     <Loader2 size={12} className="animate-spin text-sky-300" />
                                     <span className="text-[9px] font-bold text-slate-100 uppercase tracking-[0.2em]">{uploadStatusLabel}</span>
@@ -857,7 +857,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     <div
                                         key={f.id}
                                         className={`group flex items-center gap-2.5 p-2.5 rounded-xl cursor-pointer transition-all ${activeFileIds.includes(f.id)
-                                            ? 'bg-[#E50914]/8 border border-[#E50914]/20'
+                                            ? 'border border-sky-300/20 bg-sky-400/[0.08]'
                                             : 'hover:bg-zinc-900/50'
                                             }`}
                                         onClick={() => onToggleFile(f.id)}
@@ -870,7 +870,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             <p className="text-[8px] text-zinc-600 font-medium">
                                                 {f.metadata?.row_count?.toLocaleString() || '?'} rows • {f.columns.length} cols
                                             </p>
-                                            <p className={`text-[8px] font-bold uppercase tracking-wide mt-1 ${activeFileIds.includes(f.id) ? 'text-[#ff6b6b]' : 'text-zinc-700'}`}>
+                                            <p className={`mt-1 text-[8px] font-bold uppercase tracking-wide ${activeFileIds.includes(f.id) ? 'text-sky-200' : 'text-zinc-700'}`}>
                                                 {activeFileIds.includes(f.id) ? 'Active in chat context' : 'Click to include in chat context'}
                                             </p>
                                         </div>
@@ -896,11 +896,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         ) : (
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="group w-full rounded-2xl border border-dashed border-slate-600/55 bg-white/5 p-4 text-center transition-all hover:-translate-y-[1px] hover:border-sky-300/40 hover:bg-sky-300/6"
+                                className="group w-full rounded-2xl border border-dashed border-slate-600/[0.55] bg-white/5 p-4 text-center transition-all hover:-translate-y-[1px] hover:border-sky-300/40 hover:bg-sky-300/[0.06]"
                             >
                                 <FileUp size={16} className="mx-auto mb-1.5 text-slate-400 transition-colors group-hover:text-sky-200" />
                                 <p className="text-[9px] font-bold text-slate-300 transition-colors group-hover:text-white">Upload files</p>
-                                <p className="mt-1 text-[10px] leading-tight text-slate-300/55">CSV, Excel, PDF, Word, text, JSON, TSV, and Parquet are supported. Multi-sheet or nested files may need cleanup after import.</p>
+                                <p className="mt-1 text-[10px] leading-tight text-slate-300/[0.55]">CSV, Excel, PDF, Word, text, JSON, TSV, and Parquet are supported. Multi-sheet or nested files may need cleanup after import.</p>
                             </button>
                         )}
                     </div>
@@ -915,7 +915,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 {onCreateConnector && (
                                     <button
                                         onClick={openCreateConnectorModal}
-                                        className="p-1.5 text-zinc-500 hover:text-[#E50914] transition-colors rounded"
+                                        className="rounded p-1.5 text-zinc-500 transition-colors hover:text-sky-300"
                                         title="Add connector"
                                     >
                                         <Plus size={14} />
@@ -924,7 +924,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 {onRefreshConnectors && (
                                     <button
                                         onClick={onRefreshConnectors}
-                                        className="p-1.5 text-zinc-500 hover:text-[#E50914] transition-colors rounded"
+                                        className="rounded p-1.5 text-zinc-500 transition-colors hover:text-sky-300"
                                         title="Refresh connectors"
                                     >
                                         <Database size={14} />
@@ -960,7 +960,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 {onCreateConnector && (
                                     <button
                                         onClick={openCreateConnectorModal}
-                                        className="px-2.5 py-1.5 rounded-lg border border-[#E50914]/30 bg-[#E50914]/10 text-[9px] font-extrabold uppercase tracking-widest text-[#ff6b6b] hover:text-white transition-colors"
+                                        className="rounded-lg border border-sky-300/30 bg-sky-400/10 px-2.5 py-1.5 text-[9px] font-extrabold uppercase tracking-widest text-sky-200 transition-colors hover:text-white"
                                     >
                                         <span className="inline-flex items-center gap-1.5">
                                             <Plus size={11} />
@@ -996,7 +996,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                         {isLoadingConnectors ? (
                             <div className="flex items-center gap-2 p-3 glass rounded-xl animate-fade-in">
-                                <Loader2 size={14} className="animate-spin text-[#E50914]" />
+                                <Loader2 size={14} className="animate-spin text-sky-300" />
                                 <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Loading connectors...</span>
                             </div>
                         ) : filteredConnectors.length > 0 ? (
@@ -1020,7 +1020,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             <button
                                                 onClick={() => onToggleLinkedConnector?.(connector.id)}
                                                 className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-colors flex items-center justify-center gap-1.5 ${linkedConnectorIds.includes(connector.id)
-                                                        ? 'border-[#E50914]/40 bg-[#E50914]/10 text-[#ff6b6b]'
+                                                        ? 'border-rose-300/35 bg-rose-400/10 text-rose-200'
                                                         : 'border-zinc-800 text-zinc-500 hover:text-white'
                                                     }`}
                                             >
@@ -1078,7 +1078,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                                 <label key={`${connector.id}-source-${sourceId}`} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${isFileLike ? 'cursor-pointer hover:bg-zinc-900/60' : 'opacity-70'}`}>
                                                                     <input
                                                                         type="checkbox"
-                                                                        className="accent-[#E50914]"
+                                                                        className="accent-sky-300"
                                                                         disabled={!isFileLike}
                                                                         checked={isSelected}
                                                                         onChange={() => toggleSourceSelection(connector.id, sourceId)}
@@ -1093,7 +1093,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                         {connector.type === 'sharepoint' && (
                                                             <button
                                                                 onClick={() => handleImportSelectedSources(connector.id)}
-                                                                className="w-full mt-1 px-2.5 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider border border-[#E50914]/40 bg-[#E50914]/10 text-[#ff6b6b] hover:text-white transition-colors disabled:opacity-60"
+                                                                className="mt-1 w-full rounded-lg border border-sky-300/35 bg-sky-400/10 px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-sky-200 transition-colors hover:text-white disabled:opacity-60"
                                                                 disabled={activeConnectorActionId === connector.id || (selectedSourceIdsByConnector[connector.id] || []).length === 0}
                                                             >
                                                                 Import Selected To Session
@@ -1132,7 +1132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 {onCreateConnector && (
                                     <button
                                         onClick={openCreateConnectorModal}
-                                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-[#E50914]/10 border border-[#E50914]/30 text-[10px] font-extrabold uppercase tracking-widest text-[#ff6b6b] hover:text-white transition-colors"
+                                        className="inline-flex items-center gap-2 rounded-xl border border-sky-300/30 bg-sky-400/10 px-3 py-2 text-[10px] font-extrabold uppercase tracking-widest text-sky-200 transition-colors hover:text-white"
                                     >
                                         <Plus size={12} /> Connect Now
                                     </button>
@@ -1162,11 +1162,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                 key={s.id}
                                                 onClick={() => onSwitchSession(s.id)}
                                                 className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-xl cursor-pointer transition-all ${currentSessionId === s.id
-                                                    ? 'bg-[#E50914]/8 border border-[#E50914]/20'
+                                                    ? 'border border-sky-300/20 bg-sky-400/[0.08]'
                                                     : 'hover:bg-zinc-900/50'
                                                     }`}
                                             >
-                                                <MessageSquare size={12} className={currentSessionId === s.id ? 'text-[#E50914]' : 'text-zinc-700'} />
+                                                <MessageSquare size={12} className={currentSessionId === s.id ? 'text-sky-300' : 'text-zinc-700'} />
                                                 <span className={`flex-1 text-[10px] font-semibold truncate ${currentSessionId === s.id ? 'text-white' : 'text-zinc-500'}`}>
                                                     {s.title || 'New Chat'}
                                                 </span>
@@ -1188,7 +1188,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* User Footer */}
                 <div className="p-3 border-t border-zinc-900/80 shrink-0">
                     <div className="flex items-center gap-2.5 p-2 rounded-xl">
-                        <div className="w-8 h-8 rounded-xl bg-zinc-900 flex items-center justify-center text-[10px] font-black text-[#E50914]">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900 text-[10px] font-black text-sky-300">
                             {currentUser.name.charAt(0)}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1285,7 +1285,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     <button
                                         type="button"
                                         onClick={() => setIsCredentialHelpOpen((prev) => !prev)}
-                                        className="text-zinc-600 hover:text-[#E50914] transition-colors"
+                                        className="text-zinc-600 transition-colors hover:text-sky-300"
                                         title="How to get these credentials"
                                     >
                                         <HelpCircle size={12} />
@@ -1299,7 +1299,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         <div className="space-y-1.5">
                                             {connectorCredentialGuides[connectorForm.type].fields.map((field) => (
                                                 <div key={field.name}>
-                                                    <span className="font-mono text-[#E50914]">{field.name}</span>
+                                                    <span className="font-mono text-sky-300">{field.name}</span>
                                                     <span className="text-zinc-500"> — </span>
                                                     <span>{field.description}</span>
                                                 </div>
@@ -1361,7 +1361,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                 type="button"
                                                 onClick={handleExchangeSharepointCode}
                                                 disabled={isSharepointOauthBusy || !sharepointAuthCode.trim()}
-                                                className="px-2.5 py-2 rounded-lg text-[9px] font-extrabold uppercase tracking-widest bg-[#E50914] text-white disabled:opacity-60"
+                                                className="rounded-lg bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(251,113,133,0.92))] px-2.5 py-2 text-[9px] font-extrabold uppercase tracking-widest text-white disabled:opacity-60"
                                             >
                                                 Exchange Code
                                             </button>
@@ -1376,7 +1376,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         type="checkbox"
                                         checked={connectorForm.isActive}
                                         onChange={(e) => setConnectorForm((prev) => ({ ...prev, isActive: e.target.checked }))}
-                                        className="accent-[#E50914]"
+                                        className="accent-sky-300"
                                     />
                                     Connector active
                                 </label>
@@ -1392,7 +1392,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </button>
                             <button
                                 onClick={handleSubmitConnector}
-                                className="px-3 py-2 rounded-xl text-[9px] font-extrabold uppercase tracking-widest bg-[#E50914] text-white hover:bg-[#ff1a25] flex items-center gap-1.5"
+                                className="flex items-center gap-1.5 rounded-xl bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(251,113,133,0.92))] px-3 py-2 text-[9px] font-extrabold uppercase tracking-widest text-white transition-all hover:brightness-110"
                             >
                                 <Save size={11} />
                                 {editingConnector ? 'Save Changes' : 'Create Connector'}
