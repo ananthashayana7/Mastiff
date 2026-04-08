@@ -68,6 +68,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
     const sparseColumns = activeFile.columns.filter((column) => (metadata?.columns?.[column]?.null_percentage || 0) >= 60);
     const likelyMergedCellIssue = (activeFile.type === 'xlsx' || activeFile.type === 'xls')
         && (suspiciousHeaderColumns.length > 0 || sparseColumns.length >= Math.ceil(Math.max(activeFile.columns.length, 1) / 3));
+    const schemaReviewNotes = metadata?.schema_review_notes || [];
 
     const toggleColumn = (columnName: string) => {
         if (!isPending) return;
@@ -154,7 +155,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                             Review the normalized sample before Mastiff uses this file in chat. The detected schema is inferred from the upload parser.
                         </p>
                         <p className="text-[10px] text-zinc-500 leading-relaxed">
-                            Data types are available now. Custom header row and sheet remapping still need a backend reparse hook.
+                            Data types, inferred header row, and sheet selection are already applied. Confirm the useful columns and Mastiff will activate the file immediately.
                         </p>
                     </div>
                 )}
@@ -177,6 +178,19 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                                 Suspicious headers: {suspiciousHeaderColumns.slice(0, 4).join(', ')}{suspiciousHeaderColumns.length > 4 ? '...' : ''}
                             </p>
                         )}
+                    </div>
+                )}
+
+                {schemaReviewNotes.length > 0 && (
+                    <div className="rounded-2xl border border-sky-300/20 bg-sky-400/[0.06] p-4 space-y-2">
+                        <p className="text-[8px] font-black text-sky-200 uppercase tracking-[3px]">Schema Review Notes</p>
+                        <div className="space-y-1.5">
+                            {schemaReviewNotes.slice(0, 4).map((note, index) => (
+                                <p key={`${activeFile.id}-schema-note-${index}`} className="text-[11px] leading-relaxed text-zinc-300">
+                                    {note}
+                                </p>
+                            ))}
+                        </div>
                     </div>
                 )}
 
@@ -218,6 +232,20 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                                     <span className="text-zinc-500">Size</span>
                                     <span className="text-white">{(activeFile.preview.length * activeFile.columns.length * 10).toLocaleString()} bytes (Est)</span>
                                 </div>
+                                {metadata?.sheet_name && (
+                                    <div className="p-3 flex justify-between items-center text-[10px] font-bold">
+                                        <span className="text-zinc-500">Active Sheet</span>
+                                        <span className="text-white">{metadata.sheet_name}</span>
+                                    </div>
+                                )}
+                                {(metadata?.dropped_empty_rows || metadata?.dropped_empty_columns) ? (
+                                    <div className="p-3 flex justify-between items-center text-[10px] font-bold">
+                                        <span className="text-zinc-500">Normalization</span>
+                                        <span className="text-white">
+                                            -{metadata?.dropped_empty_rows || 0} empty rows • -{metadata?.dropped_empty_columns || 0} empty cols
+                                        </span>
+                                    </div>
+                                ) : null}
                             </div>
                         </div>
 

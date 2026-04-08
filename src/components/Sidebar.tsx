@@ -724,30 +724,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <>
             {/* Mobile Overlay */}
             {isSidebarOpen && (
-                <div className="fixed inset-0 z-40 bg-slate-950/72 backdrop-blur-sm 2xl:hidden" onClick={onClose} />
+                <div className="fixed inset-0 z-40 bg-slate-950/72 backdrop-blur-sm xl:hidden" onClick={onClose} />
             )}
 
-            <aside className={`fixed inset-y-0 left-0 z-50 flex w-[min(360px,92vw)] flex-col border-r border-white/10 glass shadow-[0_30px_90px_rgba(2,6,23,0.3)] transition-transform duration-300 2xl:relative 2xl:w-[336px] ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full 2xl:translate-x-0'}`}>
+            <aside className={`fixed inset-y-0 left-0 z-50 flex w-[min(320px,92vw)] flex-col border-r border-white/10 glass shadow-[0_24px_80px_rgba(2,6,23,0.28)] transition-transform duration-300 xl:relative xl:w-[296px] 2xl:w-[316px] ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'}`}>
                 {/* Header */}
                 <div className="shrink-0 border-b border-white/8 p-4">
                     <div className="flex items-start justify-between gap-3">
                         <BrandLockup size={42} subtitle="Decision Cockpit" title="Mastiff" />
-                        <button onClick={onClose} className="rounded-xl p-2 text-slate-400 transition-colors hover:text-white 2xl:hidden">
+                        <button onClick={onClose} className="rounded-xl p-2 text-slate-400 transition-colors hover:text-white xl:hidden">
                             <X size={16} />
                         </button>
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2">
                             <p className="text-[9px] font-black uppercase tracking-[0.24em] text-sky-100/70">Datasets</p>
-                            <p className="mt-1 text-lg font-black tracking-[-0.04em] text-white">
+                            <p className="mt-1 text-base font-black tracking-[-0.04em] text-white">
                                 {uploadedFiles.length + stagedFiles.length}
                             </p>
                             <p className="text-[10px] text-slate-300/[0.65]">confirmed + staged</p>
                         </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
-                            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-teal-100/70">Sources</p>
-                            <p className="mt-1 text-lg font-black tracking-[-0.04em] text-white">
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2">
+                            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-emerald-100/70">Sources</p>
+                            <p className="mt-1 text-base font-black tracking-[-0.04em] text-white">
                                 {connectors.length}
                             </p>
                             <p className="text-[10px] text-slate-300/[0.65]">live connectors</p>
@@ -767,7 +767,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="p-3 shrink-0">
                     <button
                         onClick={onClearMessages}
-                        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-sky-300/20 bg-[linear-gradient(135deg,rgba(56,189,248,0.16),rgba(20,184,166,0.14),rgba(245,158,11,0.14))] px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.28em] text-white shadow-[0_18px_45px_rgba(8,15,30,0.24)] transition-all hover:-translate-y-[1px] hover:border-sky-300/30 hover:shadow-[0_24px_60px_rgba(8,15,30,0.32)] active:scale-[0.99]"
+                        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-sky-300/20 bg-[linear-gradient(135deg,rgba(59,130,246,0.14),rgba(16,185,129,0.12),rgba(245,158,11,0.1))] px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.28em] text-white shadow-[0_14px_36px_rgba(8,15,30,0.22)] transition-all hover:-translate-y-[1px] hover:border-sky-300/30 hover:shadow-[0_18px_46px_rgba(8,15,30,0.28)] active:scale-[0.99]"
                     >
                         <Plus size={14} /> New Chat
                     </button>
@@ -902,14 +902,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 ))}
                             </div>
                         ) : (
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="group w-full rounded-2xl border border-dashed border-slate-600/[0.55] bg-white/[0.04] p-4 text-center transition-all hover:-translate-y-[1px] hover:border-sky-300/40 hover:bg-sky-300/[0.06]"
-                            >
-                                <FileUp size={16} className="mx-auto mb-1.5 text-slate-400 transition-colors group-hover:text-sky-200" />
-                                <p className="text-[9px] font-bold text-slate-300 transition-colors group-hover:text-white">Upload files</p>
-                                <p className="mt-1 text-[10px] leading-tight text-slate-300/[0.55]">CSV, Excel, PDF, Word, text, JSON, TSV, and Parquet are supported. Multi-sheet or nested files may need cleanup after import.</p>
-                            </button>
+                            <div className="space-y-2">
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="group w-full rounded-2xl border border-dashed border-slate-600/[0.55] bg-white/[0.04] p-4 text-center transition-all hover:-translate-y-[1px] hover:border-sky-300/40 hover:bg-sky-300/[0.06]"
+                                >
+                                    <FileUp size={16} className="mx-auto mb-1.5 text-slate-400 transition-colors group-hover:text-sky-200" />
+                                    <p className="text-[9px] font-bold text-slate-300 transition-colors group-hover:text-white">Upload files</p>
+                                    <p className="mt-1 text-[10px] leading-tight text-slate-300/[0.55]">CSV, Excel, PDF, Word, text, JSON, TSV, and Parquet are supported. Blank rows and spacer columns are tolerated during import.</p>
+                                </button>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {connectorBrandCards.slice(0, 6).map((card) => (
+                                        <button
+                                            key={`ghost-${card.type}`}
+                                            onClick={openCreateConnectorModal}
+                                            className="rounded-xl border border-white/8 bg-white/[0.025] px-2 py-2 text-left opacity-70 transition-all hover:border-white/12 hover:opacity-100"
+                                        >
+                                            <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">{card.badge}</div>
+                                            <div className="mt-1 text-[10px] font-semibold text-slate-300">{card.label}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         )}
                     </div>
 
@@ -1367,7 +1381,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             />
                                             <button
                                                 type="button"
-                                                onClick={handleExchangeSharepointCode}
+                                                onClick={() => {
+                                                    void handleExchangeSharepointCode();
+                                                }}
                                                 disabled={isSharepointOauthBusy || !sharepointAuthCode.trim()}
                                                 className="rounded-lg bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(20,184,166,0.92),rgba(245,158,11,0.86))] px-2.5 py-2 text-[9px] font-extrabold uppercase tracking-widest text-white disabled:opacity-60"
                                             >

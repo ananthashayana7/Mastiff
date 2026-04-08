@@ -181,8 +181,8 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
     const [priceView, setPriceView] = useState<'candles' | 'line'>('candles');
 
     const MASTIFF_COLORWAY = [
-        '#38BDF8', '#14B8A6', '#F59E0B', '#818CF8', '#22C55E',
-        '#F97316', '#0EA5E9', '#A3E635', '#FACC15', '#06B6D4'
+        '#2563EB', '#0F766E', '#F59E0B', '#0EA5E9', '#14B8A6',
+        '#EA580C', '#84CC16', '#DC2626', '#0891B2', '#D97706'
     ];
 
     const parsedPayload = useMemo(() => {
@@ -1161,8 +1161,8 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
 
     const chipBase = 'h-6 px-2.5 rounded-md border text-[9px] font-semibold font-mono uppercase tracking-[0.12em] transition-all';
     const chipClass = (active: boolean) => `${chipBase} ${active
-        ? 'border-transparent bg-[linear-gradient(135deg,rgba(56,189,248,0.96),rgba(20,184,166,0.88),rgba(245,158,11,0.82))] text-white shadow-[0_10px_30px_rgba(56,189,248,0.18)]'
-        : 'border-white/10 bg-white/[0.04] text-slate-400 hover:border-sky-300/25 hover:bg-white/[0.08] hover:text-white'
+        ? 'border-transparent bg-[linear-gradient(135deg,rgba(37,99,235,0.96),rgba(13,148,136,0.88),rgba(245,158,11,0.82))] text-white shadow-[0_10px_30px_rgba(37,99,235,0.16)]'
+        : 'border-white/10 bg-white/[0.04] text-slate-400 hover:border-teal-300/25 hover:bg-white/[0.08] hover:text-white'
         }`;
 
     return (
@@ -1174,12 +1174,12 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     aria-hidden="true"
                 />
             )}
-            <div className={`w-full overflow-hidden rounded-[28px] border border-sky-300/15 bg-[linear-gradient(180deg,rgba(15,24,40,0.96),rgba(7,14,25,0.84))] shadow-[0_24px_80px_rgba(2,6,23,0.32)] animate-fade-in transition-all ${isExpanded ? 'relative h-full' : ''}`}>
+            <div className={`w-full overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(13,22,36,0.96),rgba(7,13,23,0.84))] shadow-[0_24px_80px_rgba(2,6,23,0.32)] animate-fade-in transition-all ${isExpanded ? 'relative h-full' : ''}`}>
             {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[linear-gradient(180deg,rgba(10,18,32,0.84),rgba(9,15,27,0.72))] px-4 py-2.5">
                 <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-[linear-gradient(135deg,#38BDF8,#F59E0B,#2DD4BF)] shadow-[0_0_14px_rgba(56,189,248,0.45)]" />
-                    <span className="bg-[linear-gradient(135deg,#c7f2ff,#99f6e4,#fcd34d)] bg-clip-text text-[8px] font-semibold font-mono uppercase tracking-[0.24em] text-transparent">Interactive Analysis</span>
+                    <span className="h-2 w-2 rounded-full bg-[linear-gradient(135deg,#2563EB,#0F766E,#F59E0B)] shadow-[0_0_14px_rgba(37,99,235,0.4)]" />
+                    <span className="bg-[linear-gradient(135deg,#dbeafe,#99f6e4,#fde68a)] bg-clip-text text-[8px] font-semibold font-mono uppercase tracking-[0.24em] text-transparent">Interactive Analysis</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                     {supportsPointWindow && (

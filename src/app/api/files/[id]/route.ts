@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const csrfValidation = await validateCSRFRequest(request);
   if (!csrfValidation.valid) {
@@ -23,13 +23,15 @@ export async function PATCH(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const payload = await request.json().catch(() => ({}));
   const selectedColumns = Array.isArray(payload?.selectedColumns)
     ? payload.selectedColumns.filter((value: unknown) => typeof value === 'string' && value.trim().length > 0)
     : [];
 
   const existing = await db.query.files.findFirst({
-    where: and(eq(files.id, params.id), eq(files.userId, user.id)),
+    where: and(eq(files.id, id), eq(files.userId, user.id)),
   });
 
   if (!existing) {
@@ -45,7 +47,7 @@ export async function PATCH(
 
   const [updated] = await db.update(files)
     .set({ metadata: nextMetadata })
-    .where(and(eq(files.id, params.id), eq(files.userId, user.id)))
+    .where(and(eq(files.id, id), eq(files.userId, user.id)))
     .returning();
 
   return NextResponse.json(updated);
@@ -53,12 +55,14 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const csrfValidation = await validateCSRFRequest(request);
   if (!csrfValidation.valid) {
     return NextResponse.json({ error: csrfValidation.error || 'Invalid CSRF token' }, { status: 403 });
   }
+
+  const { id } = await params;
 
   const user = await authenticateRequest(request);
   if (!user?.id) {
@@ -66,7 +70,7 @@ export async function DELETE(
   }
 
   const existing = await db.query.files.findFirst({
-    where: and(eq(files.id, params.id), eq(files.userId, user.id)),
+    where: and(eq(files.id, id), eq(files.userId, user.id)),
   });
 
   if (!existing) {
@@ -79,6 +83,6 @@ export async function DELETE(
     // Ignore missing temp files and continue DB cleanup.
   }
 
-  await db.delete(files).where(and(eq(files.id, params.id), eq(files.userId, user.id)));
+  await db.delete(files).where(and(eq(files.id, id), eq(files.userId, user.id)));
   return NextResponse.json({ success: true });
 }

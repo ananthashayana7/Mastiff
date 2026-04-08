@@ -49,6 +49,16 @@ export interface DataFile {
     validationStatus?: 'pending' | 'active';
     selectedColumns?: string[];
     extraction_warning?: string;
+    original_filename?: string;
+    sheet_name?: string;
+    sheet_names?: string[];
+    header_row_index?: number;
+    dropped_empty_rows?: number;
+    dropped_empty_columns?: number;
+    schema_review_notes?: string[];
+    duplicate_resolution?: 'none' | 'replaced' | 'versioned';
+    replaced_file_ids?: string[];
+    version_label?: string;
     columns: Record<string, {
       dtype: string;
       null_count: number;

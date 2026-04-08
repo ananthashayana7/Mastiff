@@ -88,67 +88,55 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     onCopy
 }) => {
     const [drawerHeight, setDrawerHeight] = useState(() => (
-        typeof window !== 'undefined' && window.innerHeight < 900 ? 160 : 192
+        typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.24) : 192
     ));
-    const [isDrawerCollapsed, setIsDrawerCollapsed] = useState(false);
+    const [isDrawerCollapsed, setIsDrawerCollapsed] = useState(() => (
+        typeof window !== 'undefined' && (window.innerHeight < 920 || window.innerWidth < 1440)
+    ));
+    const [isCompactViewport, setIsCompactViewport] = useState(() => (
+        typeof window !== 'undefined' && (window.innerHeight < 920 || window.innerWidth < 1440)
+    ));
     const [contextChangeNotice, setContextChangeNotice] = useState<string | null>(null);
     const resizeStateRef = useRef<{ startY: number; startHeight: number; pointerId: number } | null>(null);
     const previousActiveFilesRef = useRef<DataFile[]>(activeFiles);
 
     const starterPrompts = [
-        'Profile this dataset and flag data quality issues before analysis.',
-        'Summarize the top trends, anomalies, and recommended charts.',
-        'Which columns look most predictive, and what should I ask next?',
+        'Give me the sharpest management summary from these active datasets.',
+        'Show the top anomalies, forecast signals, and the actions I should take next.',
+        'Compare the active files and tell me where performance or rejection differs most.',
     ];
     const hasLoadedDatasets = files.some((file) => file.id !== 'sample-sales');
     const hasPendingDatasets = pendingFiles.length > 0;
 
+    useEffect(() => {
+        const handleViewportResize = () => {
+            const compact = window.innerHeight < 920 || window.innerWidth < 1440;
+            setIsCompactViewport(compact);
+
+            const minHeight = Math.floor(window.innerHeight * 0.2);
+            const maxHeight = Math.floor(window.innerHeight * 0.7);
+            const defaultHeight = Math.round(window.innerHeight * (compact ? 0.22 : 0.26));
+            setDrawerHeight((prev) => Math.min(maxHeight, Math.max(minHeight, prev || defaultHeight)));
+        };
+
+        handleViewportResize();
+        window.addEventListener('resize', handleViewportResize);
+        return () => window.removeEventListener('resize', handleViewportResize);
+    }, []);
+
     const renderAnalysisSteps = () => (
-        <div className="flex justify-start animate-fade-in">
-            <div className="glass min-w-[280px] max-w-[400px] rounded-2xl p-5 shadow-lg glow-accent">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(20,184,166,0.9),rgba(245,158,11,0.82))] text-white shadow-lg">
-                        {isSearchEnabled ? <Globe size={18} className="animate-pulse" /> : <BrainCircuit size={18} className="animate-pulse" />}
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-extrabold uppercase tracking-[2px] text-white">
-                            {isSearchEnabled ? 'Autonomous Research' : 'Engine Interrogation'}
-                        </p>
-                        <p className="text-[7px] font-bold text-zinc-600 uppercase tracking-widest mt-1">
-                            {activePersona.name} • {(MODE_CONFIG[analysisMode] || MODE_CONFIG.analysis).label}
-                        </p>
-                    </div>
+        <div className="mx-auto flex max-w-6xl justify-start animate-fade-in">
+            <div className="inline-flex max-w-[520px] items-center gap-3 rounded-full border border-white/10 bg-[linear-gradient(180deg,rgba(14,22,35,0.96),rgba(9,15,25,0.86))] px-4 py-3 shadow-[0_16px_50px_rgba(2,6,23,0.24)]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(37,99,235,0.96),rgba(13,148,136,0.88),rgba(245,158,11,0.82))] text-white shadow-lg">
+                    {isSearchEnabled ? <Globe size={16} className="animate-pulse" /> : <Loader2 size={16} className="animate-spin" />}
                 </div>
-
-                <div className="space-y-2.5">
-                    {[
-                        { label: 'Synthesizing Intelligence', active: true, done: true },
-                        { label: `${(MODE_CONFIG[analysisMode] || MODE_CONFIG.analysis).label} Environment Active`, active: true, done: false },
-                        { label: 'Interrogating Python Sandbox', active: false, done: false },
-                        { label: 'Formatting Forensic Insights', active: false, done: false },
-                    ].map((step, i) => (
-                        <div key={i} className="flex items-center gap-3">
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black transition-all ${step.done ? 'bg-green-500/20 text-green-400' : step.active ? 'bg-sky-400/20 text-sky-300' : 'bg-zinc-900 text-zinc-700'}`}>
-                                {step.done ? '✓' : step.active ? <Loader2 size={10} className="animate-spin" /> : (i + 1)}
-                            </div>
-                            <span className={`text-[10px] font-bold uppercase tracking-wider ${step.done ? 'text-green-400' : step.active ? 'text-white' : 'text-zinc-700'}`}>
-                                {step.label}
-                            </span>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-white/5 space-y-2 text-zinc-600">
-                    <p className="text-[7px] font-bold uppercase tracking-widest flex items-center gap-1.5">
-                        <Terminal size={10} /> Mode Effect: {analysisMode === 'analysis' ? 'Deep-interrogation / Statistical' : 'Conversational / Heuristic'}
+                <div className="min-w-0">
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-100">
+                        {isSearchEnabled ? 'Research + Analysis Running' : 'Analysis Running'}
                     </p>
-                    <p className="text-[7px] font-bold uppercase tracking-widest flex items-center gap-1.5">
-                        <Cpu size={10} /> Kernel: Stateful Python 3.11 Sandbox
+                    <p className="mt-1 text-[11px] leading-relaxed text-slate-300/75">
+                        Profiling active data, generating Python, and preparing charts plus actions.
                     </p>
-                </div>
-
-                <div className="mt-4 h-1 w-full bg-zinc-900 rounded-full overflow-hidden">
-                    <div className="h-full animate-shimmer bg-gradient-to-r from-sky-400 via-teal-300 to-amber-300" style={{ width: '40%' }} />
                 </div>
             </div>
         </div>
@@ -261,12 +249,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
     useEffect(() => {
         if (!isInsightsDrawerVisible) {
-            setIsDrawerCollapsed(false);
+            setIsDrawerCollapsed(isCompactViewport);
             return;
         }
 
-        setIsDrawerCollapsed(false);
-    }, [latestAssistantMessage?.id, isInsightsDrawerVisible]);
+        setIsDrawerCollapsed(isCompactViewport);
+    }, [isCompactViewport, latestAssistantMessage?.id, isInsightsDrawerVisible]);
 
     useEffect(() => {
         const previousActiveFiles = previousActiveFilesRef.current;
@@ -291,8 +279,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 return;
             }
 
-            const maxHeight = Math.max(220, Math.floor(window.innerHeight * 0.6));
-            const minHeight = 96;
+            const minHeight = Math.max(120, Math.floor(window.innerHeight * 0.2));
+            const maxHeight = Math.max(minHeight + 40, Math.floor(window.innerHeight * 0.7));
             const delta = resizeStateRef.current.startY - event.clientY;
             const nextHeight = Math.min(maxHeight, Math.max(minHeight, resizeStateRef.current.startHeight + delta));
             setDrawerHeight(nextHeight);
@@ -307,7 +295,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 return;
             }
 
-            if (drawerHeight < 132) {
+            const collapseThreshold = Math.max(132, Math.floor(window.innerHeight * 0.22));
+            if (drawerHeight <= collapseThreshold) {
                 setIsDrawerCollapsed(true);
             }
 
@@ -340,13 +329,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     return (
         <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
             {/* Header */}
-            <header className="z-20 mx-3 mt-3 flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.9),rgba(10,16,28,0.8))] px-4 py-3 shadow-[0_20px_70px_rgba(2,6,23,0.28)] backdrop-blur-xl sm:mx-4 sm:px-5 xl:mx-5 2xl:mx-6">
+            <header className="z-20 mx-2 mt-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,23,37,0.92),rgba(9,14,24,0.84))] px-3 py-2.5 shadow-[0_18px_55px_rgba(2,6,23,0.24)] backdrop-blur-xl sm:mx-3 sm:px-4 xl:mx-4 2xl:mx-5">
                 <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
                     <button className="rounded-xl p-2 text-slate-400 transition-colors hover:text-white 2xl:hidden" onClick={onToggleSidebar}>
                         <Menu size={18} />
                     </button>
 
-                    <div className="hidden min-w-0 md:flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+                    <div className="hidden min-w-0 lg:flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
                         <BrandMark size={34} />
                         <div className="min-w-0 max-w-[min(48vw,420px)]">
                             <p className="text-[9px] font-black uppercase tracking-[0.28em] text-sky-200/70">
@@ -428,83 +417,82 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </header>
 
             {/* Messages Area */}
-            <div ref={scrollRef} className="messages-container flex-1 space-y-4 overflow-y-auto px-3 py-4 custom-scrollbar sm:px-4 xl:px-5 2xl:px-7">
+            <div ref={scrollRef} className="messages-container flex-1 space-y-4 overflow-y-auto px-2 py-3 custom-scrollbar sm:px-3 xl:px-4 2xl:px-6">
                 {/* Welcome Screen */}
                 {messages.length === 0 && (
                     <div className="mx-auto flex h-full max-w-4xl flex-col items-center justify-center text-center animate-fade-in">
                         {!hasLoadedDatasets ? (
-                            <div className="w-full space-y-8">
+                            <div className="w-full space-y-5">
                                 {/* Logo & Title */}
                                 <div className="space-y-4">
                                     <BrandLockup
                                         align="center"
-                                        size={72}
+                                        size={60}
                                         title="Mastiff"
                                         className="justify-center"
                                     />
                                     <p className="mx-auto max-w-xl text-sm font-medium leading-relaxed text-slate-300/[0.78]">
-                                        Forecast-first analysis, drill-down charts, and crisp action points for the teams that need answers quickly.
+                                        Ask a question or upload data. Mastiff should respond with evidence, interactive charts, forecast signals, and crisp actions instead of static filler.
                                     </p>
                                 </div>
 
-                                <div className="grid grid-cols-1 gap-3 text-left sm:grid-cols-3">
-                                    <div className="rounded-3xl border border-white/10 bg-white/[0.06] px-4 py-4">
-                                        <TrendingUp size={18} className="text-sky-300" />
-                                        <p className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-sky-200/75">Forecast First</p>
-                                        <p className="mt-2 text-[13px] leading-relaxed text-slate-200/[0.88]">Lead with the next likely move, risk, and action instead of drowning in narrative.</p>
-                                    </div>
-                                    <div className="rounded-3xl border border-white/10 bg-white/[0.06] px-4 py-4">
-                                        <BarChart3 size={18} className="text-amber-300" />
-                                        <p className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-amber-200/75">Interactive Views</p>
-                                        <p className="mt-2 text-[13px] leading-relaxed text-slate-200/[0.88]">Use filters, range controls, and drill-down charts to move from headline to root cause.</p>
-                                    </div>
-                                    <div className="rounded-3xl border border-white/10 bg-white/[0.06] px-4 py-4">
-                                        <Database size={18} className="text-teal-300" />
-                                        <p className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-teal-200/75">File + Connector Native</p>
-                                        <p className="mt-2 text-[13px] leading-relaxed text-slate-200/[0.88]">Blend uploads and live sources without bouncing between tools or losing context.</p>
-                                    </div>
+                                <div className="flex flex-wrap items-center justify-center gap-2">
+                                    <span className="rounded-full border border-sky-300/25 bg-sky-400/[0.08] px-3 py-1.5 text-[10px] font-semibold text-slate-100">Forecast-first</span>
+                                    <span className="rounded-full border border-teal-300/25 bg-teal-400/[0.08] px-3 py-1.5 text-[10px] font-semibold text-slate-100">Interactive charts</span>
+                                    <span className="rounded-full border border-amber-300/25 bg-amber-400/[0.08] px-3 py-1.5 text-[10px] font-semibold text-slate-100">Actionable decisions</span>
                                 </div>
 
                                 {/* Upload Zone */}
                                 <div
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="group mx-auto max-w-2xl cursor-pointer rounded-[32px] border border-dashed border-slate-500/[0.45] bg-[linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] p-7 transition-all duration-300 hover:-translate-y-[1px] hover:border-sky-300/[0.45] hover:bg-sky-300/[0.06]"
+                                    className="group mx-auto max-w-2xl cursor-pointer rounded-[28px] border border-dashed border-slate-500/[0.38] bg-[linear-gradient(145deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-5 transition-all duration-300 hover:-translate-y-[1px] hover:border-emerald-300/[0.4] hover:bg-emerald-300/[0.05]"
                                 >
-                                    <div className="flex flex-col items-center gap-4">
-                                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950/70 transition-all group-hover:bg-sky-400/[0.12]">
-                                            <Upload size={22} className="text-slate-300 transition-colors group-hover:text-sky-200" />
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950/70 transition-all group-hover:bg-teal-400/[0.12]">
+                                            <Upload size={22} className="text-slate-300 transition-colors group-hover:text-teal-200" />
                                         </div>
                                         <div>
                                             <p className="text-xs font-black uppercase tracking-[0.26em] text-slate-100 transition-colors group-hover:text-white">
                                                 Drop files here or click to upload
                                             </p>
                                             <p className="mt-2 text-[11px] font-medium text-slate-300/70">
-                                                CSV • Excel • PDF • Word • Text • JSON • SharePoint-ready
+                                                CSV, Excel, PDF, Word, text, JSON, TSV, and SharePoint-linked sources
                                             </p>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Or type a message */}
-                                <p className="text-[9px] font-black uppercase tracking-[0.34em] text-slate-400/70">
-                                    Or start with a question below
-                                </p>
+                                <div className="flex flex-wrap items-center justify-center gap-2">
+                                    {[
+                                        'What are the most important risks and actions in this report?',
+                                        'Compare six assembly lines and tell me where rejection is rising fastest.',
+                                        'Profile this data and show the best starting charts.',
+                                    ].map((prompt) => (
+                                        <button
+                                            key={prompt}
+                                            onClick={() => onInputChange(prompt)}
+                                            className="rounded-full border border-white/10 bg-slate-950/45 px-3 py-1.5 text-[10px] font-semibold text-slate-300 transition-all hover:border-amber-300/30 hover:text-white"
+                                        >
+                                            {prompt}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         ) : (
                             /* Suggestions when files are loaded */
-                            <div className="w-full space-y-5">
-                                <div className="flex items-center justify-center gap-2">
-                                    <Zap size={16} className="text-sky-300" />
-                                    <h3 className="text-[10px] font-extrabold uppercase tracking-[0.3em] text-slate-300/75">Suggested Analyses</h3>
-                                </div>
+                            <div className="w-full max-w-4xl space-y-4">
                                 {hasPendingDatasets && (
-                                    <div className="mx-auto max-w-2xl rounded-2xl border border-amber-400/20 bg-amber-400/[0.08] px-4 py-3 text-left">
-                                        <p className="text-[9px] font-extrabold uppercase tracking-[2px] text-amber-200">New data staged</p>
+                                    <div className="mx-auto rounded-2xl border border-amber-400/20 bg-amber-400/[0.08] px-4 py-3 text-left">
+                                        <p className="text-[9px] font-extrabold uppercase tracking-[2px] text-amber-200">Data ready for schema review</p>
                                         <p className="mt-1 text-[11px] text-zinc-300 leading-relaxed">
                                             {pendingFiles.length} staged file{pendingFiles.length === 1 ? '' : 's'} detected. Suggestions are ready immediately, and you can still review the schema in the inspector before drilling deeper.
                                         </p>
                                     </div>
                                 )}
+                                <div className="flex items-center justify-center gap-2">
+                                    <Zap size={16} className="text-teal-300" />
+                                    <h3 className="text-[10px] font-extrabold uppercase tracking-[0.3em] text-slate-300/75">Suggested Analyses</h3>
+                                </div>
                                 {isLoadingSuggestions ? (
                                     <div className="w-full max-w-md mx-auto p-6 glass rounded-2xl relative overflow-hidden">
                                         <div className="absolute inset-0 animate-neural-scan bg-gradient-to-r from-transparent via-sky-400/[0.08] to-transparent -translate-x-full" />
@@ -519,15 +507,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-w-2xl mx-auto">
+                                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
                                         {suggestions.map((s, i) => (
                                             <button
                                                 key={i}
                                                 onClick={() => onSend(s)}
-                                                className="group rounded-2xl border border-white/10 bg-white/5 p-3.5 text-left transition-all hover:-translate-y-[1px] hover:border-sky-300/35 hover:bg-white/[0.08]"
+                                                className="group rounded-2xl border border-white/10 bg-white/5 p-3.5 text-left transition-all hover:-translate-y-[1px] hover:border-teal-300/35 hover:bg-white/[0.08]"
                                             >
                                                 <div className="flex items-start gap-2.5">
-                                                    <ArrowRight size={12} className="mt-0.5 shrink-0 text-sky-300 transition-colors group-hover:text-amber-200" />
+                                                    <ArrowRight size={12} className="mt-0.5 shrink-0 text-teal-300 transition-colors group-hover:text-amber-200" />
                                                     <p className="text-[11px] font-semibold leading-tight text-slate-200/[0.82] transition-colors group-hover:text-white">{s}</p>
                                                 </div>
                                             </button>
@@ -541,10 +529,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                 {/* Messages */}
                 {messages.map((m) => (
-                    <div key={m.id} className={`animate-fade-in ${m.role === 'user' ? 'flex justify-end' : 'w-full'}`}>
+                    <div key={m.id} className={`mx-auto max-w-5xl animate-fade-in ${m.role === 'user' ? 'flex justify-end' : 'w-full'}`}>
                         {m.role === 'user' ? (
                             /* ── USER BUBBLE ── */
-                            <div className="max-w-[min(100%,52rem)] rounded-[26px] border border-sky-300/18 bg-[linear-gradient(135deg,rgba(56,189,248,0.2),rgba(20,184,166,0.16),rgba(245,158,11,0.12))] px-5 py-3.5 text-white shadow-[0_10px_35px_rgba(8,47,73,0.28)] backdrop-blur-xl">
+                            <div className="max-w-[min(100%,52rem)] rounded-[26px] border border-teal-300/18 bg-[linear-gradient(135deg,rgba(37,99,235,0.18),rgba(13,148,136,0.16),rgba(245,158,11,0.1))] px-5 py-3.5 text-white shadow-[0_10px_35px_rgba(8,47,73,0.24)] backdrop-blur-xl">
                                 <div className="text-sm leading-relaxed font-medium">{m.content}</div>
                             </div>
                         ) : (
@@ -609,9 +597,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                             <div className="w-full overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-950/50 p-4">
                                                                 {typeof m.visualization === 'string' ? (
                                                                     <img src={m.visualization} alt="Visual Analysis" className="h-auto w-full rounded-xl" />
-                                                                ) : (
+                                                                ) : m.visualization ? (
                                                                     <ChartRenderer viz={m.visualization} onDrillDown={onSend} />
-                                                                )}
+                                                                ) : null}
                                                             </div>
                                                         )}
                                                     </div>
@@ -741,7 +729,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                 <Table size={10} /> Result
                                             </p>
                                             <div className="p-3 bg-zinc-950/80 rounded-xl border border-zinc-800/50">
-                                                <pre className="font-mono text-[10px] text-zinc-300 whitespace-pre-wrap leading-relaxed overflow-x-auto custom-scrollbar">{m.result.output}</pre>
+                                                <pre className="font-mono text-[10px] text-zinc-300 whitespace-pre-wrap leading-relaxed overflow-x-auto custom-scrollbar">{m.result?.output}</pre>
                                             </div>
                                         </div>
                                     )}
@@ -842,7 +830,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </div>
 
             {isInsightsDrawerVisible && (
-                <div className="shrink-0 px-4 sm:px-5 pb-2">
+                <div className="hidden shrink-0 px-3 pb-2 xl:block sm:px-4">
                     <div className="max-w-5xl mx-auto rounded-2xl border border-zinc-800/60 bg-zinc-950/75 backdrop-blur-sm overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
                         <div
                             onPointerDown={startDrawerResize}
@@ -967,12 +955,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             )}
 
             {/* Input Area */}
-            <div className="shrink-0 bg-gradient-to-t from-[#07111f] via-[#07111f]/94 to-transparent p-4 sm:p-5">
-                <div className="relative mx-auto max-w-5xl">
-                    <div className="mb-3 space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[8px] font-extrabold uppercase tracking-[0.24em] text-slate-400">Active Datasets</span>
-                            {activeFiles.length > 0 ? activeFiles.slice(0, 4).map((file) => (
+            <div className="shrink-0 bg-gradient-to-t from-[#06101c] via-[#07111f]/95 to-transparent p-3 sm:p-4">
+                <div className="relative mx-auto max-w-5xl space-y-2.5">
+                    <div className="space-y-2">
+                        <div className="overflow-x-auto custom-scrollbar">
+                            <div className="flex min-w-max items-center gap-2 pb-1">
+                            <span className="text-[8px] font-extrabold uppercase tracking-[0.24em] text-slate-400">Context</span>
+                            {activeFiles.length > 0 ? activeFiles.slice(0, isCompactViewport ? 3 : 4).map((file) => (
                                 <span
                                     key={file.id}
                                     className="inline-flex items-center gap-1 rounded-full border border-sky-300/20 bg-sky-400/[0.08] px-2.5 py-1 text-[9px] font-bold text-slate-100 transition-all hover:-translate-y-[1px] hover:border-sky-300/[0.38] hover:bg-sky-400/[0.12]"
@@ -981,10 +970,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     <span className="max-w-[140px] truncate">{file.name}</span>
                                 </span>
                             )) : (
-                                <span className="text-[10px] text-slate-400/70">No active files selected. Upload a dataset or enable one in the sidebar.</span>
+                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[9px] font-semibold text-slate-400/80">No active files selected yet</span>
                             )}
-                            {activeFiles.length > 4 && (
-                                <span className="text-[9px] font-bold text-slate-400">+{activeFiles.length - 4} more</span>
+                            {activeFiles.length > (isCompactViewport ? 3 : 4) && (
+                                <span className="text-[9px] font-bold text-slate-400">+{activeFiles.length - (isCompactViewport ? 3 : 4)} more</span>
                             )}
                             {hasPendingDatasets && (
                                 <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[9px] font-bold text-amber-100">
@@ -995,31 +984,29 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             {activeFiles.length > 1 && (
                                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-400/[0.1] px-2.5 py-1 text-[9px] font-bold text-emerald-100">
                                     <ScanSearch size={10} className="text-emerald-300" />
-                                    Cross-file comparison active
+                                    Cross-file
                                 </span>
                             )}
+                            </div>
                         </div>
 
-                        <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2">
-                                    <Gauge size={13} className="text-sky-300" />
-                                    <div>
-                                        <p className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-300">Context Meter</p>
-                                        <p className={`text-[10px] font-semibold mt-1 ${contextMeter.textTone}`}>
-                                            {contextMeter.status} load • {activeFiles.length} active file{activeFiles.length === 1 ? '' : 's'} • {contextMeter.totalEstimatedCells.toLocaleString()} estimated cells in scope
-                                        </p>
-                                    </div>
-                                </div>
-                                {contextMeter.status !== 'Comfortable' && (
-                                    <div className="text-right">
-                                        <p className="text-[9px] font-bold text-slate-100">Reduce active files or confirm fewer columns.</p>
-                                        <p className="text-[9px] text-slate-400/[0.75]">This keeps prompts inside a reliable analysis range.</p>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-950/70">
-                                <div className={`h-full ${contextMeter.tone}`} style={{ width: `${Math.max(contextMeter.percent * 100, activeFiles.length > 0 ? 8 : 0)}%` }} />
+                        <div className="overflow-x-auto custom-scrollbar">
+                            <div className="flex min-w-max items-center gap-2 pb-1">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[9px] font-bold text-slate-200">
+                                <Gauge size={10} className="text-sky-300" />
+                                {contextMeter.status}
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[9px] font-bold text-slate-200">
+                                {activeFiles.length} active file{activeFiles.length === 1 ? '' : 's'}
+                            </span>
+                            <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[9px] font-bold ${contextMeter.status === 'Crowded' ? 'border-amber-400/25 bg-amber-400/[0.08] text-amber-100' : 'border-white/10 bg-white/5 text-slate-200'}`}>
+                                {contextMeter.totalEstimatedCells.toLocaleString()} cells
+                            </span>
+                            {contextMeter.status !== 'Comfortable' && !isCompactViewport && (
+                                <span className="text-[9px] font-semibold text-amber-200/80">
+                                    Reduce active files or confirm fewer columns for tighter reasoning.
+                                </span>
+                            )}
                             </div>
                         </div>
 
@@ -1030,35 +1017,31 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         )}
 
                         {suggestions.length > 0 && hasLoadedDatasets && (
-                            <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
-                                <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <p className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-300">Suggested Questions</p>
-                                        <p className="mt-1 text-[10px] text-slate-400/[0.75]">Use these to move fast from uploaded data to decisions.</p>
-                                    </div>
-                                    {isLoadingSuggestions && (
-                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-400">
-                                            <Loader2 size={11} className="animate-spin" />
-                                            Refreshing
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                    {suggestions.slice(0, 6).map((prompt) => (
-                                        <button
-                                            key={prompt}
-                                            onClick={() => onSend(prompt)}
-                                            className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1.5 text-[10px] font-semibold text-slate-200/[0.9] transition-all hover:border-sky-300/35 hover:text-white"
-                                        >
-                                            {prompt}
-                                        </button>
-                                    ))}
+                            <div className="overflow-x-auto custom-scrollbar">
+                                <div className="flex min-w-max items-center gap-2 pb-1">
+                                <span className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-300">Suggested Questions</span>
+                                {isLoadingSuggestions && (
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-400">
+                                        <Loader2 size={11} className="animate-spin" />
+                                        Refreshing
+                                    </span>
+                                )}
+                                {suggestions.slice(0, isCompactViewport ? 4 : 6).map((prompt) => (
+                                    <button
+                                        key={prompt}
+                                        onClick={() => onSend(prompt)}
+                                        className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1.5 text-[10px] font-semibold text-slate-200/[0.9] transition-all hover:border-emerald-300/35 hover:text-white"
+                                    >
+                                        {prompt}
+                                    </button>
+                                ))}
                                 </div>
                             </div>
                         )}
 
                         {messages.length === 0 && activeFiles.length > 0 && (
-                            <div className="flex flex-wrap gap-2">
+                            <div className="overflow-x-auto custom-scrollbar">
+                                <div className="flex min-w-max gap-2 pb-1">
                                 {starterPrompts.map((prompt) => (
                                     <button
                                         key={prompt}
@@ -1068,6 +1051,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         {prompt}
                                     </button>
                                 ))}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -1079,8 +1063,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             </div>
                         </div>
                     )}
-                    <div className={`rounded-[30px] border p-[1px] transition-all duration-300 ${inputText ? 'border-sky-300/35 bg-[linear-gradient(135deg,rgba(56,189,248,0.42),rgba(13,148,136,0.24),rgba(245,158,11,0.18))] glow-accent' : 'border-white/10 bg-white/[0.08]'}`}>
-                        <div className="flex items-end gap-2.5 rounded-[29px] bg-[linear-gradient(180deg,rgba(15,22,39,0.95),rgba(9,14,24,0.9))] p-2.5 shadow-xl backdrop-blur-xl">
+                    <div className={`rounded-[26px] border p-[1px] transition-all duration-300 ${inputText ? 'border-sky-300/35 bg-[linear-gradient(135deg,rgba(59,130,246,0.34),rgba(16,185,129,0.16),rgba(245,158,11,0.12))] glow-accent' : 'border-white/10 bg-white/[0.08]'}`}>
+                        <div className="flex items-end gap-2 rounded-[25px] bg-[linear-gradient(180deg,rgba(15,22,39,0.95),rgba(9,14,24,0.9))] p-2 shadow-xl backdrop-blur-xl">
                             <button
                                 onClick={() => fileInputRef.current?.click()}
                                 className="rounded-2xl border border-white/10 bg-slate-950/60 p-2.5 text-slate-300 transition-all hover:border-sky-300/[0.28] hover:text-white"
@@ -1109,8 +1093,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             </button>
                         </div>
                     </div>
-                    <p className="mt-2 text-center text-[8px] font-medium text-slate-400/70">
-                        Mastiff can make mistakes. Verify important analyses, and use View Code on any answer to inspect the generated Python.
+                    <p className="mt-1.5 px-1 text-[8px] font-medium text-slate-400/70">
+                        Mastiff can make mistakes. Verify important analyses, and open View Code on any answer to inspect the generated Python.
                     </p>
                 </div>
             </div>

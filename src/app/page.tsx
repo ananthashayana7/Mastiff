@@ -641,6 +641,18 @@ const App: React.FC = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const removeFilesFromState = useCallback((fileIds: string[]) => {
+    if (fileIds.length === 0) {
+      return;
+    }
+
+    const ids = new Set(fileIds);
+    setFiles((prev) => prev.filter((file) => !ids.has(file.id)));
+    setPendingFiles((prev) => prev.filter((file) => !ids.has(file.id)));
+    setActiveFileIds((prev) => prev.filter((id) => !ids.has(id)));
+    setInspectingFileId((prev) => (prev && ids.has(prev) ? null : prev));
+  }, []);
+
   const uploadFiles = async (fileList: File[], targetSessionId?: string) => {
     if (!currentUser) return;
     const activeSessionId = targetSessionId || await ensureActiveSession();
@@ -654,47 +666,15 @@ const App: React.FC = () => {
       for (const file of fileList) {
         const normalizedName = file.name.trim().toLowerCase();
         const duplicates = existingFiles.filter((existing) => existing.name.trim().toLowerCase() === normalizedName);
-
-        if (duplicates.length > 0) {
-          const shouldReplace = window.confirm(`A dataset named "${file.name}" already exists in this session. Replace it with this upload?`);
-          if (!shouldReplace) {
-            continue;
-          }
-
-          for (const duplicate of duplicates) {
-            const deleteResponse = await csrfFetch(`/api/files/${duplicate.id}`, {
-              method: 'DELETE',
-              headers: buildAuthHeaders(currentUser.id),
-            });
-
-            if (!deleteResponse.ok) {
-              const payload = await deleteResponse.json().catch(() => ({}));
-              throw new Error(payload?.error || payload?.message || 'Failed to replace existing dataset');
-            }
-          }
-
-          const replacedActive = duplicates.some((existing) => activeFileIds.includes(existing.id));
-          setFiles((prev) => prev.filter((existing) => existing.name.trim().toLowerCase() !== normalizedName));
-          setPendingFiles((prev) => prev.filter((existing) => existing.name.trim().toLowerCase() !== normalizedName));
-          setActiveFileIds((prev) => prev.filter((id) => !duplicates.some((existing) => existing.id === id)));
-          setInspectingFileId((current) => duplicates.some((existing) => existing.id === current) ? null : current);
-          setMessages((prev) => ([
-            ...prev,
-            {
-              id: `${Date.now()}-replace-${normalizedName}`,
-              role: 'assistant',
-              timestamp: Date.now(),
-              content: replacedActive
-                ? `System Notice: Replaced the previous version of ${file.name}. It has been removed from active analysis context until you confirm the new upload.`
-                : `System Notice: Replaced the previous staged version of ${file.name}. Review the new upload before activating it.`
-            }
-          ]));
-        }
+        const uploadMode = duplicates.length > 0
+          ? (window.confirm(`A dataset named "${file.name}" already exists in this session.\n\nPress OK to replace it, or Cancel to keep both and store this upload as a new version.`) ? 'replace' : 'new_version')
+          : 'new_version';
 
         const formData = new FormData();
         formData.append('file', file);
         formData.append('userId', currentUser.id);
         formData.append('sessionId', activeSessionId);
+        formData.append('uploadMode', uploadMode);
 
         const res = await csrfFetch('/api/files/upload', {
           method: 'POST',
@@ -724,9 +704,18 @@ const App: React.FC = () => {
         }
 
         const dbFile = await res.json();
+        const replacedFileIds = Array.isArray(dbFile.replacedFileIds)
+          ? dbFile.replacedFileIds.filter((value: unknown): value is string => typeof value === 'string')
+          : [];
+        const duplicateResolution = String(dbFile.duplicateResolution || 'none');
+
+        if (replacedFileIds.length > 0) {
+          removeFilesFromState(replacedFileIds);
+        }
+
         const newFile: DataFile = {
           id: dbFile.id,
-          name: dbFile.filename,
+          name: dbFile.storedFilename || dbFile.filename,
           type: dbFile.fileType,
           content: '',
           preview: dbFile.metadata?.sample || [],
@@ -736,6 +725,42 @@ const App: React.FC = () => {
 
         setPendingFiles(prev => [...prev, newFile]);
         setInspectingFileId(dbFile.id);
+        setMessages((prev) => ([
+          ...prev,
+          {
+            id: `${Date.now()}-ready-${normalizedName}`,
+            role: 'assistant',
+            timestamp: Date.now(),
+            persona: 'System Notice',
+            content: `Ready: ${newFile.name} is staged for schema review. Confirm the inferred columns to activate it and trigger immediate charts, insights, and action suggestions.`,
+          }
+        ]));
+
+        if (duplicateResolution === 'replaced') {
+          const replacedActive = replacedFileIds.some((id: string) => activeFileIds.includes(id));
+          setMessages((prev) => ([
+            ...prev,
+            {
+              id: `${Date.now()}-replace-${normalizedName}`,
+              role: 'assistant',
+              timestamp: Date.now(),
+              content: replacedActive
+                ? `System Notice: Replaced the previous version of ${file.name}. It has been removed from active analysis context until you confirm the new upload.`
+                : `System Notice: Replaced the previous staged version of ${file.name}. Review the new upload before activating it.`
+            }
+          ]));
+        } else if (duplicateResolution === 'versioned' && newFile.name !== file.name) {
+          setMessages((prev) => ([
+            ...prev,
+            {
+              id: `${Date.now()}-version-${normalizedName}`,
+              role: 'assistant',
+              timestamp: Date.now(),
+              content: `System Notice: Kept the existing ${file.name} and staged this upload as ${newFile.name}. Confirm it when you're ready to compare versions together.`,
+              persona: 'System Notice',
+            }
+          ]));
+        }
       }
     } catch (err) {
       console.error("Upload error:", err);
@@ -807,6 +832,16 @@ const App: React.FC = () => {
     setFiles((prev) => [...prev, filteredFile]);
     setActiveFileIds((prev) => prev.includes(fileId) ? prev : [...prev, fileId]);
     setInspectingFileId(null);
+    setMessages((prev) => ([
+      ...prev,
+      {
+        id: `${Date.now()}-activate-${fileId}`,
+        role: 'assistant',
+        timestamp: Date.now(),
+        persona: 'System Notice',
+        content: `${filteredFile.name} is active. Mastiff is generating an initial analysis with charts, forecast signals, and recommended actions now.`,
+      }
+    ]));
 
     const autoPrompt = buildUploadAutoPrompt(
       confirmedFiles.map((file) => file.name),
@@ -830,10 +865,9 @@ const App: React.FC = () => {
         console.error('Failed to delete pending file:', error);
       });
 
-      setPendingFiles((prev) => prev.filter((file) => file.id !== fileId));
-      setInspectingFileId((prev) => prev === fileId ? null : prev);
+      removeFilesFromState([fileId]);
     })();
-  }, [buildAuthHeaders, currentUser?.id]);
+  }, [buildAuthHeaders, currentUser?.id, removeFilesFromState]);
 
   // ===== DRAG & DROP =====
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -955,7 +989,19 @@ const App: React.FC = () => {
 
   const stopAnalysis = useCallback(() => {
     chatAbortControllerRef.current?.abort();
-  }, []);
+
+    if (!sessionId || !currentUser) {
+      return;
+    }
+
+    void csrfFetch('/api/chat/cancel', {
+      method: 'POST',
+      headers: buildAuthHeaders(currentUser.id, true),
+      body: JSON.stringify({ sessionId }),
+    }).catch((error) => {
+      console.error('Failed to cancel active analysis kernel:', error);
+    });
+  }, [buildAuthHeaders, currentUser, sessionId]);
 
   const inspectInsight = useCallback((term: string) => {
     const normalizedTerm = term.trim().toLowerCase();
@@ -1012,10 +1058,7 @@ const App: React.FC = () => {
         console.error('Failed to delete file:', error);
       });
 
-      setFiles(prev => prev.filter(f => f.id !== id));
-      setActiveFileIds(prev => prev.filter(fid => fid !== id));
-      setPendingFiles(prev => prev.filter(f => f.id !== id));
-      setInspectingFileId(prev => prev === id ? null : prev);
+      removeFilesFromState([id]);
 
       if (targetFile && wasActive) {
         setMessages((prev) => [...prev, {

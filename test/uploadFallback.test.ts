@@ -66,4 +66,25 @@ describe('buildTabularMetadataFallback', () => {
       { column_1: 'S4 Line Rejection', column_2: '12', column_3: 'Critical' },
     ]);
   });
+
+  it('skips title rows and picks the richer header row in messy xlsx sheets', async () => {
+    const filePath = await createWorkbookFile([
+      ['Assembly Line Dashboard', null, null],
+      [null, null, null],
+      ['Shift', 'RejectedQty', 'YieldPct'],
+      ['Shift 1', 4, 98],
+      ['Shift 2', 7, 96],
+    ]);
+
+    const metadata = await buildTabularMetadataFallback(filePath, 'assembly-line.xlsx', '.xlsx');
+
+    expect(metadata.row_count).toBe(2);
+    expect(metadata.column_count).toBe(3);
+    expect(metadata.header_row_index).toBe(1);
+    expect(metadata.dropped_empty_rows).toBeGreaterThanOrEqual(1);
+    expect(metadata.sample).toEqual([
+      { Shift: 'Shift 1', RejectedQty: '4', YieldPct: '98' },
+      { Shift: 'Shift 2', RejectedQty: '7', YieldPct: '96' },
+    ]);
+  });
 });

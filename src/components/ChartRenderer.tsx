@@ -14,9 +14,9 @@ import { Download, Table as TableIcon, FileText, ArrowUp, ArrowDown, Search, Fil
 import html2canvas from 'html2canvas';
 
 const COLORS = [
-  '#38BDF8', '#14B8A6', '#F59E0B', '#818CF8', '#22C55E',
-  '#F97316', '#0EA5E9', '#A3E635', '#FACC15', '#06B6D4',
-  '#1D4ED8', '#60A5FA', '#34D399', '#F97316', '#C084FC',
+  '#2563EB', '#0F766E', '#F59E0B', '#0EA5E9', '#14B8A6',
+  '#EA580C', '#84CC16', '#DC2626', '#0891B2', '#D97706',
+  '#1D4ED8', '#60A5FA', '#34D399', '#F97316', '#B45309',
   '#8C564B', '#17BECF', '#BCBD22', '#FF7F0E', '#7F7F7F'
 ];
 

@@ -105,7 +105,8 @@ session_state = {
     'dfs': {},
     'file_sources': {},
     'variables': {},
-    'history': []
+    'history': [],
+    'active_scope_signature': None,
 }
 
 
@@ -207,7 +208,7 @@ def load_files(files_json_str: str):
     except (json.JSONDecodeError, TypeError):
         return []
 
-    requested_keys = []
+    requested_files = []
 
     for f in files:
         filepath = f.get('path', '')
@@ -217,7 +218,12 @@ def load_files(files_json_str: str):
             continue
 
         file_key = _build_file_key(file_id, name, filepath)
-        requested_keys.append(file_key)
+        requested_files.append({
+            'file_key': file_key,
+            'path': filepath,
+            'name': name,
+            'id': file_id,
+        })
 
         cached_path = session_state['file_sources'].get(file_key)
         cached_df = session_state['dfs'].get(file_key)
@@ -318,7 +324,7 @@ def load_files(files_json_str: str):
             session_state['file_sources'][file_key] = filepath
             _set_name_alias(name, filepath, failure_df)
 
-    return requested_keys
+    return requested_files
 
 
 def execute_request(request: dict) -> dict:
@@ -327,35 +333,40 @@ def execute_request(request: dict) -> dict:
     files_json = request.get('files_json', '[]')
 
     # Load any new files
-    requested_keys = load_files(files_json)
+    requested_files = load_files(files_json)
+    scope_signature = json.dumps(sorted(item['file_key'] for item in requested_files))
 
-    dfs = session_state['dfs']
-    df = pd.DataFrame()
-    requested_dfs = [
-        dfs.get(key) for key in requested_keys
-        if _is_usable_frame(dfs.get(key))
-    ]
+    if session_state.get('active_scope_signature') != scope_signature:
+        session_state['variables'] = {}
+        session_state['active_scope_signature'] = scope_signature
+
+    active_dfs = {}
+    active_file_sources = {}
+    requested_dfs = []
     dataset_catalog = []
 
-    for key, candidate in dfs.items():
+    for item in requested_files:
+        file_key = item['file_key']
+        candidate = session_state['dfs'].get(file_key)
         if not _is_usable_frame(candidate):
             continue
+
+        requested_dfs.append(candidate)
+        active_dfs[file_key] = candidate
+        active_file_sources[file_key] = item['path']
+        active_dfs[item['name']] = candidate
+        active_file_sources[item['name']] = item['path']
         dataset_catalog.append({
-            'source_key': key,
-            'path': session_state['file_sources'].get(key),
+            'source_key': file_key,
+            'display_name': item['name'],
+            'path': item['path'],
             'rows': int(len(candidate)),
             'columns': list(map(str, list(candidate.columns))),
             'column_count': int(len(candidate.columns)),
         })
 
-    if requested_dfs:
-        df = requested_dfs[0]
-    elif dfs:
-        usable_df = next(
-            (candidate for candidate in dfs.values() if _is_usable_frame(candidate)),
-            None,
-        )
-        df = usable_df if usable_df is not None else pd.DataFrame()
+    dfs = active_dfs
+    df = requested_dfs[0] if requested_dfs else pd.DataFrame()
 
     # Build execution namespace with all available tools
     namespace = {
@@ -363,7 +374,7 @@ def execute_request(request: dict) -> dict:
         'np': np,
         'dfs': dfs,
         'df': df,
-        'file_sources': session_state['file_sources'],
+        'file_sources': active_file_sources,
         'dataset_catalog': dataset_catalog,
         'result': None,
         'plotly_json': [],
