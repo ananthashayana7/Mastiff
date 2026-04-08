@@ -123,12 +123,12 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
       <div ref={containerRef} className="w-full glass rounded-2xl overflow-hidden shadow-2xl animate-fade-in">
         <div className="px-5 py-3.5 border-b border-zinc-800/50 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-1.5 bg-[#E50914] text-white rounded-lg shadow-lg"><TableIcon size={14} /></div>
+            <div className="rounded-lg bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(20,184,166,0.88),rgba(245,158,11,0.82))] p-1.5 text-white shadow-lg"><TableIcon size={14} /></div>
             <h3 className="text-[11px] font-extrabold text-white uppercase tracking-wider">{title}</h3>
             <span className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">{processedData.length} rows</span>
           </div>
           <div className="flex gap-1.5">
-            <button onClick={() => setIsFilterActive(!isFilterActive)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all text-[8px] font-extrabold uppercase tracking-widest ${isFilterActive ? 'bg-[#E50914] text-white' : 'glass text-zinc-500 hover:text-white'}`}>
+            <button onClick={() => setIsFilterActive(!isFilterActive)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all text-[8px] font-extrabold uppercase tracking-widest ${isFilterActive ? 'bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(20,184,166,0.88))] text-white' : 'glass text-zinc-500 hover:text-white'}`}>
               <Filter size={11} /> Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
             </button>
             <button onClick={handleExportCSV} className="flex items-center gap-1.5 px-2.5 py-1.5 glass rounded-lg text-zinc-500 hover:text-white transition-all text-[8px] font-extrabold uppercase tracking-widest"><Download size={11} /> CSV</button>
@@ -143,7 +143,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
                 placeholder={`Filter ${h}...`}
                 value={filters[h] || ''}
                 onChange={e => setFilters(prev => ({ ...prev, [h]: e.target.value }))}
-                className="flex-1 px-2.5 py-1.5 bg-zinc-900/80 border border-zinc-800 rounded-lg text-[9px] text-white font-medium placeholder:text-zinc-700 focus:border-[#E50914]/50"
+                className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900/80 px-2.5 py-1.5 text-[9px] font-medium text-white placeholder:text-zinc-700 focus:border-sky-300/50"
               />
             ))}
             <button onClick={() => setFilters({})} className="p-1.5 text-zinc-600 hover:text-white"><X size={12} /></button>
@@ -164,7 +164,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
             </thead>
             <tbody className="divide-y divide-zinc-900/50">
               {processedData.map((row, i) => (
-                <tr key={i} className="hover:bg-[#E50914]/3 transition-colors cursor-pointer" onClick={() => handleDataClick(row)}>
+                <tr key={i} className="cursor-pointer transition-colors hover:bg-sky-400/[0.04]" onClick={() => handleDataClick(row)}>
                   {headers.map(h => <td key={h} className="px-5 py-3 whitespace-nowrap text-zinc-400 text-[11px] font-medium">{row[h]}</td>)}
                 </tr>
               ))}
@@ -205,7 +205,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
                 <LabelList dataKey={key} position="top" style={{ fontSize: '8px', fill: '#888', fontWeight: 700 }} />
               </Bar>
             ))}
-            <Brush dataKey={config.xAxis} height={20} stroke="#636EFA" fill="#0a0a0a" />
+            <Brush dataKey={config.xAxis} height={20} stroke="#38BDF8" fill="#0a0a0a" />
           </BarChart>
         );
       case 'composedbar':
@@ -226,7 +226,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
                 <Line key={key} type="monotone" dataKey={key} stroke={COLORS[i % COLORS.length]} strokeWidth={2.5} dot={{ r: 3, strokeWidth: 0, fill: COLORS[i % COLORS.length] }} animationDuration={1200} />
               )
             ))}
-            <Brush dataKey={config.xAxis} height={20} stroke="#636EFA" fill="#0a0a0a" />
+            <Brush dataKey={config.xAxis} height={20} stroke="#38BDF8" fill="#0a0a0a" />
           </ComposedChart>
         );
       case 'line':
@@ -243,7 +243,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
             {config.keys?.map((key, i) => (
               <Line key={key} type="monotone" dataKey={key} stroke={COLORS[i % COLORS.length]} strokeWidth={2.5} dot={{ r: 3, strokeWidth: 0, fill: COLORS[i % COLORS.length] }} activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }} animationDuration={1200} />
             ))}
-            <Brush dataKey={config.xAxis} height={20} stroke="#636EFA" fill="#0a0a0a" />
+            <Brush dataKey={config.xAxis} height={20} stroke="#38BDF8" fill="#0a0a0a" />
           </LineChart>
         );
       case 'area':
@@ -291,7 +291,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
             <YAxis type="number" dataKey={config.yAxis} name={config.yAxis} {...axisProps} />
             <ZAxis range={[40, 250]} />
             <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={tooltipStyle as any} />
-            <Scatter name="Data" data={data} fill="#636EFA" onClick={(e) => handleDataClick(e)} shape="circle" />
+            <Scatter name="Data" data={data} fill="#14B8A6" onClick={(e) => handleDataClick(e)} shape="circle" />
           </ScatterChart>
         );
       case 'radar':
@@ -405,7 +405,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-extrabold text-white tracking-tight flex items-center gap-2">
-            <span className="h-5 w-1 rounded-full bg-[linear-gradient(180deg,#38BDF8,#F59E0B,#2DD4BF)]" />
+            <span className="h-5 w-1 rounded-full bg-[linear-gradient(180deg,#38BDF8,#14B8A6,#F59E0B)]" />
             {title}
           </h3>
           <p className="ml-3 mt-0.5 flex items-center gap-1 text-[8px] font-bold uppercase tracking-[2px] text-slate-400">

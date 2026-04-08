@@ -105,10 +105,10 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
     };
 
     return (
-        <aside className="fixed inset-y-0 right-0 w-full max-w-[26rem] bg-black border-l border-zinc-900 flex flex-col z-[130] animate-in slide-in-from-right shadow-2xl">
-            <div className="p-5 flex items-center justify-between border-b border-zinc-900 bg-black/50 backdrop-blur-md shrink-0">
+        <aside className="fixed inset-y-0 right-0 z-[130] flex w-full max-w-[min(30rem,100vw)] flex-col border-l border-white/10 bg-[linear-gradient(180deg,rgba(8,14,25,0.98),rgba(5,10,18,0.96))] shadow-2xl animate-in slide-in-from-right">
+            <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-950/50 p-5 backdrop-blur-md">
                 <div className="flex items-center gap-2.5">
-                    <div className="p-2 bg-[#E50914]/10 rounded-lg text-[#E50914]">
+                    <div className="rounded-lg bg-sky-400/10 p-2 text-sky-300">
                         <Info size={18} />
                     </div>
                     <div>
@@ -126,7 +126,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                     <button
                         key={f.id}
                         onClick={() => setInternalFileId(f.id)}
-                        className={`flex-none px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${activeFile.id === f.id ? 'bg-[#E50914] border-[#E50914] text-white shadow-[0_0_10px_rgba(229,9,20,0.3)]' : 'bg-black border-zinc-800 text-zinc-500 hover:text-white'}`}
+                        className={`flex-none rounded-lg border px-3 py-1.5 text-[8px] font-black uppercase tracking-widest transition-all ${activeFile.id === f.id ? 'border-sky-300/35 bg-[linear-gradient(135deg,rgba(56,189,248,0.18),rgba(20,184,166,0.16),rgba(245,158,11,0.14))] text-white shadow-[0_0_10px_rgba(56,189,248,0.18)]' : 'border-zinc-800 bg-black text-zinc-500 hover:text-white'}`}
                     >
                         {f.name}
                     </button>
@@ -138,7 +138,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`flex-1 py-2 px-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-[#E50914] text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'
+                        className={`flex-1 rounded-lg px-1 py-2 text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(20,184,166,0.88))] text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'
                             }`}
                     >
                         {tab}
@@ -181,8 +181,8 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                 )}
 
                 {normalizedFocusTerm && (
-                    <div className="rounded-2xl border border-[#E50914]/20 bg-[#E50914]/6 p-4 space-y-2">
-                        <p className="text-[8px] font-black text-[#ff6b6b] uppercase tracking-[3px]">Focused Inspection</p>
+                    <div className="rounded-2xl border border-sky-300/20 bg-sky-400/[0.06] p-4 space-y-2">
+                        <p className="text-[8px] font-black text-sky-200 uppercase tracking-[3px]">Focused Inspection</p>
                         <p className="text-[11px] text-zinc-300 leading-relaxed">
                             Filtering the sample for matches related to <span className="font-mono text-zinc-100">{focusTerm}</span>.
                         </p>
@@ -198,12 +198,12 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                             <div className="p-3 bg-zinc-900/40 rounded-2xl border border-zinc-800/50 text-center space-y-1">
                                 <p className="text-[7px] font-black text-zinc-500 uppercase tracking-widest">Total Rows</p>
                                 <p className="text-lg font-black text-white">{metadata?.row_count.toLocaleString() || activeFile.preview.length}+</p>
-                                <Database size={12} className="mx-auto text-[#E50914] opacity-50" />
+                                <Database size={12} className="mx-auto text-sky-300 opacity-60" />
                             </div>
                             <div className="p-3 bg-zinc-900/40 rounded-2xl border border-zinc-800/50 text-center space-y-1">
                                 <p className="text-[7px] font-black text-zinc-500 uppercase tracking-widest">Columns</p>
                                 <p className="text-lg font-black text-white">{metadata?.column_count || activeFile.columns.length}</p>
-                                <Table size={12} className="mx-auto text-[#E50914] opacity-50" />
+                                <Table size={12} className="mx-auto text-teal-300 opacity-60" />
                             </div>
                         </div>
 
@@ -262,7 +262,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                             const info = metadata?.columns[col];
                             const isSelected = selectedColumns.includes(col);
                             return (
-                                <div key={col} className={`group p-4 border rounded-2xl transition-all space-y-3 ${isPending && !isSelected ? 'bg-zinc-950/40 border-zinc-900 opacity-60' : 'bg-zinc-900/40 border-zinc-800 hover:border-[#E50914]/50'}`}>
+                                <div key={col} className={`group space-y-3 rounded-2xl border p-4 transition-all ${isPending && !isSelected ? 'border-zinc-900 bg-zinc-950/40 opacity-60' : 'border-zinc-800 bg-zinc-900/40 hover:border-sky-300/40'}`}>
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             {isPending && (
@@ -270,7 +270,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                                                     type="checkbox"
                                                     checked={isSelected}
                                                     onChange={() => toggleColumn(col)}
-                                                    className="accent-[#E50914]"
+                                                    className="accent-sky-300"
                                                 />
                                             )}
                                             <div className="p-1.5 bg-zinc-800 rounded-lg text-zinc-400 group-hover:text-white transition-colors">
@@ -290,7 +290,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                                                 </span>
                                             </div>
                                             <div className="h-1 w-full bg-zinc-950 rounded-full overflow-hidden">
-                                                <div className={`h-full ${info && info.null_percentage > 10 ? 'bg-red-500' : 'bg-[#E50914]'}`} style={{ width: `${info ? (100 - info.null_percentage) : 100}%` }} />
+                                                <div className={`h-full ${info && info.null_percentage > 10 ? 'bg-red-500' : 'bg-sky-400'}`} style={{ width: `${info ? (100 - info.null_percentage) : 100}%` }} />
                                             </div>
                                         </div>
                                         <div className="text-right">
@@ -312,7 +312,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                                 return (
                                     <div key={col} className="space-y-3">
                                         <div className="flex items-center gap-2 px-1">
-                                            <BarChart2 size={12} className="text-[#E50914]" />
+                                            <BarChart2 size={12} className="text-sky-300" />
                                             <span className="text-[10px] font-black text-white uppercase tracking-widest">{col}</span>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
@@ -338,7 +338,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                                             </div>
                                             <div className="relative h-6 flex items-center">
                                                 <div className="absolute inset-x-0 h-0.5 bg-zinc-800 rounded-full" />
-                                                <div className="absolute h-3 bg-[#E50914]/30 border-x border-[#E50914] rounded-sm"
+                                                <div className="absolute h-3 rounded-sm border-x border-sky-300 bg-sky-300/25"
                                                     style={{
                                                         left: `${((stats.q1 - stats.min) / (stats.max - stats.min)) * 100}%`,
                                                         right: `${100 - ((stats.q3 - stats.min) / (stats.max - stats.min)) * 100}%`
@@ -367,8 +367,8 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
 
                 {activeTab === 'workbench' && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <div className="p-4 bg-zinc-900/60 rounded-2xl border-2 border-dashed border-[#E50914]/20 text-center space-y-3">
-                            <Sparkles size={24} className="mx-auto text-[#E50914]" />
+                        <div className="space-y-3 rounded-2xl border-2 border-dashed border-sky-300/20 bg-zinc-900/60 p-4 text-center">
+                            <Sparkles size={24} className="mx-auto text-sky-300" />
                             <div>
                                 <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Data Workbench</h4>
                                 <p className="text-[7px] text-zinc-500 font-bold uppercase mt-1">Direct Manipulation & Cleaning</p>
@@ -389,9 +389,9 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                                             // Call global handleSend with the cleaning code
                                             (window as any).beagleCleanup?.(action.code, action.label);
                                         }}
-                                        className="p-3 bg-zinc-900/40 border border-zinc-800 rounded-xl hover:border-[#E50914] hover:bg-zinc-900/60 text-left transition-all group"
+                                        className="group rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 text-left transition-all hover:border-sky-300/40 hover:bg-zinc-900/60"
                                     >
-                                        <p className="text-[9px] font-black text-white uppercase group-hover:text-[#E50914] transition-colors">{action.label}</p>
+                                        <p className="text-[9px] font-black uppercase text-white transition-colors group-hover:text-sky-200">{action.label}</p>
                                         <p className="text-[7px] text-zinc-600 font-bold mt-0.5">{action.desc}</p>
                                     </button>
                                 ))}
@@ -409,7 +409,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                 )}
             </div>
 
-            <div className="p-4 bg-black border-t border-zinc-900">
+            <div className="border-t border-white/10 bg-slate-950/70 p-4">
                 {isPending ? (
                     <div className="grid grid-cols-3 gap-2">
                         <button
@@ -427,7 +427,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                         <button
                             onClick={() => onConfirmPendingFile?.(activeFile.id, selectedColumns)}
                             disabled={selectedColumns.length === 0}
-                            className="py-2.5 bg-[#E50914] text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-[#ff2430] transition-all border border-[#E50914] disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="rounded-xl border border-sky-300/30 bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(20,184,166,0.88),rgba(245,158,11,0.82))] py-2.5 text-[9px] font-black uppercase tracking-widest text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             Confirm & Analyze
                         </button>

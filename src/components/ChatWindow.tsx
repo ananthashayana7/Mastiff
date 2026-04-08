@@ -87,7 +87,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     onToggleLogs,
     onCopy
 }) => {
-    const [drawerHeight, setDrawerHeight] = useState(192);
+    const [drawerHeight, setDrawerHeight] = useState(() => (
+        typeof window !== 'undefined' && window.innerHeight < 900 ? 160 : 192
+    ));
     const [isDrawerCollapsed, setIsDrawerCollapsed] = useState(false);
     const [contextChangeNotice, setContextChangeNotice] = useState<string | null>(null);
     const resizeStateRef = useRef<{ startY: number; startHeight: number; pointerId: number } | null>(null);
@@ -103,9 +105,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
     const renderAnalysisSteps = () => (
         <div className="flex justify-start animate-fade-in">
-            <div className="glass rounded-2xl p-5 shadow-lg min-w-[300px] max-w-[400px] glow-accent">
+            <div className="glass min-w-[280px] max-w-[400px] rounded-2xl p-5 shadow-lg glow-accent">
                 <div className="flex items-center gap-3 mb-4">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(251,113,133,0.9),rgba(45,212,191,0.82))] text-white shadow-lg">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(20,184,166,0.9),rgba(245,158,11,0.82))] text-white shadow-lg">
                         {isSearchEnabled ? <Globe size={18} className="animate-pulse" /> : <BrainCircuit size={18} className="animate-pulse" />}
                     </div>
                     <div>
@@ -336,17 +338,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     };
 
     return (
-        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
+        <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
             {/* Header */}
-            <header className="mx-4 mt-4 flex shrink-0 items-center justify-between rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.88),rgba(11,16,29,0.72))] px-5 py-3 shadow-[0_20px_70px_rgba(2,6,23,0.28)] backdrop-blur-xl sm:mx-6 lg:mx-8 z-20">
-                <div className="flex items-center gap-3 overflow-hidden">
-                    <button className="rounded-xl p-2 text-slate-400 transition-colors hover:text-white md:hidden" onClick={onToggleSidebar}>
+            <header className="z-20 mx-3 mt-3 flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.9),rgba(10,16,28,0.8))] px-4 py-3 shadow-[0_20px_70px_rgba(2,6,23,0.28)] backdrop-blur-xl sm:mx-4 sm:px-5 xl:mx-5 2xl:mx-6">
+                <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
+                    <button className="rounded-xl p-2 text-slate-400 transition-colors hover:text-white 2xl:hidden" onClick={onToggleSidebar}>
                         <Menu size={18} />
                     </button>
 
-                    <div className="hidden sm:flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+                    <div className="hidden min-w-0 md:flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
                         <BrandMark size={34} />
-                        <div className="min-w-0">
+                        <div className="min-w-0 max-w-[min(48vw,420px)]">
                             <p className="text-[9px] font-black uppercase tracking-[0.28em] text-sky-200/70">
                                 Analysis Cockpit
                             </p>
@@ -362,7 +364,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             onClick={onTogglePersonaMenu}
                             className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 transition-all hover:border-sky-300/30 hover:bg-white/[0.08]"
                         >
-                            <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-[linear-gradient(135deg,rgba(56,189,248,0.9),rgba(251,113,133,0.85))] text-[9px] font-black text-white shadow-sm">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-[linear-gradient(135deg,rgba(56,189,248,0.9),rgba(20,184,166,0.85),rgba(245,158,11,0.72))] text-[9px] font-black text-white shadow-sm">
                                 {activePersona.icon}
                             </span>
                             <span className="hidden text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-200 sm:inline">
@@ -377,7 +379,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         key={p.id}
                                         onClick={() => onSelectPersona(p)}
                                         className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-all ${activePersona.id === p.id
-                                            ? 'bg-[linear-gradient(135deg,rgba(56,189,248,0.28),rgba(251,113,133,0.2))] text-white shadow-lg'
+                                            ? 'bg-[linear-gradient(135deg,rgba(56,189,248,0.22),rgba(20,184,166,0.16),rgba(245,158,11,0.14))] text-white shadow-lg'
                                             : 'text-slate-300 hover:bg-white/5 hover:text-white'
                                             }`}
                                     >
@@ -426,10 +428,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </header>
 
             {/* Messages Area */}
-            <div ref={scrollRef} className="messages-container flex-1 space-y-5 overflow-y-auto px-4 py-5 custom-scrollbar sm:px-6 lg:px-8">
+            <div ref={scrollRef} className="messages-container flex-1 space-y-4 overflow-y-auto px-3 py-4 custom-scrollbar sm:px-4 xl:px-5 2xl:px-7">
                 {/* Welcome Screen */}
                 {messages.length === 0 && (
-                    <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-center text-center animate-fade-in">
+                    <div className="mx-auto flex h-full max-w-4xl flex-col items-center justify-center text-center animate-fade-in">
                         {!hasLoadedDatasets ? (
                             <div className="w-full space-y-8">
                                 {/* Logo & Title */}
@@ -542,7 +544,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <div key={m.id} className={`animate-fade-in ${m.role === 'user' ? 'flex justify-end' : 'w-full'}`}>
                         {m.role === 'user' ? (
                             /* ── USER BUBBLE ── */
-                            <div className="max-w-[72%] rounded-[26px] border border-sky-300/18 bg-[linear-gradient(135deg,rgba(56,189,248,0.22),rgba(13,148,136,0.2),rgba(245,158,11,0.14))] px-5 py-3.5 text-white shadow-[0_10px_35px_rgba(8,47,73,0.28)] backdrop-blur-xl">
+                            <div className="max-w-[min(100%,52rem)] rounded-[26px] border border-sky-300/18 bg-[linear-gradient(135deg,rgba(56,189,248,0.2),rgba(20,184,166,0.16),rgba(245,158,11,0.12))] px-5 py-3.5 text-white shadow-[0_10px_35px_rgba(8,47,73,0.28)] backdrop-blur-xl">
                                 <div className="text-sm leading-relaxed font-medium">{m.content}</div>
                             </div>
                         ) : (
@@ -573,7 +575,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     return (
                                         <>
                                 {showVisualDashboard && (
-                                    <div className="grid gap-3 xl:grid-cols-[minmax(0,1.45fr)_320px]">
+                                    <div className="grid gap-3 2xl:grid-cols-[minmax(0,1.45fr)_320px]">
                                         <div className="overflow-hidden rounded-[28px] border border-sky-300/15 bg-[linear-gradient(160deg,rgba(14,24,42,0.96),rgba(8,16,31,0.84))] shadow-[0_22px_70px_rgba(2,6,23,0.28)]">
                                             <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
                                                 <div>
@@ -966,7 +968,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
             {/* Input Area */}
             <div className="shrink-0 bg-gradient-to-t from-[#07111f] via-[#07111f]/94 to-transparent p-4 sm:p-5">
-                <div className="max-w-3xl mx-auto relative">
+                <div className="relative mx-auto max-w-5xl">
                     <div className="mb-3 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                             <span className="text-[8px] font-extrabold uppercase tracking-[0.24em] text-slate-400">Active Datasets</span>
@@ -1099,7 +1101,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 className={`rounded-2xl p-2.5 transition-all duration-200 ${isAnalyzing
                                     ? 'border border-amber-400/20 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30'
                                     : inputText.trim()
-                                        ? 'bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(251,113,133,0.92))] text-white shadow-lg glow-accent hover:brightness-110 active:scale-95'
+                                        ? 'bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(20,184,166,0.92),rgba(245,158,11,0.84))] text-white shadow-lg glow-accent hover:brightness-110 active:scale-95'
                                         : 'bg-slate-950/70 text-slate-600'
                                     }`}
                             >

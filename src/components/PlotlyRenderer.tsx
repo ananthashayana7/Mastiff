@@ -318,9 +318,10 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
             script.async = true;
             loadTimeout = window.setTimeout(() => {
                 if (!(window as any).Plotly) {
+                    setIsLoaded(true);
                     setRenderError('Plotly runtime timed out, so Mastiff is switching to a local chart fallback.');
                 }
-            }, 3500);
+            }, 1800);
             script.onload = () => {
                 if (loadTimeout) window.clearTimeout(loadTimeout);
                 setIsLoaded(true);
@@ -328,6 +329,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
             };
             script.onerror = () => {
                 if (loadTimeout) window.clearTimeout(loadTimeout);
+                setIsLoaded(true);
                 setRenderError('Failed to load Plotly runtime. Check network or ad-block settings.');
             };
             document.head.appendChild(script);
@@ -342,6 +344,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
 
             const parsedData: any = parsedPayload;
             if (!parsedData) {
+                setIsLoaded(true);
                 setRenderError('Received invalid chart payload.');
                 return;
             }
@@ -353,6 +356,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     : [];
 
             if (rawTraces.length === 0) {
+                setIsLoaded(true);
                 setRenderError('Chart payload has no plottable traces.');
                 return;
             }
@@ -689,7 +693,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                         name: 'Close',
                         x,
                         y: close,
-                        line: { color: '#E50914', width: 2.2 },
+                        line: { color: '#38BDF8', width: 2.2 },
                         yaxis: 'y',
                     }
                     : {
@@ -1063,6 +1067,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     }
                 });
             } catch (error: any) {
+                setIsLoaded(true);
                 setRenderError(error?.message || 'Plotly render failed');
             }
         }
@@ -1156,7 +1161,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
 
     const chipBase = 'h-6 px-2.5 rounded-md border text-[9px] font-semibold font-mono uppercase tracking-[0.12em] transition-all';
     const chipClass = (active: boolean) => `${chipBase} ${active
-        ? 'border-transparent bg-[linear-gradient(135deg,rgba(56,189,248,0.96),rgba(251,113,133,0.88))] text-white shadow-[0_10px_30px_rgba(56,189,248,0.18)]'
+        ? 'border-transparent bg-[linear-gradient(135deg,rgba(56,189,248,0.96),rgba(20,184,166,0.88),rgba(245,158,11,0.82))] text-white shadow-[0_10px_30px_rgba(56,189,248,0.18)]'
         : 'border-white/10 bg-white/[0.04] text-slate-400 hover:border-sky-300/25 hover:bg-white/[0.08] hover:text-white'
         }`;
 
@@ -1174,7 +1179,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[linear-gradient(180deg,rgba(10,18,32,0.84),rgba(9,15,27,0.72))] px-4 py-2.5">
                 <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-[linear-gradient(135deg,#38BDF8,#F59E0B,#2DD4BF)] shadow-[0_0_14px_rgba(56,189,248,0.45)]" />
-                    <span className="bg-[linear-gradient(135deg,#c7f2ff,#fecdd3,#b2f5ea)] bg-clip-text text-[8px] font-semibold font-mono uppercase tracking-[0.24em] text-transparent">Interactive Analysis</span>
+                    <span className="bg-[linear-gradient(135deg,#c7f2ff,#99f6e4,#fcd34d)] bg-clip-text text-[8px] font-semibold font-mono uppercase tracking-[0.24em] text-transparent">Interactive Analysis</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                     {supportsPointWindow && (

@@ -724,29 +724,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <>
             {/* Mobile Overlay */}
             {isSidebarOpen && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" onClick={onClose} />
+                <div className="fixed inset-0 z-40 bg-slate-950/72 backdrop-blur-sm 2xl:hidden" onClick={onClose} />
             )}
 
-            <aside className={`fixed md:relative inset-y-0 left-0 w-80 max-w-[92vw] glass flex flex-col z-50 transition-transform duration-300 border-r border-white/10 shadow-[0_30px_90px_rgba(2,6,23,0.3)] ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+            <aside className={`fixed inset-y-0 left-0 z-50 flex w-[min(360px,92vw)] flex-col border-r border-white/10 glass shadow-[0_30px_90px_rgba(2,6,23,0.3)] transition-transform duration-300 2xl:relative 2xl:w-[336px] ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full 2xl:translate-x-0'}`}>
                 {/* Header */}
                 <div className="shrink-0 border-b border-white/8 p-4">
                     <div className="flex items-start justify-between gap-3">
                         <BrandLockup size={42} subtitle="Decision Cockpit" title="Mastiff" />
-                        <button onClick={onClose} className="md:hidden rounded-xl p-2 text-slate-400 transition-colors hover:text-white">
+                        <button onClick={onClose} className="rounded-xl p-2 text-slate-400 transition-colors hover:text-white 2xl:hidden">
                             <X size={16} />
                         </button>
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                        <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
-                            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-sky-200/70">Datasets</p>
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
+                            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-sky-100/70">Datasets</p>
                             <p className="mt-1 text-lg font-black tracking-[-0.04em] text-white">
                                 {uploadedFiles.length + stagedFiles.length}
                             </p>
                             <p className="text-[10px] text-slate-300/[0.65]">confirmed + staged</p>
                         </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
-                            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-emerald-200/70">Sources</p>
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
+                            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-teal-100/70">Sources</p>
                             <p className="mt-1 text-lg font-black tracking-[-0.04em] text-white">
                                 {connectors.length}
                             </p>
@@ -754,8 +754,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                     </div>
                     {(uploadedFiles.length + stagedFiles.length) > 1 && (
-                        <div className="mt-3 rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.06] px-3 py-2.5">
-                            <p className="text-[8px] font-extrabold uppercase tracking-[0.26em] text-emerald-200/80">Cross-File Ready</p>
+                        <div className="mt-3 rounded-2xl border border-teal-300/15 bg-teal-300/[0.06] px-3 py-2.5">
+                            <p className="text-[8px] font-extrabold uppercase tracking-[0.26em] text-teal-100/85">Cross-File Ready</p>
                             <p className="mt-1 text-[10px] leading-relaxed text-slate-200/[0.78]">
                                 Compare multiple sources together and surface line-level variance, common KPIs, and source-to-source anomalies.
                             </p>
@@ -767,7 +767,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="p-3 shrink-0">
                     <button
                         onClick={onClearMessages}
-                        className="w-full flex items-center justify-center gap-2 rounded-2xl border border-sky-300/25 bg-[linear-gradient(135deg,rgba(56,189,248,0.2),rgba(13,148,136,0.18),rgba(245,158,11,0.16))] px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.28em] text-white shadow-[0_18px_45px_rgba(8,15,30,0.24)] transition-all hover:-translate-y-[1px] hover:shadow-[0_24px_60px_rgba(8,15,30,0.32)] active:scale-[0.99]"
+                        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-sky-300/20 bg-[linear-gradient(135deg,rgba(56,189,248,0.16),rgba(20,184,166,0.14),rgba(245,158,11,0.14))] px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.28em] text-white shadow-[0_18px_45px_rgba(8,15,30,0.24)] transition-all hover:-translate-y-[1px] hover:border-sky-300/30 hover:shadow-[0_24px_60px_rgba(8,15,30,0.32)] active:scale-[0.99]"
                     >
                         <Plus size={14} /> New Chat
                     </button>
@@ -786,13 +786,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                     {/* Uploaded Files Section */}
                     <div className="px-3 pb-3">
-                        <div className="flex items-center justify-between mb-2 px-1">
-                            <p className="text-[8px] font-extrabold text-slate-400 uppercase tracking-[0.24em]">
+                        <div className="mb-2 flex items-center justify-between px-1">
+                            <p className="text-[8px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
                                 Data Sources
                             </p>
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="rounded-lg p-1 text-slate-400 transition-colors hover:text-sky-200"
+                                className="rounded-lg p-1 text-slate-400 transition-colors hover:text-sky-100"
                             >
                                 <Plus size={12} />
                             </button>
@@ -904,7 +904,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         ) : (
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="group w-full rounded-2xl border border-dashed border-slate-600/[0.55] bg-white/5 p-4 text-center transition-all hover:-translate-y-[1px] hover:border-sky-300/40 hover:bg-sky-300/[0.06]"
+                                className="group w-full rounded-2xl border border-dashed border-slate-600/[0.55] bg-white/[0.04] p-4 text-center transition-all hover:-translate-y-[1px] hover:border-sky-300/40 hover:bg-sky-300/[0.06]"
                             >
                                 <FileUp size={16} className="mx-auto mb-1.5 text-slate-400 transition-colors group-hover:text-sky-200" />
                                 <p className="text-[9px] font-bold text-slate-300 transition-colors group-hover:text-white">Upload files</p>
@@ -916,7 +916,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {/* Connectors Section */}
                     <div className="px-3 pb-3">
                         <div className="flex items-center justify-between mb-2 px-1">
-                            <p className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-[2px]">
+                            <p className="text-[10px] font-extrabold uppercase tracking-[2px] text-zinc-500">
                                 Connectors
                             </p>
                             <div className="flex items-center gap-1">
@@ -968,7 +968,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 {onCreateConnector && (
                                     <button
                                         onClick={openCreateConnectorModal}
-                                        className="rounded-lg border border-sky-300/30 bg-sky-400/10 px-2.5 py-1.5 text-[9px] font-extrabold uppercase tracking-widest text-sky-200 transition-colors hover:text-white"
+                                        className="rounded-lg border border-sky-300/25 bg-sky-400/[0.08] px-2.5 py-1.5 text-[9px] font-extrabold uppercase tracking-widest text-sky-100 transition-colors hover:text-white"
                                     >
                                         <span className="inline-flex items-center gap-1.5">
                                             <Plus size={11} />
@@ -1140,7 +1140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 {onCreateConnector && (
                                     <button
                                         onClick={openCreateConnectorModal}
-                                        className="inline-flex items-center gap-2 rounded-xl border border-sky-300/30 bg-sky-400/10 px-3 py-2 text-[10px] font-extrabold uppercase tracking-widest text-sky-200 transition-colors hover:text-white"
+                                            className="inline-flex items-center gap-2 rounded-xl border border-sky-300/25 bg-sky-400/[0.08] px-3 py-2 text-[10px] font-extrabold uppercase tracking-widest text-sky-100 transition-colors hover:text-white"
                                     >
                                         <Plus size={12} /> Connect Now
                                     </button>
@@ -1195,8 +1195,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* User Footer */}
                 <div className="p-3 border-t border-zinc-900/80 shrink-0">
-                    <div className="flex items-center gap-2.5 p-2 rounded-xl">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900 text-[10px] font-black text-sky-300">
+                    <div className="flex items-center gap-2.5 rounded-xl p-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-950/80 text-[10px] font-black text-sky-200">
                             {currentUser.name.charAt(0)}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1206,7 +1206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         {onLogout && (
                             <button
                                 onClick={onLogout}
-                                className="min-h-[44px] min-w-[44px] p-3 text-zinc-600 hover:text-red-400 rounded-xl transition-colors flex items-center justify-center"
+                                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl p-3 text-zinc-600 transition-colors hover:text-amber-300"
                                 title="Sign out"
                             >
                                 <LogOut size={16} />
@@ -1369,7 +1369,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                 type="button"
                                                 onClick={handleExchangeSharepointCode}
                                                 disabled={isSharepointOauthBusy || !sharepointAuthCode.trim()}
-                                                className="rounded-lg bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(251,113,133,0.92))] px-2.5 py-2 text-[9px] font-extrabold uppercase tracking-widest text-white disabled:opacity-60"
+                                                className="rounded-lg bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(20,184,166,0.92),rgba(245,158,11,0.86))] px-2.5 py-2 text-[9px] font-extrabold uppercase tracking-widest text-white disabled:opacity-60"
                                             >
                                                 Exchange Code
                                             </button>
@@ -1400,7 +1400,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </button>
                             <button
                                 onClick={handleSubmitConnector}
-                                className="flex items-center gap-1.5 rounded-xl bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(251,113,133,0.92))] px-3 py-2 text-[9px] font-extrabold uppercase tracking-widest text-white transition-all hover:brightness-110"
+                                className="flex items-center gap-1.5 rounded-xl bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(20,184,166,0.92),rgba(245,158,11,0.86))] px-3 py-2 text-[9px] font-extrabold uppercase tracking-widest text-white transition-all hover:brightness-110"
                             >
                                 <Save size={11} />
                                 {editingConnector ? 'Save Changes' : 'Create Connector'}

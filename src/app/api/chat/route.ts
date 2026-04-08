@@ -14,6 +14,12 @@ import { buildDeterministicFinancialSummary } from '../../../lib/financialSummar
 import { buildContractFallbackSummary, containsTechnicalArtifacts, validateSummaryContract } from '../../../lib/chatResponseContract';
 import { buildAnalysisResponseEnvelope, renderEnvelopeAsSummary } from '../../../lib/chatResponseEnvelope';
 import { buildCompactFileContext, buildMultiDatasetPromptBlock } from '../../../lib/multiDatasetIntelligence';
+import {
+    buildQueryPlanPromptBlock,
+    deriveQueryPlan,
+    shouldRequireVisualizationFromPlan,
+    shouldRunDataAnalysisFromPlan,
+} from '../../../lib/queryPlanner';
 
 export const dynamic = 'force-dynamic';
 
@@ -214,22 +220,6 @@ function isTheoryOnlyQuery(content: string, hasFiles: boolean): boolean {
     return tokens <= 12 && !hasFiles;
 }
 
-function shouldRunDataAnalysis(content: string, mode: AnalysisMode, hasFiles: boolean): boolean {
-    if (!hasFiles) return false;
-
-    if (isTheoryOnlyQuery(content, hasFiles)) return false;
-
-    // Unified mode: always run data analysis when files are present
-    // unless it's a pure theory question
-    return true;
-}
-
-function shouldEnforceVisualization(content: string, hasFiles: boolean): boolean {
-    if (!hasFiles) return false;
-    if (isTheoryOnlyQuery(content, hasFiles)) return false;
-    return true;
-}
-
 function countVisualizationArtifacts(executionResult: {
     charts?: unknown[];
     plotly_charts?: unknown[];
@@ -411,7 +401,12 @@ export async function POST(req: NextRequest) {
         // Treat messages with pasted tabular/financial data as having effective data even without uploaded files
         const hasPastedData = !hasFiles && containsInlineTabularData(content);
         const effectiveHasFiles = hasFiles || hasPastedData;
-        const runDataAnalysis = shouldRunDataAnalysis(content, analysisMode, effectiveHasFiles);
+        const queryPlan = deriveQueryPlan(content, {
+            hasDataContext: effectiveHasFiles,
+            fileCount: sessionFiles.length,
+        });
+        const queryPlanContext = buildQueryPlanPromptBlock(queryPlan);
+        const runDataAnalysis = shouldRunDataAnalysisFromPlan(queryPlan, effectiveHasFiles);
 
         if (runDataAnalysis) {
             // Build a synthetic file context when the user pasted data inline
@@ -465,7 +460,8 @@ export async function POST(req: NextRequest) {
                 persona,
                 dataQualityContext,
                 dataIntelligenceContext,
-                multiDatasetContext
+                multiDatasetContext,
+                queryPlanContext
             );
 
             /* ---- Data recovery preamble for 0-row files ---- */
@@ -491,7 +487,8 @@ export async function POST(req: NextRequest) {
                     executionResult.error,
                     executionResult.traceback,
                     fileContexts,
-                    analysisMode
+                    analysisMode,
+                    queryPlanContext
                 );
 
                 if (repaired?.code && repaired.code.trim() && repaired.code !== analysis.code) {
@@ -511,7 +508,8 @@ export async function POST(req: NextRequest) {
                             repairedResult.error,
                             repairedResult.traceback,
                             fileContexts,
-                            analysisMode
+                            analysisMode,
+                            queryPlanContext
                         );
 
                         if (numericRepair?.code && numericRepair.code.trim()) {
@@ -533,7 +531,8 @@ export async function POST(req: NextRequest) {
                             repairedResult.error,
                             repairedResult.traceback,
                             fileContexts,
-                            analysisMode
+                            analysisMode,
+                            queryPlanContext
                         );
 
                         if (subplotRepair?.code && subplotRepair.code.trim()) {
@@ -555,7 +554,8 @@ export async function POST(req: NextRequest) {
                             repairedResult.error,
                             repairedResult.traceback,
                             fileContexts,
-                            analysisMode
+                            analysisMode,
+                            queryPlanContext
                         );
 
                         if (shapeRepair?.code && shapeRepair.code.trim()) {
@@ -591,7 +591,7 @@ export async function POST(req: NextRequest) {
                 }
             }
 
-            const visualizationRequired = shouldEnforceVisualization(content, effectiveHasFiles);
+            const visualizationRequired = shouldRequireVisualizationFromPlan(queryPlan, effectiveHasFiles);
             const currentChartCount = countVisualizationArtifacts(executionResult);
             const needsVisualizationRecovery = visualizationRequired && currentChartCount === 0;
 
@@ -607,7 +607,9 @@ export async function POST(req: NextRequest) {
                         linkedConnectorContext,
                         persona,
                         dataQualityContext,
-                        dataIntelligenceContext
+                        dataIntelligenceContext,
+                        '',
+                        queryPlanContext
                     );
 
                     if (visualizationAnalysis?.code?.trim()) {

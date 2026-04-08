@@ -3,38 +3,39 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 236, 243, 255;
-  --background-start-rgb: 8, 18, 34;
-  --background-end-rgb: 5, 10, 20;
-  --accent: #38BDF8;
-  --accent-strong: #FB7185;
-  --accent-soft: #2DD4BF;
-  --accent-warm: #F59E0B;
-  --accent-glow: rgba(56, 189, 248, 0.18);
-  --surface: rgba(12, 18, 31, 0.84);
-  --surface-hover: rgba(17, 26, 44, 0.9);
-  --border: rgba(148, 163, 184, 0.16);
-  --border-hover: rgba(148, 163, 184, 0.28);
+  --foreground-rgb: 238, 245, 252;
+  --background-start-rgb: 7, 16, 29;
+  --background-end-rgb: 3, 9, 19;
+  --accent: #38bdf8;
+  --accent-strong: #14b8a6;
+  --accent-soft: #7dd3fc;
+  --accent-warm: #f59e0b;
+  --accent-glow: rgba(56, 189, 248, 0.16);
+  --surface: rgba(9, 17, 30, 0.9);
+  --surface-hover: rgba(13, 24, 40, 0.94);
+  --border: rgba(148, 163, 184, 0.14);
+  --border-hover: rgba(148, 163, 184, 0.24);
   --text-primary: #f8fbff;
-  --text-secondary: #bfd0e8;
-  --text-muted: #6d7f96;
+  --text-secondary: #c7d7eb;
+  --text-muted: #7a8ca6;
 }
 
 html,
 body {
   min-height: 100%;
+  height: 100%;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
   background-color: rgb(var(--background-end-rgb));
   background-image:
-    radial-gradient(circle at 8% 14%, rgba(56, 189, 248, 0.24), transparent 28%),
-    radial-gradient(circle at 88% 12%, rgba(245, 158, 11, 0.18), transparent 24%),
-    radial-gradient(circle at 68% 76%, rgba(45, 212, 191, 0.18), transparent 26%),
-    radial-gradient(circle at 42% 52%, rgba(245, 158, 11, 0.08), transparent 20%),
-    linear-gradient(140deg, #061222 0%, #0b1830 38%, #08111f 100%);
-  font-family: "Aptos Display", "Aptos", "Trebuchet MS", "Segoe UI Variable Text", sans-serif;
+    radial-gradient(circle at 10% 12%, rgba(56, 189, 248, 0.18), transparent 26%),
+    radial-gradient(circle at 82% 14%, rgba(20, 184, 166, 0.16), transparent 24%),
+    radial-gradient(circle at 72% 78%, rgba(245, 158, 11, 0.14), transparent 24%),
+    radial-gradient(circle at 40% 48%, rgba(14, 165, 233, 0.08), transparent 22%),
+    linear-gradient(155deg, #04101d 0%, #081728 42%, #06111d 100%);
+  font-family: "Segoe UI Variable Display", "Aptos", "Trebuchet MS", "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   position: relative;
@@ -48,9 +49,9 @@ body::before {
   background-image:
     linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
-  background-size: 52px 52px;
-  mask-image: radial-gradient(circle at center, black 34%, transparent 92%);
-  opacity: 0.18;
+  background-size: 56px 56px;
+  mask-image: radial-gradient(circle at center, black 32%, transparent 90%);
+  opacity: 0.14;
 }
 
 body::after {
@@ -79,20 +80,20 @@ body::after {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #222;
+  background: rgba(100, 116, 139, 0.55);
   border-radius: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #333;
+  background: rgba(148, 163, 184, 0.72);
 }
 
 /* === Glassmorphism === */
 .glass {
   background:
-    linear-gradient(180deg, rgba(16, 25, 43, 0.9), rgba(8, 14, 26, 0.76)),
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.09), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.08), transparent 28%);
+    linear-gradient(180deg, rgba(10, 18, 32, 0.92), rgba(6, 12, 23, 0.82)),
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.08), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(20, 184, 166, 0.08), transparent 28%);
   backdrop-filter: blur(24px) saturate(135%);
   -webkit-backdrop-filter: blur(24px) saturate(135%);
   border: 1px solid rgba(148, 163, 184, 0.16);
@@ -103,9 +104,9 @@ body::after {
 
 .glass-hover:hover {
   background:
-    linear-gradient(180deg, rgba(18, 28, 46, 0.94), rgba(12, 18, 31, 0.82)),
+    linear-gradient(180deg, rgba(13, 23, 39, 0.95), rgba(8, 15, 27, 0.86)),
     radial-gradient(circle at top left, rgba(56, 189, 248, 0.11), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.1), transparent 28%);
+    radial-gradient(circle at bottom right, rgba(20, 184, 166, 0.1), transparent 28%);
   border-color: rgba(148, 163, 184, 0.24);
 }
 
@@ -113,13 +114,13 @@ body::after {
 .glow-accent {
   box-shadow:
     0 0 28px rgba(56, 189, 248, 0.2),
-    0 0 88px rgba(245, 158, 11, 0.1);
+    0 0 88px rgba(20, 184, 166, 0.08);
 }
 
 .glow-accent-strong {
   box-shadow:
     0 0 34px rgba(56, 189, 248, 0.28),
-    0 0 94px rgba(245, 158, 11, 0.12);
+    0 0 94px rgba(20, 184, 166, 0.1);
 }
 
 /* === Animations === */
@@ -340,7 +341,7 @@ body::after {
 }
 
 .markdown-body li::marker {
-  color: #E50914;
+  color: #38BDF8;
 }
 
 .markdown-body code {
@@ -422,7 +423,7 @@ body::after {
 }
 
 .drop-zone.drop-active {
-  background: rgba(56, 189, 248, 0.05);
+  background: rgba(56, 189, 248, 0.04);
 }
 
 .drop-zone.drop-active::after {

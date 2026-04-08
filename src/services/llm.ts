@@ -30,6 +30,7 @@ OUTPUT STYLE (CRITICAL):
 - NO FILLER: Remove "Let's look at...", "Based on the data...", "It's important to note..." — get straight to the point.
 - TABLES > TEXT: When comparing metrics, use compact tables, not prose.
 - CHARTS ARE MANDATORY: Every numerical analysis MUST produce at least one interactive Plotly chart. No exceptions.
+- PLAN BEFORE CODING: Decide whether the task is profiling, comparison, root-cause, forecasting, cleaning, or a mixed request before writing Python.
 
 ANALYSIS GUIDELINES:
 1. FORECAST FIRST: ALWAYS include a forecast/trend projection. What will happen next? This is mandatory, not optional.
@@ -695,6 +696,8 @@ BEHAVIOR:
 - Be precise with numbers — never round excessively.
 - When asked about data, LEAD WITH ACTIONS and insights, not code.
 - LEAD WITH ACTIONS, not descriptions. What should the user do?
+- If active data exists and the question is short or ambiguous, assume the user wants the answer grounded in that data and say the assumption briefly.
+- If a query mixes theory and data, answer the data-backed portion first and keep any conceptual note short and useful.
 `;
 }
 
@@ -916,7 +919,8 @@ export class LLMService {
         personaInstruction: string = '',
         dataQualityContext: string = '',
         dataIntelligenceContext: string = '',
-        multiDatasetContext: string = ''
+        multiDatasetContext: string = '',
+        queryPlanContext: string = ''
     ) {
         const modeConfig = MODE_CONFIGS[mode];
         const wantsVisualization = mode === 'analysis' || files.length > 0 || VISUALIZATION_HINTS.test(userQuery);
@@ -950,6 +954,9 @@ ${JSON.stringify(f.sample, null, 2)}
         const multiDatasetBlock = multiDatasetContext
             ? `\n${multiDatasetContext}\n`
             : '';
+        const queryPlanBlock = queryPlanContext
+            ? `\n${queryPlanContext}\n`
+            : '';
         const systemPrompt = `
 You are Mastiff, a Senior Strategic Business Analyst (Digital Twin) executing Python in a stateful sandbox.
 
@@ -957,6 +964,7 @@ ${modeConfig.promptPrefix}
 ${personaBlock}
 ${intelligenceBlock}
 ${multiDatasetBlock}
+${queryPlanBlock}
 
 DATA CONTEXT:
 ${filesContext}
@@ -974,6 +982,10 @@ EXECUTION ENVIRONMENT:
 - For Plotly visual output, set result to a Plotly figure.
 
 INSTRUCTIONS:
+- First align your code to the query execution plan above. Do not answer a comparison question like a profile, and do not answer a root-cause question with descriptive stats only.
+- If the request is broad and active data exists, default to: profile -> compare relevant KPIs -> isolate anomalies -> forecast -> recommend actions.
+- If the wording is short or ambiguous but active data exists, make the most likely business interpretation and continue instead of refusing.
+- If the query mixes theory and analysis, do the analysis in Python and print a short assumption note to stdout.
 - Convert data types safely before analysis.
 - Handle missing values silently (do not dedicate significant output to nulls — focus on the data that exists).
 - Do all calculations in Python.
@@ -1182,7 +1194,8 @@ IMPORTANT:
         executionError: string,
         traceback: string | undefined,
         files: { name: string; schema: string; sample: any }[],
-        mode: AnalysisMode = 'analysis'
+        mode: AnalysisMode = 'analysis',
+        queryPlanContext: string = ''
     ): Promise<{ explanation: string; code: string } | null> {
         const modeConfig = MODE_CONFIGS[mode];
 
@@ -1193,16 +1206,21 @@ ${f.schema}
 Sample:
 ${JSON.stringify(f.sample, null, 2)}
 `).join('\n');
+        const queryPlanBlock = queryPlanContext
+            ? `\n${queryPlanContext}\n`
+            : '';
 
         const systemPrompt = `
 You are Mastiff, a Python debugging specialist for data analysis code.
 
 ${modeConfig.promptPrefix}
+${queryPlanBlock}
 
 You must repair failing analysis code so it executes successfully and still answers the user's query.
 
 RULES:
 - Keep the same intent and output contract.
+- Preserve the original business intent and query plan while repairing the code.
 - Preserve visualization intent if requested.
 - Add robust guards for missing columns, bad types, empty data, and divide-by-zero.
 - For conversion errors (e.g., "could not convert string to float"), replace direct casts with safe coercion:

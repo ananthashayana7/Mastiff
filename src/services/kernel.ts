@@ -1,7 +1,8 @@
 import { spawn, ChildProcess, execFile } from 'child_process';
 import path from 'path';
 
-const KERNEL_TIMEOUT_MS = 60000; // 60s max per execution
+const BASE_KERNEL_TIMEOUT_MS = 60000;
+const MAX_KERNEL_TIMEOUT_MS = 180000;
 const MAX_RETRIES = 2;
 
 function sleep(ms: number): Promise<void> {
@@ -85,6 +86,12 @@ class KernelService {
         return new Promise((resolve, reject) => {
             const filesJson = JSON.stringify(files.map(f => ({ ...f, path: f.path.replace(/\\/g, '/') })));
             const request = JSON.stringify({ code, files_json: filesJson }) + '\n';
+            const executionTimeoutMs = Math.min(
+                MAX_KERNEL_TIMEOUT_MS,
+                BASE_KERNEL_TIMEOUT_MS
+                + (files.length * 12000)
+                + (Math.floor(code.length / 4000) * 6000)
+            );
 
             let stdout = '';
             let timeoutHandle: NodeJS.Timeout;
@@ -117,8 +124,8 @@ class KernelService {
             timeoutHandle = setTimeout(() => {
                 process.stdout?.removeListener('data', onData);
                 process.removeListener('error', onError);
-                reject(new Error(`Analysis timed out after ${KERNEL_TIMEOUT_MS / 1000}s`));
-            }, KERNEL_TIMEOUT_MS);
+                reject(new Error(`Analysis timed out after ${Math.round(executionTimeoutMs / 1000)}s`));
+            }, executionTimeoutMs);
 
             process.on('error', onError);
             process.stdout?.on('data', onData);
