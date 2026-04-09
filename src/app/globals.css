@@ -450,7 +450,7 @@ input:focus {
   color: #f8fbff;
 }
 
-/* === Finance Chart Container === */
+/* === Finance Chart Container — apply to PlotlyRenderer/ChartRenderer wrappers === */
 .chart-card {
     background: linear-gradient(180deg, rgba(15,23,42,0.96), rgba(7,14,25,0.88));
     border: 1px solid rgba(56,189,248,0.12);

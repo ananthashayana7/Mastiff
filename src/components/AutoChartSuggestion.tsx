@@ -179,7 +179,10 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
           </AreaChart>
         );
       case 'forecast': {
+        // Simplified linear extrapolation model — for demonstration purposes.
+        // Requires at least 2 data points; results are most reliable with n >= 3.
         const n = chartData.length;
+        if (n < 2) return null;
         const yKey = metricKeys[0];
         const lastY = Number(chartData[n-1]?.[yKey] || 0);
         const prevY = Number(chartData[Math.max(0,n-2)]?.[yKey] || lastY);
