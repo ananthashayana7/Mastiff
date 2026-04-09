@@ -96,7 +96,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         'Give me the sharpest management summary from these active datasets.',
         'Show the top anomalies, forecast signals, and the actions I should take next.',
         'Compare the active files and tell me where performance or rejection differs most.',
-        'Run a comprehensive forecasting analysis on the active dataset with trend projections and confidence intervals.',
+        'Run a comprehensive forecasting analysis on the active datasets with trend projections and confidence intervals.',
     ];
     const hasLoadedDatasets = files.some((file) => file.id !== 'sample-sales');
     const hasPendingDatasets = pendingFiles.length > 0;
