@@ -178,14 +178,11 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
             ))}
           </AreaChart>
         );
-      default:
-        return null;
       case 'forecast': {
-        const actualData = chartData.slice(0, chartData.length);
-        const n = actualData.length;
+        const n = chartData.length;
         const yKey = metricKeys[0];
-        const lastY = Number(actualData[n-1]?.[yKey] || 0);
-        const prevY = Number(actualData[Math.max(0,n-2)]?.[yKey] || lastY);
+        const lastY = Number(chartData[n-1]?.[yKey] || 0);
+        const prevY = Number(chartData[Math.max(0,n-2)]?.[yKey] || lastY);
         const slope = lastY - prevY;
         const forecastPoints = [1,2,3].map(i => ({
             [xAxis]: `F+${i}`,
@@ -194,7 +191,7 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
             upper: Math.max(0, lastY + slope * i + Math.abs(slope * 0.4 * i)),
             lower: Math.max(0, lastY + slope * i - Math.abs(slope * 0.4 * i)),
         }));
-        const combined = [...actualData.map(d => ({...d, isForecast: false})), ...forecastPoints];
+        const combined = [...chartData.map(d => ({...d, isForecast: false})), ...forecastPoints];
         return (
             <ComposedChart data={combined} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
                 <defs>
@@ -210,13 +207,15 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
                 <Area type="monotone" dataKey="upper" fill="url(#forecastGrad)" stroke="none" name="Confidence Band" />
                 <Area type="monotone" dataKey="lower" fill="rgba(0,0,0,0)" stroke="none" />
                 <Line type="monotone" dataKey={yKey} stroke="#38BDF8" strokeWidth={2.5}
-                    dot={(props: any) => props.payload?.isForecast
+                    dot={(props: { cx: number; cy: number; payload?: { isForecast?: boolean } }) => props.payload?.isForecast
                         ? <circle cx={props.cx} cy={props.cy} r={4} fill="#54A0FF" stroke="#fff" strokeWidth={1.5} />
                         : <circle cx={props.cx} cy={props.cy} r={3} fill="#38BDF8" strokeWidth={0} />}
                     animationDuration={1000} />
             </ComposedChart>
         );
       }
+      default:
+        return null;
     }
   };
 
