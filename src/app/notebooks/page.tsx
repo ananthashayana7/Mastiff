@@ -10,7 +10,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Notebook from '@/src/components/Notebook';
 import Link from 'next/link';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, FloppyDisk } from '@phosphor-icons/react';
 
 interface NotebookData {
     id: string;
@@ -189,7 +189,7 @@ export default function NotebookPage() {
                         disabled={isSaving}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                     >
-                        <Save size={16} /> {isSaving ? 'Saving...' : 'Save'}
+                        <FloppyDisk size={16} /> {isSaving ? 'Saving...' : 'Save'}
                     </button>
                 </div>
             </div>

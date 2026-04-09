@@ -449,3 +449,28 @@ input:focus {
   background: rgba(56, 189, 248, 0.22);
   color: #f8fbff;
 }
+
+/* === Finance Chart Container — apply to PlotlyRenderer/ChartRenderer wrappers === */
+.chart-card {
+    background: linear-gradient(180deg, rgba(15,23,42,0.96), rgba(7,14,25,0.88));
+    border: 1px solid rgba(56,189,248,0.12);
+    border-radius: 20px;
+    padding: 16px;
+    box-shadow: 0 20px 60px rgba(2,6,23,0.3), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* === Forecast Badge === */
+.forecast-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: linear-gradient(135deg, rgba(84,160,255,0.18), rgba(0,212,170,0.12));
+    border: 1px solid rgba(84,160,255,0.22);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #7dd3fc;
+}

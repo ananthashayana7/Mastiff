@@ -2,11 +2,11 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Plus, Send, FileUp, Table, X, Database,
-  Terminal, Paperclip, RefreshCw, Volume2, Cpu, Sparkles,
-  Info, ChevronDown, Lock, Settings, TrendingUp, Trash2, Menu, Copy, Check, Zap, Loader2,
-  FileText, FileSpreadsheet, File, Search, Globe, ExternalLink, LogOut
-} from 'lucide-react';
+  Plus, PaperPlaneTilt, FileArrowUp, Table, X, Database,
+  Terminal, Paperclip, ArrowClockwise, SpeakerHigh, Cpu, Sparkle,
+  Info, CaretDown, Lock, GearSix, TrendUp, Trash, List, Copy, Check, Lightning, SpinnerGap,
+  FileText, FileXls, File, MagnifyingGlass, Globe, ArrowSquareOut, SignOut
+} from '@phosphor-icons/react';
 import { DataFile, ChatMessage, AnalysisMode, User as UserType, AnalystPersona, Session, ConnectorSummary } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { ChatWindow } from '../components/ChatWindow';
@@ -1166,7 +1166,7 @@ const App: React.FC = () => {
             Restoring your workspaces, connectors, and analysis context.
           </p>
           <div className="mt-6 flex items-center justify-center gap-3">
-            <Loader2 size={20} className="animate-spin text-[#e2b98a]" />
+            <SpinnerGap size={20} className="animate-spin text-[#e2b98a]" />
             <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-[#f1dcc2]/75">
               Preparing workspace
             </span>

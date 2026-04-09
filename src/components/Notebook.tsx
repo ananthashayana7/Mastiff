@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { ChevronDown, ChevronUp, Play, Trash2, Plus } from 'lucide-react';
+import { CaretDown, CaretUp, Play, Trash, Plus } from '@phosphor-icons/react';
 
 interface NotebookCell {
     id?: string;
@@ -106,7 +106,7 @@ const Cell: React.FC<CellComponentProps> = ({
                         onClick={() => setIsExpanded(!isExpanded)}
                         className="p-1 hover:bg-gray-200 rounded"
                     >
-                        {isExpanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                        {isExpanded ? <CaretDown size={16} /> : <CaretUp size={16} />}
                     </button>
 
                     <select
@@ -151,7 +151,7 @@ const Cell: React.FC<CellComponentProps> = ({
                             className="p-1 hover:bg-gray-200 rounded"
                             title="Delete cell"
                         >
-                            <Trash2 size={16} className="text-red-600" />
+                            <Trash size={16} className="text-red-600" />
                         </button>
                     )}
                 </div>

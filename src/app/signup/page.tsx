@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, BarChart3, Eye, EyeOff, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, ChartBar, Eye, EyeSlash, SpinnerGap, ShieldCheck, Sparkle } from '@phosphor-icons/react';
 import { BrandLockup, BrandMark } from '../../components/BrandMark';
 
 export default function SignupPage() {
@@ -127,7 +127,7 @@ export default function SignupPage() {
                             <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-4">
                                 <div className="flex items-center gap-3">
                                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-400/[0.14] text-sky-200">
-                                        <BarChart3 size={18} />
+                                        <ChartBar size={18} />
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-200/70">Interactive Dashboards</p>
@@ -139,7 +139,7 @@ export default function SignupPage() {
                             <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-4">
                                 <div className="flex items-center gap-3">
                                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-400/[0.14] text-rose-200">
-                                        <Sparkles size={18} />
+                                        <Sparkle size={18} />
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black uppercase tracking-[0.24em] text-rose-200/70">Action-Driven Output</p>
@@ -231,7 +231,7 @@ export default function SignupPage() {
                                     onClick={() => setShowPassword((prev) => !prev)}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-white"
                                 >
-                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    {showPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
                         </div>
@@ -253,7 +253,7 @@ export default function SignupPage() {
                                     onClick={() => setShowConfirmPassword((prev) => !prev)}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-white"
                                 >
-                                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    {showConfirmPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
                         </div>
@@ -270,7 +270,7 @@ export default function SignupPage() {
                             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(251,113,133,0.92))] py-3.5 text-xs font-extrabold uppercase tracking-[0.24em] text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {isLoading ? (
-                                <Loader2 size={16} className="animate-spin" />
+                                <SpinnerGap size={16} className="animate-spin" />
                             ) : (
                                 <>Create Account <ArrowRight size={14} /></>
                             )}

@@ -2,11 +2,11 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    Plus, X, FileUp, Trash2, Settings, Clock, Database, Info,
-    FileText, FileSpreadsheet, File, Loader2, MessageSquare,
-    LogOut, Link2, Unlink, FlaskConical, List, Pencil,
-    Save, CheckCircle2, AlertCircle, HelpCircle
-} from 'lucide-react';
+    Plus, X, FileArrowUp, Trash, GearSix, Clock, Database, Info,
+    FileText, FileXls, File, SpinnerGap, ChatTeardropText,
+    SignOut, Link, LinkBreak, Flask, List, PencilSimple,
+    FloppyDisk, CheckCircle, WarningCircle, Question
+} from '@phosphor-icons/react';
 import { DataFile, User, Session, ConnectorSummary } from '../types';
 import { BrandLockup } from './BrandMark';
 
@@ -640,7 +640,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const getFileIcon = (type: string) => {
         switch (type) {
             case 'csv': return <FileText size={14} className="text-green-400" />;
-            case 'xlsx': case 'xls': return <FileSpreadsheet size={14} className="text-blue-400" />;
+            case 'xlsx': case 'xls': return <FileXls size={14} className="text-blue-400" />;
             case 'pdf': return <FileText size={14} className="text-red-400" />;
             case 'docx': case 'doc': return <FileText size={14} className="text-blue-300" />;
             default: return <File size={14} className="text-zinc-400" />;
@@ -801,7 +801,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         {isUploading && (
                             <div className="mb-2 animate-fade-in space-y-2 rounded-2xl border border-sky-300/[0.15] bg-sky-400/[0.06] p-3">
                                 <div className="flex items-center gap-2">
-                                    <Loader2 size={12} className="animate-spin text-sky-300" />
+                                    <SpinnerGap size={12} className="animate-spin text-sky-300" />
                                     <span className="text-[9px] font-bold text-slate-100 uppercase tracking-[0.2em]">{uploadStatusLabel}</span>
                                 </div>
                                 <p className="text-[10px] leading-tight text-slate-300/70">{uploadStatusDetail}</p>
@@ -851,7 +851,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                 className="p-1 text-zinc-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
                                                 title="Remove pending file"
                                             >
-                                                <Trash2 size={11} />
+                                                <Trash size={11} />
                                             </button>
                                         )}
                                     </div>
@@ -896,7 +896,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             onClick={(e) => onDeleteFile(f.id, e)}
                                             className="p-1 text-zinc-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
                                         >
-                                            <Trash2 size={11} />
+                                            <Trash size={11} />
                                         </button>
                                     </div>
                                 ))}
@@ -907,7 +907,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     onClick={() => fileInputRef.current?.click()}
                                     className="group w-full rounded-2xl border border-dashed border-slate-600/[0.55] bg-white/[0.04] p-4 text-center transition-all hover:-translate-y-[1px] hover:border-sky-300/40 hover:bg-sky-300/[0.06]"
                                 >
-                                    <FileUp size={16} className="mx-auto mb-1.5 text-slate-400 transition-colors group-hover:text-sky-200" />
+                                    <FileArrowUp size={16} className="mx-auto mb-1.5 text-slate-400 transition-colors group-hover:text-sky-200" />
                                     <p className="text-[9px] font-bold text-slate-300 transition-colors group-hover:text-white">Upload files</p>
                                     <p className="mt-1 text-[10px] leading-tight text-slate-300/[0.55]">CSV, Excel, PDF, Word, text, JSON, TSV, and Parquet are supported. Charts and written analysis start automatically as soon as the data is activated.</p>
                                 </button>
@@ -955,9 +955,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     }`}
                             >
                                 {connectorFeedback.kind === 'error' ? (
-                                    <AlertCircle size={14} className="text-red-400 mt-0.5 shrink-0" />
+                                    <WarningCircle size={14} className="text-red-400 mt-0.5 shrink-0" />
                                 ) : (
-                                    <CheckCircle2 size={14} className="text-emerald-400 mt-0.5 shrink-0" />
+                                    <CheckCircle size={14} className="text-emerald-400 mt-0.5 shrink-0" />
                                 )}
                                 <p className="text-[11px] font-semibold text-zinc-300 leading-tight">{connectorFeedback.text}</p>
                             </div>
@@ -1010,7 +1010,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                         {isLoadingConnectors ? (
                             <div className="flex items-center gap-2 p-3 glass rounded-xl animate-fade-in">
-                                <Loader2 size={14} className="animate-spin text-sky-300" />
+                                <SpinnerGap size={14} className="animate-spin text-sky-300" />
                                 <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Loading connectors...</span>
                             </div>
                         ) : filteredConnectors.length > 0 ? (
@@ -1038,7 +1038,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                         : 'border-zinc-800 text-zinc-500 hover:text-white'
                                                     }`}
                                             >
-                                                {linkedConnectorIds.includes(connector.id) ? <Unlink size={12} /> : <Link2 size={12} />}
+                                                {linkedConnectorIds.includes(connector.id) ? <LinkBreak size={12} /> : <Link size={12} />}
                                                 {linkedConnectorIds.includes(connector.id) ? 'Unlink' : 'Link'}
                                             </button>
 
@@ -1047,7 +1047,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                 className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-800 text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1.5"
                                                 disabled={activeConnectorActionId === connector.id}
                                             >
-                                                {activeConnectorActionId === connector.id ? <Loader2 size={12} className="animate-spin" /> : <FlaskConical size={12} />}
+                                                {activeConnectorActionId === connector.id ? <SpinnerGap size={12} className="animate-spin" /> : <Flask size={12} />}
                                                 Test
                                             </button>
 
@@ -1065,7 +1065,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                     onClick={() => openEditConnectorModal(connector)}
                                                     className="flex-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-800 text-zinc-500 hover:text-white transition-colors flex items-center justify-center gap-1.5"
                                                 >
-                                                    <Pencil size={12} />
+                                                    <PencilSimple size={12} />
                                                     Edit
                                                 </button>
                                                 <button
@@ -1074,7 +1074,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                     disabled={activeConnectorActionId === connector.id}
                                                     title="Delete connector"
                                                 >
-                                                    <Trash2 size={12} />
+                                                    <Trash size={12} />
                                                 </button>
                                             </div>
                                         </div>
@@ -1180,7 +1180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                     : 'hover:bg-zinc-900/50'
                                                     }`}
                                             >
-                                                <MessageSquare size={12} className={currentSessionId === s.id ? 'text-sky-300' : 'text-zinc-700'} />
+                                                <ChatTeardropText size={12} className={currentSessionId === s.id ? 'text-sky-300' : 'text-zinc-700'} />
                                                 <span className={`flex-1 text-[10px] font-semibold truncate ${currentSessionId === s.id ? 'text-white' : 'text-zinc-500'}`}>
                                                     {s.title || 'New Chat'}
                                                 </span>
@@ -1188,7 +1188,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                     onClick={(e) => onDeleteSession(s.id, e)}
                                                     className="p-0.5 text-zinc-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
                                                 >
-                                                    <Trash2 size={10} />
+                                                    <Trash size={10} />
                                                 </button>
                                             </div>
                                         ))}
@@ -1215,7 +1215,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl p-3 text-zinc-600 transition-colors hover:text-amber-300"
                                 title="Sign out"
                             >
-                                <LogOut size={16} />
+                                <SignOut size={16} />
                             </button>
                         )}
                     </div>
@@ -1302,7 +1302,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         className="text-zinc-600 transition-colors hover:text-sky-300"
                                         title="How to get these credentials"
                                     >
-                                        <HelpCircle size={12} />
+                                        <Question size={12} />
                                     </button>
                                 </div>
                                 {isCredentialHelpOpen && (
@@ -1410,7 +1410,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 onClick={handleSubmitConnector}
                                 className="flex items-center gap-1.5 rounded-xl bg-[linear-gradient(135deg,rgba(56,189,248,0.98),rgba(20,184,166,0.92),rgba(245,158,11,0.86))] px-3 py-2 text-[9px] font-extrabold uppercase tracking-widest text-white transition-all hover:brightness-110"
                             >
-                                <Save size={11} />
+                                <FloppyDisk size={11} />
                                 {editingConnector ? 'Save Changes' : 'Create Connector'}
                             </button>
                         </div>

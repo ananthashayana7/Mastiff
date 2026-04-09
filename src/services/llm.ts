@@ -44,6 +44,15 @@ ANALYSIS GUIDELINES:
 8. Handle nulls silently — do not dedicate analysis to missing cells.
 9. If multiple datasets are active, compare them deliberately on common dimensions first, then call out confidence limits.
 10. If the first pass loses rows because of blank lines, spacer columns, or messy headers, recover and continue instead of giving up.
+11. FINANCE PATTERN DETECTION: If columns include Revenue, EBITDA, Net Income, Gross Profit, PAT, EBIT, Margins, Cost, Expense, Budget, Actuals, Variance:
+    - ALWAYS compute YoY, MoM, QoQ growth rates where time is available
+    - ALWAYS compute margin ratios: Gross Margin, EBITDA Margin, Net Margin
+    - Flag margin compression/expansion and explain the driver (Price, Volume, or Cost)
+    - Show waterfall chart for revenue bridge or cost breakdown when available
+    - Compute trailing 3-period moving average for smoothing
+12. CONFIDENCE BANDS: For every forecast, compute ±1 standard deviation confidence band and shade it visually
+13. PATTERN DEPTH: Look for: seasonality cycles, regime changes (structural breaks), co-movement between columns, leading indicator relationships, and anomaly clusters. Don't just describe patterns — name the mechanism causing them.
+14. MIND-BENDING INSIGHT: After standard analysis, always add one non-obvious insight the user probably hasn't considered — a hidden correlation, a counter-intuitive ratio, or a structural risk invisible in the top-line numbers.
 - Never fabricate metrics or trends.
 - ALWAYS generate colorful, interactive Plotly charts — mandatory, not optional.
 - Tables alone are NEVER sufficient. Pair every table with a visualization.
@@ -1102,6 +1111,19 @@ ASSEMBLY LINE DATA DETECTION:
   - If multiple assembly-line files are present, treat source_file as the line identifier unless a stronger line column exists. Compare lines explicitly.
     - ALWAYS include a download hint: set result text to include "Export this dashboard via the download button above."
 
+FINANCIAL DATA DETECTION:
+- If the data contains columns related to: Revenue, Sales, EBITDA, EBIT, PAT, PBT, Net Profit, Gross Profit, Cost, Expense, Margin, Budget, Actuals, Variance, P&L, Income, Loss, Cash Flow, Capex, Opex, Working Capital, Receivables, Payables, Inventory, Turnover, ROE, ROA, ROCE:
+  - This is FINANCIAL DATA. Apply the Finance Dashboard template:
+  1. TOP-LEFT: Revenue & Profit KPI cards displayed as go.Indicator with delta from previous period
+  2. TOP-RIGHT: Revenue vs Profit trend line chart with dual-axis and dashed forecast extension
+  3. MIDDLE-LEFT: Margin analysis (Gross/EBITDA/Net) as grouped bar chart showing trend
+  4. MIDDLE-RIGHT: YoY or MoM growth waterfall chart (green=growth, red=decline, gold=net)
+  5. BOTTOM-LEFT: Expense breakdown by category as treemap or stacked bar
+  6. BOTTOM-RIGHT: Forecast for primary KPI with 80% confidence interval band
+  - Use dark theme: paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(15,23,42,0.6)'
+  - Color: profits/gains in #00D4AA, losses/expenses in #FF6B6B, forecast in #54A0FF with opacity
+  - Always print: YoY growth %, top margin change, top expense driver, forecast value with confidence range
+
 INLINE / PASTED DATA HANDLING:
 - If the user's message contains tabular data (markdown tables, pipe-delimited rows, or dense numbers),
   parse that data DIRECTLY into a DataFrame using pd.read_csv(io.StringIO(...)) or by constructing
@@ -1157,6 +1179,15 @@ VISUALIZATION RULES (MANDATORY — CHARTS ARE NON-NEGOTIABLE):
     - When in doubt, prefer bar or line charts — they are the most universally readable.
 - Styling guidance for Plotly (MAKE CHARTS COLORFUL AND INSIGHTFUL):
     - Use vivid but executive-grade color palettes: ['#38BDF8','#14B8A6','#F59E0B','#818CF8','#22C55E','#F97316','#0EA5E9','#A3E635','#FACC15','#06B6D4'].
+    - FINANCE COLOR PALETTE (use for financial data): ['#00D4AA','#FF6B6B','#4ECDC4','#FFE66D','#A8EDEA','#C3F584','#FF9F43','#54A0FF','#5F27CD','#EE5A24']
+    - For profit/positive values: use greens (#00D4AA, #4ECDC4, #C3F584)
+    - For loss/negative values: use reds/oranges (#FF6B6B, #EE5A24, #FF9F43)
+    - For forecasts/projections: use blues with 70% opacity and dashed lines
+    - For confidence bands: use rgba fills with 15% opacity
+    - ALWAYS set paper_bgcolor='rgba(0,0,0,0)' and plot_bgcolor='rgba(15,23,42,0.6)' for dark theme consistency
+    - ALWAYS set font=dict(family='system-ui,sans-serif', color='#e2e8f0') for readability
+    - ALWAYS use hovertemplate with rich formatting for tooltips
+    - For waterfall/bridge charts (finance): use green for positive bars, red for negative, gold for totals
     - For heatmaps, use perceptual continuous scales (Viridis, Plasma, Inferno).
     - Set clear, descriptive titles and axis labels.
     - Use hover templates for rich interactive tooltips (e.g., hovertemplate="<b>%{x}</b><br>Value: %{y:,.2f}<extra></extra>").
