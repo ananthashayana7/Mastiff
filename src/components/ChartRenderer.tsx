@@ -10,7 +10,7 @@ import {
   ComposedChart
 } from 'recharts';
 import { VisualizationData } from '../types';
-import { DownloadSimple, Table as TableIcon, FileText, ArrowUp, ArrowDown, MagnifyingGlass, Funnel, X, ArrowClockwise, Cpu, TrendUp, Cursor, ArrowsOut, ArrowsIn, ChartBar } from '@phosphor-icons/react';
+import { DownloadSimple, Table as TableIcon, FileText, ArrowUp, ArrowDown, MagnifyingGlass, Funnel as FunnelIcon, X, ArrowClockwise, Cpu, TrendUp, Cursor, ArrowsOut, ArrowsIn, ChartBar } from '@phosphor-icons/react';
 import html2canvas from 'html2canvas';
 
 const COLORS = [
@@ -129,7 +129,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
           </div>
           <div className="flex gap-1.5">
             <button onClick={() => setIsFilterActive(!isFilterActive)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all text-[8px] font-extrabold uppercase tracking-widest ${isFilterActive ? 'bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(20,184,166,0.88))] text-white' : 'glass text-zinc-500 hover:text-white'}`}>
-              <Funnel size={11} /> Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
+              <FunnelIcon size={11} /> Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
             </button>
             <button onClick={handleExportCSV} className="flex items-center gap-1.5 px-2.5 py-1.5 glass rounded-lg text-zinc-500 hover:text-white transition-all text-[8px] font-extrabold uppercase tracking-widest"><DownloadSimple size={11} /> CSV</button>
             <button onClick={handleExportImage} className="flex items-center gap-1.5 px-2.5 py-1.5 glass rounded-lg text-zinc-500 hover:text-white transition-all text-[8px] font-extrabold uppercase tracking-widest"><DownloadSimple size={11} /> PNG</button>
@@ -273,7 +273,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
       case 'pie':
         return (
           <PieChart>
-            <Pie data={data} innerRadius={55} outerRadius={95} paddingAngle={4} dataKey="value" nameKey="label" stroke="none" onClick={handleDataClick} animationDuration={800} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+            <Pie data={data} innerRadius={55} outerRadius={95} paddingAngle={4} dataKey="value" nameKey="label" stroke="none" onClick={handleDataClick} animationDuration={800} label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`}>
               {data.map((_entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
             </Pie>
             <Tooltip contentStyle={tooltipStyle as any} />
@@ -421,6 +421,9 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
           </button>
           <button onClick={handleExportImage} className="rounded-lg border border-white/10 bg-white/[0.04] p-1.5 text-slate-400 transition-all hover:border-sky-300/30 hover:text-white" title="Export Image">
             <DownloadSimple size={12} />
+          </button>
+        </div>
+      </div>
       <div className={`w-full ${isExpanded ? 'h-[calc(100vh-120px)]' : 'h-[320px]'}`}>
         <ResponsiveContainer width="100%" height="100%">
           {renderContent()}

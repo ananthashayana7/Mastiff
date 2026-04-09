@@ -150,7 +150,7 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
         return (
           <PieChart>
             <Pie data={pieData} innerRadius={50} outerRadius={90} paddingAngle={3} dataKey="value" nameKey="name" stroke="none" animationDuration={800}
-              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`}>
               {pieData.map((_entry, index) => <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
             </Pie>
             <Tooltip contentStyle={tooltipStyle as any} />
@@ -210,9 +210,13 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
                 <Area type="monotone" dataKey="upper" fill="url(#forecastGrad)" stroke="none" name="Confidence Band" />
                 <Area type="monotone" dataKey="lower" fill="rgba(0,0,0,0)" stroke="none" />
                 <Line type="monotone" dataKey={yKey} stroke="#38BDF8" strokeWidth={2.5}
-                    dot={(props: { cx: number; cy: number; payload?: { isForecast?: boolean } }) => props.payload?.isForecast
-                        ? <circle cx={props.cx} cy={props.cy} r={4} fill="#54A0FF" stroke="#fff" strokeWidth={1.5} />
-                        : <circle cx={props.cx} cy={props.cy} r={3} fill="#38BDF8" strokeWidth={0} />}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    dot={(props: any) => {
+                        const { cx, cy, payload, key } = props;
+                        return payload?.isForecast
+                            ? <circle key={key} cx={cx} cy={cy} r={4} fill="#54A0FF" stroke="#fff" strokeWidth={1.5} />
+                            : <circle key={key} cx={cx} cy={cy} r={3} fill="#38BDF8" strokeWidth={0} />;
+                    }}
                     animationDuration={1000} />
             </ComposedChart>
         );
