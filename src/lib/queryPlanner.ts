@@ -167,7 +167,7 @@ export function buildQueryPlanPromptBlock(plan: QueryPlan): string {
     '- Non-negotiable delivery contract:',
     plan.mode === 'theory'
       ? '  1. If this is purely theoretical, answer directly without pretending to have analyzed missing data.'
-      : '  1. If data is present, return evidence-backed insights, a forecast, recommended actions, and at least one chart.',
+      : '  1. If data is present, return evidence-backed written insights, a forecast, recommended actions, and at least one chart. Charts never replace the written summary.',
     '  2. Generated code must be complete, runnable, and never truncated with ellipses or placeholders.',
     '  3. If multiple files are active, harmonize them deliberately and state comparison limits instead of forcing a bad merge.',
     '  4. If rows or columns are mostly empty, clean them silently and continue with the remaining usable evidence.',

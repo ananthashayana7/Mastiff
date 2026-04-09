@@ -16,6 +16,51 @@ type MetadataExtras = {
   schemaReviewNotes?: string[];
 };
 
+function toFiniteCount(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function tabularMetadataScore(metadata?: Record<string, any> | null): number {
+  if (!metadata || typeof metadata !== 'object') return 0;
+
+  const rowCount = toFiniteCount(metadata.row_count);
+  const columnCount = toFiniteCount(metadata.column_count);
+  const sampleCount = Array.isArray(metadata.sample) ? metadata.sample.length : 0;
+  const columnMetadataCount = metadata.columns && typeof metadata.columns === 'object'
+    ? Object.keys(metadata.columns).length
+    : 0;
+
+  return (rowCount * 1000) + (columnCount * 100) + (sampleCount * 10) + columnMetadataCount;
+}
+
+export function preferRicherTabularMetadata(
+  primary: Record<string, any> | null | undefined,
+  fallback: Record<string, any> | null | undefined
+): Record<string, any> {
+  if (!primary && !fallback) return {};
+  if (!primary) return fallback || {};
+  if (!fallback) return primary;
+
+  const primaryScore = tabularMetadataScore(primary);
+  const fallbackScore = tabularMetadataScore(fallback);
+  const useFallback = fallbackScore > primaryScore;
+  const chosen = useFallback ? fallback : primary;
+  const alternate = useFallback ? primary : fallback;
+
+  const mergedNotes = Array.from(new Set([
+    ...((alternate.schema_review_notes || []) as string[]),
+    ...((chosen.schema_review_notes || []) as string[]),
+    ...(useFallback ? ['Fallback parser replaced a weaker metadata extraction result to preserve usable rows and columns.'] : []),
+  ].filter(Boolean)));
+
+  return {
+    ...alternate,
+    ...chosen,
+    extraction_warning: chosen.extraction_warning || alternate.extraction_warning,
+    schema_review_notes: mergedNotes,
+  };
+}
+
 export function sanitizeFileName(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, '_');
 }

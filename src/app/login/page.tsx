@@ -153,7 +153,7 @@ export default function LoginPage() {
                     <div className="mb-8 flex items-center justify-between">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-[0.28em] text-slate-300/70">Sign in</p>
-                            <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-white">Enter the cockpit</h1>
+                            <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-white">Sign in to Mastiff</h1>
                         </div>
                         <BrandMark size={48} className="hidden sm:inline-flex" />
                     </div>

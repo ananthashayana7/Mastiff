@@ -731,7 +731,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Header */}
                 <div className="shrink-0 border-b border-white/8 p-4">
                     <div className="flex items-start justify-between gap-3">
-                        <BrandLockup size={42} subtitle="Decision Cockpit" title="Mastiff" />
+                        <BrandLockup size={42} subtitle="Analytics Workspace" title="Mastiff" />
                         <button onClick={onClose} className="rounded-xl p-2 text-slate-400 transition-colors hover:text-white xl:hidden">
                             <X size={16} />
                         </button>
@@ -909,19 +909,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 >
                                     <FileUp size={16} className="mx-auto mb-1.5 text-slate-400 transition-colors group-hover:text-sky-200" />
                                     <p className="text-[9px] font-bold text-slate-300 transition-colors group-hover:text-white">Upload files</p>
-                                    <p className="mt-1 text-[10px] leading-tight text-slate-300/[0.55]">CSV, Excel, PDF, Word, text, JSON, TSV, and Parquet are supported. Blank rows and spacer columns are tolerated during import.</p>
+                                    <p className="mt-1 text-[10px] leading-tight text-slate-300/[0.55]">CSV, Excel, PDF, Word, text, JSON, TSV, and Parquet are supported. Charts and written analysis start automatically as soon as the data is activated.</p>
                                 </button>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {connectorBrandCards.slice(0, 6).map((card) => (
-                                        <button
-                                            key={`ghost-${card.type}`}
-                                            onClick={openCreateConnectorModal}
-                                            className="rounded-xl border border-white/8 bg-white/[0.025] px-2 py-2 text-left opacity-70 transition-all hover:border-white/12 hover:opacity-100"
-                                        >
-                                            <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">{card.badge}</div>
-                                            <div className="mt-1 text-[10px] font-semibold text-slate-300">{card.label}</div>
-                                        </button>
-                                    ))}
+                                <div className="rounded-2xl border border-white/8 bg-white/[0.025] px-3 py-2.5">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">Need a live source?</p>
+                                    <p className="mt-1 text-[10px] leading-tight text-slate-300/[0.7]">Use the single Connectors section below for Sheets, SharePoint, Snowflake, BigQuery, Postgres, or API sources.</p>
                                 </div>
                             </div>
                         )}

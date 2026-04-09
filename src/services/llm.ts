@@ -101,6 +101,13 @@ interface AnalysisCodePayload {
     requires_visualization?: boolean;
 }
 
+export interface ClassifiedLlmError {
+    code: 'rate_limit' | 'context_limit' | 'configuration' | 'unknown';
+    status: number;
+    error: string;
+    content: string;
+}
+
 function stripMarkdownCodeFences(text: string): string {
     return text.replace(/```json/g, '').replace(/```python/g, '').replace(/```/g, '').trim();
 }
@@ -742,6 +749,69 @@ export function isKeyExhaustedError(error: any): boolean {
     );
 }
 
+function isContextLimitError(error: any): boolean {
+    const msg = String(error?.message || error || '').toLowerCase();
+    return (
+        msg.includes('maximum context length') ||
+        msg.includes('context window') ||
+        msg.includes('context length') ||
+        msg.includes('too many tokens') ||
+        msg.includes('token limit') ||
+        msg.includes('token count') ||
+        msg.includes('prompt is too long') ||
+        msg.includes('request too large') ||
+        msg.includes('input is too large') ||
+        msg.includes('reduce the length')
+    );
+}
+
+function isConfigurationError(error: any): boolean {
+    const msg = String(error?.message || error || '').toLowerCase();
+    return (
+        msg.includes('ai client not initialized') ||
+        msg.includes('at least one gemini api key must be set') ||
+        msg.includes('api key not valid') ||
+        msg.includes('api_key_invalid') ||
+        msg.includes('invalid api key')
+    );
+}
+
+export function classifyLlmError(error: any): ClassifiedLlmError {
+    if (isContextLimitError(error)) {
+        return {
+            code: 'context_limit',
+            status: 400,
+            error: 'AI request exceeds model context limit',
+            content: 'Your request is too large for the current model context window. Please shorten the message or reduce attached content and try again.',
+        };
+    }
+
+    if (isConfigurationError(error)) {
+        return {
+            code: 'configuration',
+            status: 503,
+            error: 'AI service is not configured',
+            content: 'The AI service is not available right now because its API configuration is incomplete. Please try again later.',
+        };
+    }
+
+    if (isKeyExhaustedError(error)) {
+        return {
+            code: 'rate_limit',
+            status: 429,
+            error: 'AI rate limit or quota exceeded',
+            content: 'The AI service is temporarily rate-limited or out of quota. Please try again in a few minutes.',
+        };
+    }
+
+    return {
+        code: 'unknown',
+        status: 500,
+        error: 'An unexpected error occurred during analysis',
+        content: 'I encountered an error while processing your request. Please try again.',
+    };
+}
+
 export class LLMService {
     private clients: Map<string, GoogleGenAI> = new Map();
     private apiKeys: string[] = [];
@@ -983,6 +1053,7 @@ EXECUTION ENVIRONMENT:
 - When multiple files are present, inspect dfs first and never assume all files should be stacked blindly.
 - Return result via variable: result.
 - For Plotly visual output, set result to a Plotly figure.
+- Text is mandatory whenever data is analyzed. Visuals support the answer; they never replace the written summary.
 
 INSTRUCTIONS:
 - First align your code to the query execution plan above. Do not answer a comparison question like a profile, and do not answer a root-cause question with descriptive stats only.
@@ -995,7 +1066,7 @@ INSTRUCTIONS:
 - For every numerical question, write deterministic Python that computes the answer directly from data (never prose-only math).
 - Guard edge cases (division by zero, empty subsets, non-numeric coercion, and missing columns) before computing.
 - WRITE COMPLETE, FULL PYTHON CODE. Never truncate, abbreviate, or use "..." or "# similar for other..." placeholders. Every line must be executable. Write the FULL code for each chart — no shortcuts.
-- When result is a Plotly figure, ALSO print a concise evidence block to stdout with the exact KPIs, top concerns, and forecast assumptions used. Those printed logs are consumed by the business summary.
+- When result is a Plotly figure, you MUST ALSO print a concise evidence block to stdout with the exact KPIs, top concerns, forecast assumptions, and recommended actions used. Those printed logs are consumed by the business summary and are mandatory.
 - Isolate outliers (Z-score > 3) and show stats with and without them when relevant.
 - When multiple datasets are loaded:
   - First determine whether the files should be harmonized vertically, compared side by side, or joined on shared keys.
@@ -1072,6 +1143,7 @@ DATA LOADING & VERIFICATION (CRITICAL — always include this logic):
 VISUALIZATION RULES (MANDATORY — CHARTS ARE NON-NEGOTIABLE):
 - ALWAYS produce at least one Plotly chart whenever the data contains numerical columns — do NOT wait for the user to ask.
 - Tables alone are NEVER sufficient. Every numerical analysis MUST be accompanied by a colorful, interactive Plotly visualization.
+- Every charted answer MUST still leave behind enough printed evidence for a written management summary. Do not return charts without textual findings.
 - If the user explicitly requests a chart, produce the most suitable one. If not explicitly requested but numerical data is present, still produce a chart automatically.
 - Generate MULTIPLE charts when the data warrants it (e.g., overview + detail, comparison + trend).
 - Chart selection guidance:
@@ -1320,10 +1392,18 @@ ROLE: Skeptical business strategist delivering crisp action points — NOT a ver
 
 CRITICAL OUTPUT RULES:
 - BE CONCISE. Management reads bullet points, not essays. Max 2 sentences per insight.
-- LEAD WITH ACTIONS: Start each finding with "→ Action:" followed by the recommendation, then the evidence.
+- START IMMEDIATELY. No greeting, no setup sentence, no filler.
+- USE THIS EXACT OUTPUT ORDER:
+    1. One line starting with "Executive Signal:".
+    2. Exactly 4 numbered insights using "1)", "2)", "3)", "4)".
+    3. Exactly 3 action lines, each starting with "→ Action:".
+    4. One line starting with "Forecast:".
+    5. One line starting with "Data Quality:".
+- Each insight must carry a specific number, driver, anomaly, or business condition when evidence exists.
+- The 3 actions must be distinct: one immediate move, one structural improvement, one risk-control move.
 - NO FILLER TEXT: Remove "Let me analyze...", "Based on the data...", "It's worth noting..." — skip preamble entirely.
 - USE BULLET POINTS over paragraphs. Every bullet must be a standalone, actionable insight.
-- TOTAL RESPONSE LENGTH: Aim for 150-300 words maximum. Quality over quantity.
+- TOTAL RESPONSE LENGTH: Aim for 160-240 words maximum. Quality over quantity.
 - ABSOLUTELY NO TECHNICAL ARTIFACTS: do not include Python, SQL, JSON, code snippets, pseudo-code, stack traces, or fenced code blocks.
 - NEVER return markdown code fences like \`\`\`python, \`\`\`plotly, or \`\`\`json.
 - NEVER explain implementation steps like "import pandas", "create dataframe", or "run regression". Only business meaning and decisions.
@@ -1338,9 +1418,10 @@ RULES:
 - If evidence is insufficient, state it in one sentence and suggest what data would help.
 - If execution failed, explain the failure in 1-2 sentences and suggest a concrete fix.
 - If charts were generated, mention their key takeaway in one sentence — don't describe the chart structure.
-- If charts were generated, reference outcomes from visuals and explicitly state "See interactive visuals below" once.
+- If charts were generated, reference outcomes from visuals and explicitly state "See interactive visuals below." once.
+- A written summary is mandatory even when the visuals are strong. Never answer with chart references alone.
 - If execution output lists multiple datasets analyzed, include one short coverage note so the user knows whether the conclusion is cross-file or single-file.
-- Use markdown: **bold** for key metrics, bullet points for findings, ### for sections.
+- Use markdown only for **bold** metrics when helpful. Do not use headings beyond the required line labels above.
 
 DIAGNOSTIC RULES:
 - Small sample (N < 30): Add "⚠️ Preliminary (N=X)" — one line, not a paragraph.
@@ -1360,15 +1441,9 @@ AVOID:
 - If 0 rows, write 2 sentences explaining why and suggest next steps. Don't fake a report.
 - If execution SUCCEEDED with real data, trust execution output over pre-scan warnings.
 
-OUTPUT STRUCTURE (CONCISE — adapt headers to content):
-1. **📊 Executive Summary** — 2 sentences max. The "so what" of the entire analysis.
-2. **🚨 Top Concerns & Actions** — 3-5 bullet points. Each: "→ Action:" then the recommendation, then brief evidence.
-3. **📈 Forecast & Direction** — What will happen next? 2-3 bullets with projected numbers and direction. Include confidence level.
-4. **🔍 Gaps & Anomalies** — What did the data reveal that a human would miss? Hypothesize root causes.
-5. **💡 Quick Wins** — exactly 3 immediately actionable opportunities with estimated impact.
-6. **⚡ Data Quality** — One-line reliability rating.
-
-REMEMBER: If charts were generated, state "📊 See interactive charts below for details." once. Do NOT describe chart mechanics.
+REMEMBER:
+- If charts were generated, include "See interactive visuals below." exactly once.
+- If evidence is thin, say so in the Data Quality line rather than padding the insights with filler.
 `;
 
         // Summarize the code intent in one line so the LLM understands context without seeing
@@ -1448,7 +1523,7 @@ Chart count: ${chartCount}
             return this.normalizeResponseText(response) || "I wasn't able to generate a response. Please try again.";
         } catch (error) {
             console.error('LLM Chat Error:', error);
-            return 'I encountered an error while processing your request. Please try again.';
+            throw error;
         }
     }
 }

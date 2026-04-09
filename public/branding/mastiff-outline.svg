@@ -1,14 +1,16 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="mastiffOutlineShell" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F8FBFF"/>
-      <stop offset="1" stop-color="#E3EEF9"/>
-    </linearGradient>
-  </defs>
-  <rect x="22" y="22" width="468" height="468" rx="124" fill="url(#mastiffOutlineShell)"/>
-  <rect x="22" y="22" width="468" height="468" rx="124" stroke="#0B1627" stroke-width="20"/>
-  <path d="M108 386V126H164L256 245.8L349 126H404V386H349V210.4L285 293H227L164 210.4V386H108Z" fill="#0B1627"/>
-  <path d="M348 146C384.451 146 414 175.642 414 212.213V303.787C414 340.358 384.451 370 348 370" stroke="#0B1627" stroke-width="22" stroke-linecap="round"/>
-  <circle cx="393" cy="213" r="20" fill="#0B1627"/>
-  <circle cx="393" cy="304" r="20" fill="#0B1627"/>
+  <rect width="512" height="512" rx="112" fill="#FFFFFF"/>
+  <g transform="translate(256 256)">
+    <path d="M72 -166C146 -150 198 -83 200 -6C201 28 194 60 182 90" stroke="#111111" stroke-width="54" stroke-linecap="round"/>
+    <path d="M-170 -76C-148 -125 -106 -163 -55 -182" stroke="#111111" stroke-width="20" stroke-linecap="round" stroke-dasharray="14 10 30 10"/>
+    <path d="M54 183C108 171 153 132 180 78" stroke="#111111" stroke-width="20" stroke-linecap="round" stroke-dasharray="14 10 30 10"/>
+    <circle r="121" fill="#FFFFFF" stroke="#111111" stroke-width="10"/>
+    <circle r="92" fill="#FFFFFF" stroke="#111111" stroke-width="16"/>
+    <path d="M-192 -6L-68 -131L-42 -106L-123 -7L-36 97L-63 123L-192 -6Z" fill="#111111"/>
+    <path d="M-8 -121C43 -121 82 -89 82 -42V-16C82 1 73 17 59 26L47 34L52 92C53 105 43 116 30 116H-34C-47 116 -57 105 -56 92L-52 50L-71 38C-86 28 -95 12 -95 -6V-39C-95 -85 -55 -121 -8 -121Z" fill="#111111"/>
+    <path d="M-18 -84C-50 -84 -72 -61 -72 -28V-10C-72 7 -63 23 -49 31L-28 42L-33 83H18L13 25L34 11C45 4 52 -6 52 -18V-28C52 -59 26 -84 -6 -84H-18Z" fill="#FFFFFF"/>
+    <path d="M14 -69L31 -42L5 49H-26L-2 -42L14 -69Z" fill="#111111"/>
+    <path d="M-8 -44C14 -55 41 -51 58 -35C37 -28 11 -25 -8 -44Z" fill="#111111"/>
+    <path d="M-69 -130C-34 -156 23 -160 76 -121C60 -111 48 -100 36 -84C3 -104 -34 -109 -69 -101V-130Z" fill="#111111"/>
+  </g>
 </svg>

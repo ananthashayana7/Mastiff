@@ -89,13 +89,20 @@ export function buildContractFallbackSummary(inputPrompt: string, hasCharts: boo
     ? '✅ Analysis backed by executable Python code (click "View Code" to inspect).'
     : '⚠️ Analysis code was incomplete — retry with a narrower question for deterministic results.';
 
-  if (/exactly\s*3/i.test((inputPrompt || '').toLowerCase())) {
-    return [
-      `→ ${chartStatus}`,
-      `→ ${reliabilityStatus}`,
-      '→ Action: Prioritize top cost/profit drivers and assign corrective actions with owner + deadline.',
-    ].join('\n');
-  }
-
-  return `**📊 Executive Summary**\n\n- ${chartStatus}\n- ${reliabilityStatus}\n- → Action: Focus on the highest-impact finding and assign follow-up actions.`;
+  return [
+    '**Executive Signal** The analysis response needed a deterministic fallback, so treat this output as directional until a deeper rerun confirms it.',
+    `1) ${chartStatus}`,
+    `2) ${reliabilityStatus}`,
+    '3) The next decision should center on the biggest variance, anomaly, or trend driver rather than broad narrative.',
+    '4) If the current answer still feels generic, narrow the question to one KPI, one slice, or one time horizon.',
+    '→ Action: Re-run the analysis around the single highest-impact metric or business risk.',
+    '→ Action: Ask for the main driver, outlier rows, and latest-period comparison in the next follow-up.',
+    hasAnalysisCode
+      ? '→ Action: Open the Python code and validate the assumptions before operationalizing the result.'
+      : '→ Action: Request executable analysis code for a reproducible evidence trail.',
+    hasCharts
+      ? 'Forecast: Directional trend is visible in the charts below; use it as a short-term planning signal, not a long-range forecast.'
+      : 'Forecast: Reliable direction cannot be established until the next run produces a chart-backed trend readout.',
+    `Data Quality: ${hasAnalysisCode ? 'Reproducible but fallback-shaped.' : 'Fallback-shaped and directional only.'}`,
+  ].join('\n');
 }

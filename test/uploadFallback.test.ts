@@ -12,7 +12,7 @@ vi.mock('@/db/schema', () => ({
   files: {},
 }));
 
-import { buildTabularMetadataFallback } from '../src/lib/fileIngestion';
+import { buildTabularMetadataFallback, preferRicherTabularMetadata } from '../src/lib/fileIngestion';
 
 const tempFiles: string[] = [];
 
@@ -86,5 +86,27 @@ describe('buildTabularMetadataFallback', () => {
       { Shift: 'Shift 1', RejectedQty: '4', YieldPct: '98' },
       { Shift: 'Shift 2', RejectedQty: '7', YieldPct: '96' },
     ]);
+  });
+
+  it('prefers fallback metadata when the primary extraction is effectively empty', () => {
+    const preferred = preferRicherTabularMetadata(
+      {
+        row_count: 0,
+        column_count: 0,
+        sample: [],
+        schema_review_notes: ['Primary extractor returned no usable rows.'],
+      },
+      {
+        row_count: 4,
+        column_count: 3,
+        sample: [{ Shift: 'A', RejectedQty: '4', YieldPct: '98' }],
+        schema_review_notes: ['Fallback recovered rows after removing spacer columns.'],
+      }
+    );
+
+    expect(preferred.row_count).toBe(4);
+    expect(preferred.column_count).toBe(3);
+    expect(preferred.schema_review_notes).toContain('Fallback recovered rows after removing spacer columns.');
+    expect(preferred.schema_review_notes).toContain('Fallback parser replaced a weaker metadata extraction result to preserve usable rows and columns.');
   });
 });

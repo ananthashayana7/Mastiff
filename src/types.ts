@@ -99,8 +99,11 @@ export interface ChatMessage {
     traceback?: string;
     updated_df_sample?: any[];
     responseEnvelope?: {
+      headline: string;
       insights: string[];
+      actions: string[];
       forecast: string;
+      dataQuality: string;
       hasChart: boolean;
       hasCode: boolean;
     };
@@ -110,6 +113,7 @@ export interface ChatMessage {
       contractRepaired: boolean;
       initialViolations: string[];
     };
+    followUpPrompts?: string[];
   };
   status?: 'thinking' | 'done' | 'error';
   mode?: AnalysisMode;

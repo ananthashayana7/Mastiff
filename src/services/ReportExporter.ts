@@ -14,6 +14,9 @@ export const exportToPDF = async (containerId: string, sessionTitle: string) => 
         const originalContainerStyle = {
             background: container.style.background,
             color: container.style.color,
+            overflow: container.style.overflow,
+            height: container.style.height,
+            maxHeight: container.style.maxHeight,
         };
 
         const exportOverridesByNode = new Map<any, Record<string, any>>();
@@ -84,6 +87,9 @@ export const exportToPDF = async (containerId: string, sessionTitle: string) => 
         const restoreTheme = async () => {
             container.style.background = originalContainerStyle.background;
             container.style.color = originalContainerStyle.color;
+            container.style.overflow = originalContainerStyle.overflow;
+            container.style.height = originalContainerStyle.height;
+            container.style.maxHeight = originalContainerStyle.maxHeight;
 
             if (!plotly || exportOverridesByNode.size === 0) return;
 
@@ -94,17 +100,27 @@ export const exportToPDF = async (containerId: string, sessionTitle: string) => 
 
         let canvas: HTMLCanvasElement;
         await applyExportTheme();
+        container.style.overflow = 'visible';
+        container.style.height = 'auto';
+        container.style.maxHeight = 'none';
 
         try {
             canvas = await html2canvas(element, {
                 scale: 2,
                 useCORS: true,
                 backgroundColor: '#ffffff',
+                width: Math.max(element.scrollWidth, element.clientWidth),
+                height: Math.max(element.scrollHeight, element.clientHeight),
+                windowWidth: Math.max(element.scrollWidth, element.clientWidth),
+                windowHeight: Math.max(element.scrollHeight, element.clientHeight),
                 onclone: (clonedDocument) => {
                     const clonedTarget = clonedDocument.getElementById(containerId);
                     if (clonedTarget) {
                         (clonedTarget as HTMLElement).style.background = '#ffffff';
                         (clonedTarget as HTMLElement).style.color = '#111827';
+                        (clonedTarget as HTMLElement).style.overflow = 'visible';
+                        (clonedTarget as HTMLElement).style.height = 'auto';
+                        (clonedTarget as HTMLElement).style.maxHeight = 'none';
                     }
                     clonedDocument.body.style.background = '#ffffff';
                     clonedDocument.body.style.color = '#111827';

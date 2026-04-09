@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { messages, sessions } from '@/db/schema';
 import { connectors } from '@/db/connectorSchema';
 import { eq, asc, and, inArray } from 'drizzle-orm';
-import { buildDeterministicAnalysisFallbackCode, llm } from '@/services/llm';
+import { buildDeterministicAnalysisFallbackCode, classifyLlmError, llm } from '@/services/llm';
 import { kernelService } from '@/services/kernel';
 import { generateDataIntelligenceReport, formatWarningsForPrompt, analyseFile, formatForPrompt, DataIntelligenceReport } from '@/services/dataIntelligenceService';
 import { AnalysisMode } from '@/src/types';
@@ -12,7 +12,8 @@ import { validateCSRFRequest } from '@/lib/csrf';
 import { buildRecoverySnippet } from './recoverySnippets';
 import { buildDeterministicFinancialSummary } from '../../../lib/financialSummaryGuard';
 import { buildContractFallbackSummary, containsTechnicalArtifacts, validateSummaryContract } from '../../../lib/chatResponseContract';
-import { buildAnalysisResponseEnvelope, renderEnvelopeAsSummary } from '../../../lib/chatResponseEnvelope';
+import { buildAnalysisResponseEnvelope, buildFollowUpPrompts, renderEnvelopeAsSummary } from '../../../lib/chatResponseEnvelope';
+import { buildAutoChartRowsFromFiles, buildAutoChartRowsFromInlineTable, hasAutoChartableData } from '../../../lib/autoChart';
 import { buildCompactFileContext, buildMultiDatasetPromptBlock } from '../../../lib/multiDatasetIntelligence';
 import {
     buildQueryPlanPromptBlock,
@@ -31,13 +32,42 @@ const NUMERIC_INTENT_PATTERNS = /(\d|percent|percentage|kpi|metric|trend|forecas
 
 // Detect when the user pasted tabular/financial data inline (no uploaded file)
 function containsInlineTabularData(content: string): boolean {
-    const lines = content.split(/\r?\n/);
-    // Look for pipe-delimited table rows (markdown tables or CSV-style pasted data)
-    const tableRows = lines.filter((l) => l.includes('|') && l.trim().startsWith('|')).length;
-    if (tableRows >= 3) return true;
-    // Look for a dense cluster of numbers (financial data pasted as text)
-    const numericLines = lines.filter((l) => (l.match(/[\d,.]+/g) || []).length >= 3).length;
-    return numericLines >= 5;
+    const lines = content
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+    if (lines.length === 0) return false;
+
+    const markdownTableRows = lines.filter((line) => line.includes('|') && /^\|?.+\|.+\|?$/.test(line)).length;
+    if (markdownTableRows >= 2) return true;
+
+    const markdownSeparatorRows = lines.filter((line) => /^\|?\s*:?-{2,}/.test(line)).length;
+    if (markdownTableRows >= 1 && markdownSeparatorRows >= 1) return true;
+
+    const looksDelimited = (delimiter: ',' | '\t' | ';') => {
+        const candidateRows = lines
+            .map((line) => ({
+                line,
+                count: line.split(delimiter).length - 1,
+            }))
+            .filter((entry) => entry.count >= 2);
+
+        if (candidateRows.length < 2) return false;
+
+        const distinctColumnCounts = new Set(candidateRows.map((entry) => entry.count));
+        if (distinctColumnCounts.size <= 2) return true;
+
+        return candidateRows.length >= 3;
+    };
+
+    if (looksDelimited(',') || looksDelimited('\t') || looksDelimited(';')) return true;
+
+    const jsonObjectRows = lines.filter((line) => /"[^"]+"\s*:\s*/.test(line)).length;
+    if (jsonObjectRows >= 3) return true;
+
+    const numericLines = lines.filter((line) => (line.match(/[\d,.]+/g) || []).length >= 3).length;
+    return numericLines >= 3;
 }
 
 function isColumnShapeError(errorText: string): boolean {
@@ -48,7 +78,7 @@ function isTabularParseError(errorText: string): boolean {
     return /columns passed, passed data had|parsererror|error tokenizing data|expected\s+\d+\s+fields|saw\s+\d+|too many columns specified|shape of passed values/i.test(errorText || '');
 }
 
-function buildInlineFinancialFallbackCode(rawContent: string): string {
+export function buildInlineFinancialFallbackCode(rawContent: string): string {
     const b64 = Buffer.from(rawContent || '', 'utf8').toString('base64');
 
     return `
@@ -110,6 +140,10 @@ for ln in lines:
     if len(candidates) < 12:
         # Try fallback extraction from full line for space-collapsed pasted tables.
         candidates = re.findall(r'-?\d[\d,]*(?:\.\d+)?|\bN/?A\b|\-|—|null', ln, flags=re.IGNORECASE)
+
+    if len(candidates) >= 13:
+        # Financial statements often include a numeric note/reference column before the 6 monthly + 6 YTD values.
+        candidates = candidates[-12:]
 
     if len(candidates) < 12:
         # Ignore section labels or malformed rows that don't have monthly+YTD payload.
@@ -175,9 +209,9 @@ else:
     fig.add_trace(go.Scatter(x=months, y=df_m['Revenue from operations'], mode='lines+markers', name='Revenue'), row=1, col=1)
     fig.add_trace(go.Scatter(x=months, y=np.abs(df_m['Total expenses']), mode='lines+markers', name='Total Expenses'), row=1, col=1)
     fig.add_trace(go.Scatter(x=months, y=df_m['Profit for the year (PAT)'], mode='lines+markers', name='PAT'), row=1, col=1)
-    fig.add_trace(go.Scatter(x=['Jun\'25', 'Jul\'25 (F)'], y=[float(df_m['Revenue from operations'].iloc[-1]), f_rev], mode='lines', name='Revenue Forecast', line={'dash':'dash'}), row=1, col=1)
-    fig.add_trace(go.Scatter(x=['Jun\'25', 'Jul\'25 (F)'], y=[float(np.abs(df_m['Total expenses'].iloc[-1])), abs(f_exp)], mode='lines', name='Expenses Forecast', line={'dash':'dash'}), row=1, col=1)
-    fig.add_trace(go.Scatter(x=['Jun\'25', 'Jul\'25 (F)'], y=[float(df_m['Profit for the year (PAT)'].iloc[-1]), f_pat], mode='lines', name='PAT Forecast', line={'dash':'dash'}), row=1, col=1)
+    fig.add_trace(go.Scatter(x=["Jun'25", "Jul'25 (F)"], y=[float(df_m['Revenue from operations'].iloc[-1]), f_rev], mode='lines', name='Revenue Forecast', line={'dash':'dash'}), row=1, col=1)
+    fig.add_trace(go.Scatter(x=["Jun'25", "Jul'25 (F)"], y=[float(np.abs(df_m['Total expenses'].iloc[-1])), abs(f_exp)], mode='lines', name='Expenses Forecast', line={'dash':'dash'}), row=1, col=1)
+    fig.add_trace(go.Scatter(x=["Jun'25", "Jul'25 (F)"], y=[float(df_m['Profit for the year (PAT)'].iloc[-1]), f_pat], mode='lines', name='PAT Forecast', line={'dash':'dash'}), row=1, col=1)
 
     fig.add_trace(go.Scatter(x=months, y=df_m['PBT Margin (%)'], mode='lines+markers', name='PBT Margin %'), row=1, col=2)
     fig.add_trace(go.Scatter(x=months, y=df_m['PAT Margin (%)'], mode='lines+markers', name='PAT Margin %'), row=1, col=2)
@@ -225,6 +259,10 @@ function countVisualizationArtifacts(executionResult: {
     plotly_charts?: unknown[];
 } | null | undefined): number {
     return (executionResult?.charts?.length || 0) + (executionResult?.plotly_charts?.length || 0);
+}
+
+function buildPreviewSampleFallback(sessionFiles: Array<{ filename: string; metadata?: unknown }>): Record<string, unknown>[] {
+    return buildAutoChartRowsFromFiles(sessionFiles) as Record<string, unknown>[];
 }
 
 function sanitizeExecutiveSummary(summary: string): string {
@@ -401,6 +439,7 @@ export async function POST(req: NextRequest) {
         // Treat messages with pasted tabular/financial data as having effective data even without uploaded files
         const hasPastedData = !hasFiles && containsInlineTabularData(content);
         const effectiveHasFiles = hasFiles || hasPastedData;
+        const pastedSampleRows = hasPastedData ? buildAutoChartRowsFromInlineTable(content) : [];
         const queryPlan = deriveQueryPlan(content, {
             hasDataContext: effectiveHasFiles,
             fileCount: sessionFiles.length,
@@ -411,7 +450,14 @@ export async function POST(req: NextRequest) {
         if (runDataAnalysis) {
             // Build a synthetic file context when the user pasted data inline
             const pastedDataContext = hasPastedData
-                ? [{ name: 'pasted_data.txt', schema: '{"columns":[],"row_count":0}', sample: [] }]
+                ? [{
+                    name: 'pasted_data.txt',
+                    schema: JSON.stringify({
+                        columns: pastedSampleRows[0] ? Object.keys(pastedSampleRows[0]) : [],
+                        row_count: pastedSampleRows.length,
+                    }),
+                    sample: pastedSampleRows,
+                }]
                 : [];
 
             const intelligenceFileContexts = hasFiles
@@ -663,6 +709,21 @@ export async function POST(req: NextRequest) {
                 }
             }
 
+            if (countVisualizationArtifacts(executionResult) === 0) {
+                const existingSample = Array.isArray(executionResult.updated_df_sample) ? executionResult.updated_df_sample : [];
+                const previewFallback = hasFiles
+                    ? buildPreviewSampleFallback(sessionFiles)
+                    : pastedSampleRows;
+                if (!hasAutoChartableData(existingSample) && hasAutoChartableData(previewFallback)) {
+                    if (hasAutoChartableData(previewFallback)) {
+                        executionResult = {
+                            ...executionResult,
+                            updated_df_sample: previewFallback,
+                        };
+                    }
+                }
+            }
+
             const groundedSummary = await llm.summarizeExecution(
                 content,
                 analysis.code,
@@ -755,7 +816,7 @@ export async function POST(req: NextRequest) {
                 );
             }
 
-            const hasChart = ((executionResult.charts?.length || 0) + (executionResult.plotly_charts?.length || 0)) > 0;
+            const hasChart = countVisualizationArtifacts(executionResult) > 0 || hasAutoChartableData(executionResult.updated_df_sample);
             const hasCode = Boolean(analysis.code?.trim());
             const deterministicFinancialSummary = buildDeterministicFinancialSummary(content, hasChart);
             const bypassEnvelope = Boolean(deterministicFinancialSummary);
@@ -769,6 +830,9 @@ export async function POST(req: NextRequest) {
                     hasChart,
                     hasCode,
                 });
+            const followUpPrompts = envelopeResult.envelope
+                ? buildFollowUpPrompts(envelopeResult.envelope)
+                : [];
 
             if (!bypassEnvelope && envelopeResult.usedFallback && envelopeResult.envelope) {
                 finalSummary = renderEnvelopeAsSummary(envelopeResult.envelope);
@@ -802,6 +866,7 @@ export async function POST(req: NextRequest) {
                         contractRepaired,
                         initialViolations: initialContractValidation.violations,
                     },
+                    followUpPrompts,
                 },
                 visualizationUrl: executionResult.charts?.[0]
                     ? `data:image/png;base64,${executionResult.charts[0]}`
@@ -838,10 +903,31 @@ export async function POST(req: NextRequest) {
             chatResponse = buildContractFallbackSummary(content, false, false);
         }
 
+        const chatEnvelopeResult = buildAnalysisResponseEnvelope(chatResponse, {
+            hasChart: false,
+            hasCode: false,
+        });
+        const followUpPrompts = chatEnvelopeResult.envelope
+            ? buildFollowUpPrompts(chatEnvelopeResult.envelope)
+            : [];
+        const persistedChatResponse = chatEnvelopeResult.envelope
+            ? renderEnvelopeAsSummary(chatEnvelopeResult.envelope)
+            : chatResponse;
+
         const [assistantMsg] = await db.insert(messages).values({
             sessionId,
             role: 'assistant',
-            content: chatResponse,
+            content: persistedChatResponse,
+            result: {
+                responseEnvelope: chatEnvelopeResult.envelope,
+                responseEnvelopeMeta: {
+                    usedFallback: chatEnvelopeResult.usedFallback,
+                    contractRepairAttempted: false,
+                    contractRepaired: true,
+                    initialViolations: [],
+                },
+                followUpPrompts,
+            },
         }).returning();
 
         if (session.messages.length === 0) {
@@ -853,15 +939,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(assistantMsg);
     } catch (error: any) {
         console.error('Chat API Error:', error);
-        const errorMessage = 'An unexpected error occurred during analysis';
+        const classifiedError = classifyLlmError(error);
         return NextResponse.json(
             {
-                error: errorMessage,
-                content: `I encountered an error while processing your request: ${errorMessage}. Please try again.`,
+                error: classifiedError.error,
+                content: classifiedError.content,
                 role: 'assistant',
                 id: `error-${Date.now()}`,
             },
-            { status: 500 }
+            { status: classifiedError.status }
         );
     }
 }

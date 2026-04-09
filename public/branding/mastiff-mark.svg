@@ -1,35 +1,19 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <radialGradient id="mastiffGlowA" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(142 118) rotate(50.0214) scale(179.246)">
-      <stop stop-color="#38BDF8" stop-opacity="0.7"/>
-      <stop offset="1" stop-color="#38BDF8" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="mastiffGlowB" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(384 118) rotate(127.246) scale(166.747)">
-      <stop stop-color="#FB7185" stop-opacity="0.62"/>
-      <stop offset="1" stop-color="#FB7185" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="mastiffShell" x1="88" y1="70" x2="424" y2="442" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#162640"/>
-      <stop offset="0.55" stop-color="#0B1627"/>
-      <stop offset="1" stop-color="#09111D"/>
-    </linearGradient>
-    <linearGradient id="mastiffCore" x1="112" y1="112" x2="396" y2="396" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F8FBFF"/>
-      <stop offset="0.5" stop-color="#D9ECFF"/>
-      <stop offset="1" stop-color="#BDD8FF"/>
-    </linearGradient>
-    <linearGradient id="mastiffOrbit" x1="322" y1="134" x2="420" y2="326" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#38BDF8"/>
-      <stop offset="1" stop-color="#2DD4BF"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="136" fill="#07111F"/>
-  <rect width="512" height="512" rx="136" fill="url(#mastiffGlowA)"/>
-  <rect width="512" height="512" rx="136" fill="url(#mastiffGlowB)"/>
-  <rect x="26" y="26" width="460" height="460" rx="118" fill="url(#mastiffShell)" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="4"/>
-  <path d="M108 386V126H164L256 245.8L349 126H404V386H349V210.4L285 293H227L164 210.4V386H108Z" fill="url(#mastiffCore)"/>
-  <path d="M348 146C384.451 146 414 175.642 414 212.213V303.787C414 340.358 384.451 370 348 370" stroke="url(#mastiffOrbit)" stroke-width="22" stroke-linecap="round"/>
-  <circle cx="393" cy="213" r="20" fill="#38BDF8"/>
-  <circle cx="393" cy="304" r="20" fill="#FB7185"/>
-  <rect x="34" y="34" width="444" height="444" rx="110" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="4"/>
+  <rect width="512" height="512" rx="112" fill="#FFFFFF"/>
+  <g transform="translate(256 256)">
+    <path d="M72 -166C146 -150 198 -83 200 -6C201 28 194 60 182 90" stroke="#0B0B0B" stroke-width="62" stroke-linecap="round"/>
+    <path d="M-170 -76C-148 -125 -106 -163 -55 -182" stroke="#0B0B0B" stroke-width="22" stroke-linecap="round" stroke-dasharray="14 10 30 10"/>
+    <path d="M54 183C108 171 153 132 180 78" stroke="#0B0B0B" stroke-width="22" stroke-linecap="round" stroke-dasharray="14 10 30 10"/>
+
+    <circle r="121" fill="#FFFFFF" stroke="#111111" stroke-width="11"/>
+    <circle r="92" fill="#FFFFFF" stroke="#111111" stroke-width="18"/>
+
+    <path d="M-192 -6L-68 -131L-42 -106L-123 -7L-36 97L-63 123L-192 -6Z" fill="#0B0B0B"/>
+
+    <path d="M-8 -121C43 -121 82 -89 82 -42V-16C82 1 73 17 59 26L47 34L52 92C53 105 43 116 30 116H-34C-47 116 -57 105 -56 92L-52 50L-71 38C-86 28 -95 12 -95 -6V-39C-95 -85 -55 -121 -8 -121Z" fill="#111111"/>
+    <path d="M-18 -84C-50 -84 -72 -61 -72 -28V-10C-72 7 -63 23 -49 31L-28 42L-33 83H18L13 25L34 11C45 4 52 -6 52 -18V-28C52 -59 26 -84 -6 -84H-18Z" fill="#FFFFFF"/>
+    <path d="M14 -69L31 -42L5 49H-26L-2 -42L14 -69Z" fill="#111111"/>
+    <path d="M-8 -44C14 -55 41 -51 58 -35C37 -28 11 -25 -8 -44Z" fill="#111111"/>
+    <path d="M-69 -130C-34 -156 23 -160 76 -121C60 -111 48 -100 36 -84C3 -104 -34 -109 -69 -101V-130Z" fill="#111111"/>
+  </g>
 </svg>

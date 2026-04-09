@@ -536,12 +536,28 @@ def execute_request(request: dict) -> dict:
         if len(plotly_charts) > 0 and not captured_stdout and result_str.strip() == 'Execution successful':
             result_str = 'Interactive chart generated'
 
-        # Get updated df sample
         updated_df_sample = None
-        current_df = namespace.get('df', None)
-        if isinstance(current_df, pd.DataFrame) and not current_df.empty:
-            sample_df = current_df.head(5).copy()
-            # Convert datetime columns to strings for safe serialization
+
+        def _select_sample_frame():
+            current_df = namespace.get('df', None)
+            if _is_usable_frame(current_df):
+                return current_df
+
+            namespace_dfs = namespace.get('dfs', None)
+            if isinstance(namespace_dfs, dict):
+                for candidate in namespace_dfs.values():
+                    if _is_usable_frame(candidate):
+                        return candidate
+
+            for candidate in session_state.get('dfs', {}).values():
+                if _is_usable_frame(candidate):
+                    return candidate
+
+            return None
+
+        sample_source_df = _select_sample_frame()
+        if isinstance(sample_source_df, pd.DataFrame) and not sample_source_df.empty:
+            sample_df = sample_source_df.head(12).copy()
             for col in sample_df.columns:
                 if pd.api.types.is_datetime64_any_dtype(sample_df[col]):
                     sample_df[col] = sample_df[col].astype(str)

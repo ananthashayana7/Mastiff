@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Menu, Globe, ChevronDown, Cpu, Search, Paperclip, Send,
-    Zap, Loader2, Database, FileUp, Terminal, Volume2, Copy, Check, ExternalLink, Sparkles, Download,
-    BarChart3, Code2, BrainCircuit, Upload, ArrowRight, MessageSquare, TrendingUp, Table, PlayCircle, ScrollText,
-    GripHorizontal, Gauge, AlertTriangle, Square, ScanSearch
+    Zap, Loader2, FileUp, Terminal, Volume2, Copy, Check, ExternalLink, Sparkles, Download,
+    BarChart3, Code2, Upload, ArrowRight, Table, PlayCircle, ScrollText,
+    Square, ScanSearch
 } from 'lucide-react';
 import { ChatMessage, AnalysisMode, AnalystPersona, DataFile, Session } from '../types';
 import { ChartRenderer } from './ChartRenderer';
@@ -14,6 +14,7 @@ import { MarkdownRenderer } from './MarkdownRenderer';
 import { AutoChartSuggestion } from './AutoChartSuggestion';
 import { exportToPDF } from '../services/ReportExporter';
 import { BrandLockup, BrandMark } from './BrandMark';
+import { hasAutoChartableData } from '../lib/autoChart';
 
 interface ChatWindowProps {
     currentSession: Session | null;
@@ -87,18 +88,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     onToggleLogs,
     onCopy
 }) => {
-    const [drawerHeight, setDrawerHeight] = useState(() => (
-        typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.24) : 192
-    ));
-    const [isDrawerCollapsed, setIsDrawerCollapsed] = useState(() => (
-        typeof window !== 'undefined' && (window.innerHeight < 920 || window.innerWidth < 1440)
-    ));
     const [isCompactViewport, setIsCompactViewport] = useState(() => (
         typeof window !== 'undefined' && (window.innerHeight < 920 || window.innerWidth < 1440)
     ));
-    const [contextChangeNotice, setContextChangeNotice] = useState<string | null>(null);
-    const resizeStateRef = useRef<{ startY: number; startHeight: number; pointerId: number } | null>(null);
-    const previousActiveFilesRef = useRef<DataFile[]>(activeFiles);
 
     const starterPrompts = [
         'Give me the sharpest management summary from these active datasets.',
@@ -112,11 +104,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         const handleViewportResize = () => {
             const compact = window.innerHeight < 920 || window.innerWidth < 1440;
             setIsCompactViewport(compact);
-
-            const minHeight = Math.floor(window.innerHeight * 0.2);
-            const maxHeight = Math.floor(window.innerHeight * 0.7);
-            const defaultHeight = Math.round(window.innerHeight * (compact ? 0.22 : 0.26));
-            setDrawerHeight((prev) => Math.min(maxHeight, Math.max(minHeight, prev || defaultHeight)));
         };
 
         handleViewportResize();
@@ -146,10 +133,24 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         return content
             .split(/\r?\n/)
             .map((line) => line.trim())
-            .filter((line) => line.startsWith('→ Action:'))
-            .map((line) => line.replace(/^→ Action:\s*/, '').trim())
+            .filter((line) => /^→\s*Action:|^Action:/i.test(line))
+            .map((line) => line.replace(/^→\s*Action:\s*|^Action:\s*/i, '').trim())
             .filter(Boolean)
             .slice(0, 4);
+    };
+
+    const extractExecutiveHeadline = (content: string): string => {
+        return content
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .find((line) => Boolean(line)
+                && !/^\d+[.)]\s+/.test(line)
+                && !/^→\s*Action:/i.test(line)
+                && !/^Forecast:/i.test(line)
+                && !/^Data Quality:/i.test(line))
+            ?.replace(/^\*\*Executive Signal\*\*\s*/i, '')
+            ?.replace(/^Executive Signal:\s*/i, '')
+            || '';
     };
 
     const buildActionPrompt = (action: string): string => {
@@ -197,135 +198,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         });
     };
 
-    const latestAssistantMessage = useMemo(() => {
-        return [...messages].reverse().find((message) => message.role === 'assistant') || null;
-    }, [messages]);
-
-    const latestTopConcerns = useMemo(() => {
-        const envelopeInsights = latestAssistantMessage?.result?.responseEnvelope?.insights || [];
-        if (envelopeInsights.length > 0) {
-            return envelopeInsights.slice(0, 3);
-        }
-
-        return latestAssistantMessage ? extractTopConcerns(latestAssistantMessage.content) : [];
-    }, [latestAssistantMessage]);
-
-    const latestRecommendedActions = useMemo(() => {
-        return latestAssistantMessage ? extractRecommendedActions(latestAssistantMessage.content) : [];
-    }, [latestAssistantMessage]);
-
-    const latestForecast = latestAssistantMessage?.result?.responseEnvelope?.forecast || null;
-    const isInsightsDrawerVisible = latestTopConcerns.length > 0 || latestRecommendedActions.length > 0 || Boolean(latestForecast);
-
-    const contextMeter = useMemo(() => {
-        const totalEstimatedCells = activeFiles.reduce((sum, file) => {
-            const rowCount = file.metadata?.row_count || file.preview.length || 0;
-            const columnCount = file.metadata?.selectedColumns?.length || file.columns.length || 1;
-            return sum + (rowCount * Math.max(columnCount, 1));
-        }, 0);
-
-        let status: 'Comfortable' | 'Elevated' | 'Crowded' = 'Comfortable';
-        let tone = 'bg-emerald-400';
-        let textTone = 'text-emerald-300';
-
-        if (totalEstimatedCells > 180000 || activeFiles.length >= 5) {
-            status = 'Crowded';
-            tone = 'bg-red-400';
-            textTone = 'text-red-300';
-        } else if (totalEstimatedCells > 70000 || activeFiles.length >= 3) {
-            status = 'Elevated';
-            tone = 'bg-amber-400';
-            textTone = 'text-amber-300';
-        }
-
-        return {
-            totalEstimatedCells,
-            status,
-            tone,
-            textTone,
-            percent: Math.min(totalEstimatedCells / 220000, 1),
-        };
-    }, [activeFiles]);
-
-    useEffect(() => {
-        if (!isInsightsDrawerVisible) {
-            setIsDrawerCollapsed(isCompactViewport);
-            return;
-        }
-
-        setIsDrawerCollapsed(isCompactViewport);
-    }, [isCompactViewport, latestAssistantMessage?.id, isInsightsDrawerVisible]);
-
-    useEffect(() => {
-        const previousActiveFiles = previousActiveFilesRef.current;
-        const removedFiles = previousActiveFiles.filter((file) => !activeFiles.some((activeFile) => activeFile.id === file.id));
-
-        previousActiveFilesRef.current = activeFiles;
-
-        if (removedFiles.length === 0) {
-            return;
-        }
-
-        const removedLabel = removedFiles.slice(0, 2).map((file) => file.name).join(', ');
-        setContextChangeNotice(`${removedLabel}${removedFiles.length > 2 ? ` and ${removedFiles.length - 2} more` : ''} removed from active chat context.`);
-
-        const timeout = window.setTimeout(() => setContextChangeNotice(null), 3200);
-        return () => window.clearTimeout(timeout);
-    }, [activeFiles]);
-
-    useEffect(() => {
-        const handlePointerMove = (event: PointerEvent) => {
-            if (!resizeStateRef.current) {
-                return;
-            }
-
-            const minHeight = Math.max(120, Math.floor(window.innerHeight * 0.2));
-            const maxHeight = Math.max(minHeight + 40, Math.floor(window.innerHeight * 0.7));
-            const delta = resizeStateRef.current.startY - event.clientY;
-            const nextHeight = Math.min(maxHeight, Math.max(minHeight, resizeStateRef.current.startHeight + delta));
-            setDrawerHeight(nextHeight);
-        };
-
-        const handlePointerUp = (event: PointerEvent) => {
-            if (!resizeStateRef.current) {
-                return;
-            }
-
-            if (event.pointerId !== resizeStateRef.current.pointerId) {
-                return;
-            }
-
-            const collapseThreshold = Math.max(132, Math.floor(window.innerHeight * 0.22));
-            if (drawerHeight <= collapseThreshold) {
-                setIsDrawerCollapsed(true);
-            }
-
-            resizeStateRef.current = null;
-            document.body.style.userSelect = '';
-            document.body.style.cursor = '';
-        };
-
-        window.addEventListener('pointermove', handlePointerMove);
-        window.addEventListener('pointerup', handlePointerUp);
-
-        return () => {
-            window.removeEventListener('pointermove', handlePointerMove);
-            window.removeEventListener('pointerup', handlePointerUp);
-        };
-    }, [drawerHeight]);
-
-    const startDrawerResize = (event: React.PointerEvent<HTMLDivElement>) => {
-        setIsDrawerCollapsed(false);
-        resizeStateRef.current = {
-            startY: event.clientY,
-            startHeight: drawerHeight,
-            pointerId: event.pointerId,
-        };
-        event.currentTarget.setPointerCapture(event.pointerId);
-        document.body.style.userSelect = 'none';
-        document.body.style.cursor = 'ns-resize';
-    };
-
     return (
         <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
             {/* Header */}
@@ -335,23 +207,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         <Menu size={18} />
                     </button>
 
-                    <div className="hidden min-w-0 lg:flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
-                        <BrandMark size={34} />
-                        <div className="min-w-0 max-w-[min(48vw,420px)]">
-                            <p className="text-[9px] font-black uppercase tracking-[0.28em] text-sky-200/70">
-                                Analysis Cockpit
-                            </p>
-                            <p className="truncate text-[12px] font-bold text-white">
-                                {currentSession?.title || 'New analysis'}
-                            </p>
-                        </div>
-                    </div>
-
                     {/* Persona Selector */}
                     <div className="relative">
                         <button
+                            type="button"
                             onClick={onTogglePersonaMenu}
-                            className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 transition-all hover:border-sky-300/30 hover:bg-white/[0.08]"
+                            className="flex cursor-pointer items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 transition-all hover:border-[#d9a066]/35 hover:bg-white/[0.08] hover:shadow-[0_12px_30px_rgba(180,87,52,0.14)] active:scale-[0.99]"
+                            aria-haspopup="menu"
+                            aria-expanded={showPersonaMenu}
+                            title="Change assistant profile"
                         >
                             <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-[linear-gradient(135deg,rgba(56,189,248,0.9),rgba(20,184,166,0.85),rgba(245,158,11,0.72))] text-[9px] font-black text-white shadow-sm">
                                 {activePersona.icon}
@@ -359,7 +223,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             <span className="hidden text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-200 sm:inline">
                                 {activePersona.name}
                             </span>
-                            <ChevronDown size={10} className="text-slate-400" />
+                            <ChevronDown size={10} className={`text-slate-400 transition-transform ${showPersonaMenu ? 'rotate-180' : ''}`} />
                         </button>
                         {showPersonaMenu && (
                             <div className="absolute left-0 top-full z-[50] mt-2 w-56 animate-scale-in rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.95),rgba(10,16,28,0.9))] p-1.5 shadow-[0_30px_80px_rgba(2,6,23,0.4)] backdrop-blur-xl">
@@ -417,10 +281,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </header>
 
             {/* Messages Area */}
-            <div ref={scrollRef} className="messages-container flex-1 space-y-4 overflow-y-auto px-2 py-3 custom-scrollbar sm:px-3 xl:px-4 2xl:px-6">
+            <div ref={scrollRef} className="messages-container flex-1 space-y-5 overflow-y-auto px-3 py-4 custom-scrollbar sm:px-4 xl:px-6 2xl:px-8">
                 {/* Welcome Screen */}
                 {messages.length === 0 && (
-                    <div className="mx-auto flex h-full max-w-4xl flex-col items-center justify-center text-center animate-fade-in">
+                    <div className="mx-auto flex h-full max-w-5xl flex-col items-center justify-center text-center animate-fade-in">
                         {!hasLoadedDatasets ? (
                             <div className="w-full space-y-5">
                                 {/* Logo & Title */}
@@ -431,15 +295,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         title="Mastiff"
                                         className="justify-center"
                                     />
-                                    <p className="mx-auto max-w-xl text-sm font-medium leading-relaxed text-slate-300/[0.78]">
-                                        Ask a question or upload data. Mastiff should respond with evidence, interactive charts, forecast signals, and crisp actions instead of static filler.
+                                    <p className="mx-auto max-w-2xl text-base font-medium leading-relaxed text-slate-300/[0.82]">
+                                        Ask a question or upload data. Mastiff returns evidence-backed analysis with interactive charts, forecast direction, and clear recommended actions.
                                     </p>
-                                </div>
-
-                                <div className="flex flex-wrap items-center justify-center gap-2">
-                                    <span className="rounded-full border border-sky-300/25 bg-sky-400/[0.08] px-3 py-1.5 text-[10px] font-semibold text-slate-100">Forecast-first</span>
-                                    <span className="rounded-full border border-teal-300/25 bg-teal-400/[0.08] px-3 py-1.5 text-[10px] font-semibold text-slate-100">Interactive charts</span>
-                                    <span className="rounded-full border border-amber-300/25 bg-amber-400/[0.08] px-3 py-1.5 text-[10px] font-semibold text-slate-100">Actionable decisions</span>
                                 </div>
 
                                 {/* Upload Zone */}
@@ -464,9 +322,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                                 <div className="flex flex-wrap items-center justify-center gap-2">
                                     {[
-                                        'What are the most important risks and actions in this report?',
-                                        'Compare six assembly lines and tell me where rejection is rising fastest.',
-                                        'Profile this data and show the best starting charts.',
+                                        'Upload a report, then extract the most important risks and actions.',
+                                        'Upload operational data, then compare lines, shifts, or stations.',
+                                        'Upload a dataset, then profile it and suggest the best starting charts.',
                                     ].map((prompt) => (
                                         <button
                                             key={prompt}
@@ -507,16 +365,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                                         {suggestions.map((s, i) => (
                                             <button
                                                 key={i}
                                                 onClick={() => onSend(s)}
-                                                className="group rounded-2xl border border-white/10 bg-white/5 p-3.5 text-left transition-all hover:-translate-y-[1px] hover:border-teal-300/35 hover:bg-white/[0.08]"
+                                                className="group rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition-all hover:-translate-y-[1px] hover:border-teal-300/35 hover:bg-white/[0.08]"
                                             >
                                                 <div className="flex items-start gap-2.5">
                                                     <ArrowRight size={12} className="mt-0.5 shrink-0 text-teal-300 transition-colors group-hover:text-amber-200" />
-                                                    <p className="text-[11px] font-semibold leading-tight text-slate-200/[0.82] transition-colors group-hover:text-white">{s}</p>
+                                                    <p className="text-sm font-semibold leading-snug text-slate-200/[0.9] transition-colors group-hover:text-white">{s}</p>
                                                 </div>
                                             </button>
                                         ))}
@@ -539,14 +397,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             /* ── ASSISTANT — Pretext document layout ── */
                             <div className="w-full space-y-3">
                                 {(() => {
-                                    const actionItems = extractRecommendedActions(m.content);
+                                    const executiveHeadline = m.result?.responseEnvelope?.headline || extractExecutiveHeadline(m.content);
+                                    const actionItems = m.result?.responseEnvelope?.actions?.filter(Boolean)?.length
+                                        ? (m.result?.responseEnvelope?.actions || [])
+                                        : extractRecommendedActions(m.content);
                                     const hasLogs = Boolean(m.result?.output || m.result?.error || m.result?.traceback);
                                     const plotlyChartCount = m.result?.plotly_charts?.length || 0;
                                     const imageChartCount = m.result?.charts?.length || 0;
                                     const chartCount = plotlyChartCount + imageChartCount;
                                     const hasVisualizationCard = Boolean(m.visualization);
                                     const hasVisualOutput = chartCount > 0 || hasVisualizationCard;
-                                    const hasAutoChartData = Array.isArray(m.result?.updated_df_sample) && m.result.updated_df_sample.length > 0;
+                                    const autoChartRows = hasAutoChartableData(m.result?.updated_df_sample) ? (m.result?.updated_df_sample || []) : [];
+                                    const hasAutoChartData = autoChartRows.length > 0;
                                     const executionOutput = m.result?.output?.trim() || '';
                                     const isEmptyDataNotice = /data is empty after loading/i.test(executionOutput);
                                     const shouldShowExecutionResult = Boolean(executionOutput)
@@ -555,46 +417,82 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         && !isEmptyDataNotice;
                                     const executiveInsights = m.result?.responseEnvelope?.insights?.filter(Boolean) || [];
                                     const executiveForecast = m.result?.responseEnvelope?.forecast || '';
+                                    const dataQualityVerdict = m.result?.responseEnvelope?.dataQuality || '';
                                     const visualRecoveryPrompt = activeFiles.length > 0
                                         ? `Use only these active datasets: ${activeFiles.map((file) => file.name).join(', ')}. Build an executive chart pack with an overview chart, a trend chart, and a driver breakdown.`
                                         : 'Build an executive chart pack from the current analysis context with an overview chart, a trend chart, and a driver breakdown.';
-                                    const showVisualDashboard = hasVisualOutput || hasAutoChartData || isEmptyDataNotice || executiveInsights.length > 0 || actionItems.length > 0 || Boolean(executiveForecast);
+                                    const showChartsSection = hasVisualOutput || hasAutoChartData || isEmptyDataNotice;
 
                                     return (
                                         <>
-                                {showVisualDashboard && (
-                                    <div className="grid gap-3 2xl:grid-cols-[minmax(0,1.45fr)_320px]">
-                                        <div className="overflow-hidden rounded-[28px] border border-sky-300/15 bg-[linear-gradient(160deg,rgba(14,24,42,0.96),rgba(8,16,31,0.84))] shadow-[0_22px_70px_rgba(2,6,23,0.28)]">
-                                            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-                                                <div>
-                                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.3em] text-sky-200/75">Visual Brief</p>
-                                                    <p className="mt-1 text-sm font-semibold text-white">Interactive chart layer</p>
-                                                </div>
-                                                {chartCount > 0 && (
-                                                    <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[8px] font-extrabold uppercase tracking-[0.22em] text-sky-100">
-                                                        {chartCount} live view{chartCount === 1 ? '' : 's'}
-                                                    </span>
-                                                )}
-                                            </div>
+                                <div className="w-full overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,24,39,0.95),rgba(10,15,27,0.86))] shadow-[0_18px_50px_rgba(2,6,23,0.24)]">
+                                    <div className="flex items-center gap-3 border-b border-white/8 px-5 py-4 sm:px-6">
+                                        <BrandMark size={22} />
+                                        <span className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-sky-200/75">Mastiff</span>
+                                        {m.persona && <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">{m.persona}</span>}
+                                        <span className="ml-auto text-[10px] font-medium tabular-nums text-slate-400">
+                                            {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
 
-                                            <div className="p-4">
+                                    <div className="space-y-5 px-5 py-5 sm:px-6">
+                                        {executiveHeadline && (
+                                            <section className="space-y-2">
+                                                <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-emerald-200/80">Executive Signal</p>
+                                                <p className="text-lg font-semibold leading-relaxed text-white xl:text-xl">{renderInsightText(executiveHeadline)}</p>
+                                            </section>
+                                        )}
+
+                                        {executiveInsights.length > 0 && (
+                                            <section className="space-y-3">
+                                                <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-300">Key Insights</p>
+                                                <div className="grid gap-3 lg:grid-cols-2">
+                                                    {executiveInsights.slice(0, 4).map((insight, index) => (
+                                                        <button
+                                                            key={`${m.id}-insight-card-${index}`}
+                                                            onClick={() => onSend(buildConcernPrompt(insight))}
+                                                            className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition-all hover:border-sky-300/28 hover:bg-white/[0.08]"
+                                                        >
+                                                            <div className="flex items-center justify-between gap-3">
+                                                                <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Insight {index + 1}</span>
+                                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-200">
+                                                                    <ScanSearch size={12} /> Explore
+                                                                </span>
+                                                            </div>
+                                                            <p className="mt-3 text-sm leading-relaxed text-zinc-100 xl:text-[15px]">{renderInsightText(insight)}</p>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </section>
+                                        )}
+
+                                        {showChartsSection && (
+                                            <section className="space-y-3">
+                                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                                    <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-sky-200/80">Charts And Trends</p>
+                                                    {chartCount > 0 && (
+                                                        <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1 text-[10px] font-bold text-sky-100">
+                                                            {chartCount} chart{chartCount === 1 ? '' : 's'}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 {hasVisualOutput ? (
-                                                    <div className="space-y-3">
+                                                    <div className="space-y-4">
                                                         {m.result?.plotly_charts?.map((pChart, idx) => (
-                                                            <div key={`${m.id}-plotly-${idx}`} className="w-full overflow-visible">
+                                                            <div key={`${m.id}-plotly-${idx}`} className="w-full overflow-visible rounded-2xl border border-zinc-800/60 bg-zinc-950/45 p-3 sm:p-4">
                                                                 <PlotlyRenderer data={pChart} />
                                                             </div>
                                                         ))}
                                                         {m.result?.charts?.map((chart, idx) => (
                                                             <div
                                                                 key={`${m.id}-chart-${idx}`}
-                                                                className="w-full overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-950/50 p-4"
+                                                                className="w-full overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-950/50 p-3 sm:p-4"
                                                             >
                                                                 <img src={`data:image/png;base64,${chart}`} alt={`Analysis Chart ${idx + 1}`} className="h-auto w-full rounded-xl" />
                                                             </div>
                                                         ))}
                                                         {plotlyChartCount === 0 && imageChartCount === 0 && hasVisualizationCard && (
-                                                            <div className="w-full overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-950/50 p-4">
+                                                            <div className="w-full overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-950/50 p-3 sm:p-4">
                                                                 {typeof m.visualization === 'string' ? (
                                                                     <img src={m.visualization} alt="Visual Analysis" className="h-auto w-full rounded-xl" />
                                                                 ) : m.visualization ? (
@@ -604,182 +502,138 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                         )}
                                                     </div>
                                                 ) : hasAutoChartData ? (
-                                                    <AutoChartSuggestion data={m.result?.updated_df_sample || []} title="Executive View" />
+                                                    <div className="rounded-2xl border border-zinc-800/60 bg-zinc-950/45 p-3 sm:p-4">
+                                                        <AutoChartSuggestion data={autoChartRows} title="Auto-Rendered Chart" />
+                                                    </div>
                                                 ) : (
-                                                    <div className="rounded-[24px] border border-amber-400/20 bg-amber-400/[0.08] p-4">
-                                                        <p className="text-[8px] font-extrabold uppercase tracking-[0.28em] text-amber-200">Charts need recovery</p>
-                                                        <p className="mt-2 text-sm leading-relaxed text-zinc-100">
+                                                    <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.08] p-4">
+                                                        <p className="text-sm leading-relaxed text-zinc-100">
                                                             {isEmptyDataNotice
-                                                                ? 'The last execution lost usable rows before the chart stage, so the visual layer never mounted.'
-                                                                : 'This answer returned narrative insight without a usable chart payload, so the dashboard needs a visualization recovery run.'}
+                                                                ? 'This run did not leave behind chartable rows after processing, so the visual recovery pass could not auto-render a chart.'
+                                                                : 'This answer returned numeric findings but no renderable chart payload. Run the visual recovery pass to force a chart artifact.'}
                                                         </p>
                                                         <button
                                                             onClick={() => onSend(visualRecoveryPrompt)}
-                                                            className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(14,165,233,0.98),rgba(13,148,136,0.94),rgba(245,158,11,0.88))] px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.22em] text-white transition-all hover:brightness-110"
+                                                            className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(14,165,233,0.98),rgba(13,148,136,0.94),rgba(245,158,11,0.88))] px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white transition-all hover:brightness-110"
                                                         >
-                                                            <BarChart3 size={12} />
-                                                            Regenerate chart pack
+                                                            <BarChart3 size={13} />
+                                                            Run visual recovery
                                                         </button>
                                                     </div>
                                                 )}
-                                            </div>
-                                        </div>
+                                            </section>
+                                        )}
 
-                                        <div className="space-y-3">
-                                            {executiveForecast && (
-                                                <div className="rounded-[24px] border border-sky-300/15 bg-[linear-gradient(180deg,rgba(13,23,40,0.96),rgba(8,14,25,0.86))] p-4 shadow-[0_16px_50px_rgba(2,6,23,0.22)]">
-                                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.26em] text-sky-200/75">Forecast</p>
-                                                    <p className="mt-2 text-sm leading-relaxed text-zinc-100">{renderInsightText(executiveForecast)}</p>
+                                        {executiveForecast && (
+                                            <section className="space-y-2 rounded-2xl border border-sky-300/15 bg-sky-400/[0.06] p-4">
+                                                <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-sky-200/80">Forecast</p>
+                                                <p className="text-sm leading-relaxed text-zinc-100 xl:text-[15px]">{renderInsightText(executiveForecast)}</p>
+                                            </section>
+                                        )}
+
+                                        {actionItems.length > 0 && (
+                                            <section className="space-y-3">
+                                                <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-emerald-200/85">Recommendations And Actions</p>
+                                                <div className="space-y-2.5">
+                                                    {actionItems.slice(0, 4).map((action) => (
+                                                        <button
+                                                            key={`${m.id}-${action}`}
+                                                            onClick={() => onSend(buildActionPrompt(action))}
+                                                            className="w-full rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.08] px-4 py-3.5 text-left text-sm font-semibold leading-relaxed text-zinc-100 transition-all hover:bg-emerald-400/[0.14] xl:text-[15px]"
+                                                        >
+                                                            {action}
+                                                        </button>
+                                                    ))}
                                                 </div>
-                                            )}
+                                            </section>
+                                        )}
 
-                                            {executiveInsights.length > 0 && (
-                                                <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,21,36,0.94),rgba(8,13,24,0.86))] p-4 shadow-[0_16px_50px_rgba(2,6,23,0.18)]">
-                                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.26em] text-amber-200/75">Top Signals</p>
-                                                    <div className="mt-3 space-y-2">
-                                                        {executiveInsights.slice(0, 3).map((insight, index) => (
-                                                            <div key={`${m.id}-signal-${index}`} className="rounded-2xl border border-white/8 bg-white/[0.04] px-3 py-2.5">
-                                                                <p className="text-[8px] font-extrabold uppercase tracking-[0.18em] text-slate-400">Signal {index + 1}</p>
-                                                                <p className="mt-1 text-[12px] leading-relaxed text-zinc-100">{renderInsightText(insight)}</p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
+                                        {dataQualityVerdict && (
+                                            <section className="space-y-2 rounded-2xl border border-amber-300/16 bg-amber-400/[0.06] p-4">
+                                                <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-amber-200/85">Data Quality</p>
+                                                <p className="text-sm leading-relaxed text-zinc-100 xl:text-[15px]">{renderInsightText(dataQualityVerdict.replace(/^Data Quality:\s*/i, ''))}</p>
+                                            </section>
+                                        )}
+
+                                        <section className="space-y-3 border-t border-zinc-800/30 pt-5">
+                                            <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-300">Analysis</p>
+                                            <MarkdownRenderer content={m.content} className="text-[15px] leading-8 text-zinc-200 xl:text-base" />
+                                        </section>
+
+                                        {m.sources && m.sources.length > 0 && (
+                                            <section className="space-y-2 border-t border-zinc-800/30 pt-5">
+                                                <p className="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.2em] text-zinc-400">
+                                                    <Globe size={10} /> Sources
+                                                </p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {m.sources.map((src, i) => (
+                                                        <a key={`src-${m.id}-${i}`} href={src.uri} target="_blank" rel="noopener noreferrer"
+                                                            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] font-semibold text-zinc-300 hover:text-white transition-all">
+                                                            <span className="truncate max-w-[220px]">{src.title}</span>
+                                                            <ExternalLink size={10} />
+                                                        </a>
+                                                    ))}
                                                 </div>
-                                            )}
+                                            </section>
+                                        )}
 
-                                            {actionItems.length > 0 && (
-                                                <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,21,36,0.94),rgba(8,13,24,0.86))] p-4 shadow-[0_16px_50px_rgba(2,6,23,0.18)]">
-                                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.26em] text-teal-200/75">Action Queue</p>
-                                                    <div className="mt-3 space-y-2">
-                                                        {actionItems.slice(0, 4).map((action) => (
-                                                            <button
-                                                                key={`${m.id}-${action}`}
-                                                                onClick={() => onSend(buildActionPrompt(action))}
-                                                            className="w-full rounded-2xl border border-emerald-300/20 bg-emerald-400/[0.08] px-3 py-2.5 text-left text-[11px] font-semibold leading-relaxed text-zinc-100 transition-all hover:bg-emerald-400/[0.14]"
-                                                            >
-                                                                {action}
-                                                            </button>
-                                                        ))}
-                                                    </div>
+                                        {shouldShowExecutionResult && (
+                                            <section className="space-y-2 border-t border-zinc-800/30 pt-5">
+                                                <p className="mb-2 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.2em] text-zinc-400">
+                                                    <Table size={10} /> Result
+                                                </p>
+                                                <div className="rounded-xl border border-zinc-800/50 bg-zinc-950/80 p-4">
+                                                    <pre className="font-mono text-[11px] text-zinc-300 whitespace-pre-wrap leading-relaxed overflow-x-auto custom-scrollbar">{m.result?.output}</pre>
                                                 </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
+                                            </section>
+                                        )}
 
-                                {/* ── TEXT CARD ── */}
-                                <div className="w-full overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,24,39,0.92),rgba(10,15,27,0.74))] shadow-[0_18px_50px_rgba(2,6,23,0.24)]">
-
-                                    {/* Brand strip */}
-                                    <div className="flex items-center gap-2.5 border-b border-white/8 px-4 py-3">
-                                        <BrandMark size={22} />
-                                        <span className="text-[8px] font-extrabold uppercase tracking-[0.3em] text-sky-200/75">Mastiff</span>
-                                        {m.persona && <span className="text-[8px] font-bold uppercase tracking-[0.22em] text-slate-400">· {m.persona}</span>}
-                                        <span className="ml-auto text-[8px] font-medium tabular-nums text-slate-400">
-                                            {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                    </div>
-
-                                    {/* Main text content */}
-                                    <div className="px-5 py-4">
-                                        <MarkdownRenderer content={m.content} className="text-[13px] leading-relaxed text-zinc-200" />
-                                    </div>
-
-                                    {!showVisualDashboard && actionItems.length > 0 && (
-                                        <div className="px-5 pb-4 space-y-2 border-t border-zinc-800/30 pt-3">
-                                            <p className="text-[8px] font-extrabold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
-                                                <PlayCircle size={10} /> Recommended Actions
-                                            </p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {actionItems.map((action) => (
-                                                    <button
-                                                        key={`${m.id}-${action}`}
-                                                        onClick={() => onSend(buildActionPrompt(action))}
-                                                        className="rounded-full border border-emerald-300/25 bg-emerald-400/[0.08] px-3 py-1.5 text-left text-[10px] font-semibold text-zinc-200 transition-all hover:bg-emerald-400/[0.14] hover:text-white"
-                                                    >
-                                                        {action}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Grounding Sources */}
-                                    {m.sources && m.sources.length > 0 && (
-                                        <div className="px-5 pb-4 space-y-2">
-                                            <p className="text-[8px] font-extrabold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
-                                                <Globe size={10} /> Sources
-                                            </p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {m.sources.map((src, i) => (
-                                                    <a key={`src-${m.id}-${i}`} href={src.uri} target="_blank" rel="noopener noreferrer"
-                                                        className="flex items-center gap-1.5 px-2.5 py-1 glass rounded-lg text-[9px] font-bold text-zinc-400 hover:text-white transition-all">
-                                                        <span className="truncate max-w-[140px]">{src.title}</span>
-                                                        <ExternalLink size={8} />
-                                                    </a>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Execution result output */}
-                                    {shouldShowExecutionResult && (
-                                        <div className="px-5 pb-4 border-t border-zinc-800/40 pt-3">
-                                            <p className="text-[8px] font-extrabold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5 mb-2">
-                                                <Table size={10} /> Result
-                                            </p>
-                                            <div className="p-3 bg-zinc-950/80 rounded-xl border border-zinc-800/50">
-                                                <pre className="font-mono text-[10px] text-zinc-300 whitespace-pre-wrap leading-relaxed overflow-x-auto custom-scrollbar">{m.result?.output}</pre>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Footer actions */}
-                                    <div className="flex items-center gap-3 px-4 py-2.5 border-t border-zinc-800/30">
-                                        <button onClick={() => onCopy(m.content, m.id)}
-                                            className="flex items-center gap-1.5 text-[8px] font-extrabold text-zinc-600 hover:text-white uppercase tracking-widest transition-colors">
-                                            {copiedId === m.id ? <Check size={10} /> : <Copy size={10} />}
-                                            {copiedId === m.id ? 'Copied' : 'Copy'}
-                                        </button>
-                                        {hasLogs && (
-                                            <button onClick={() => onToggleLogs(showLogsId === m.id ? null : m.id)}
-                                                className="flex items-center gap-1.5 text-[8px] font-extrabold text-zinc-600 hover:text-white uppercase tracking-widest transition-colors">
-                                                <ScrollText size={10} />
-                                                {showLogsId === m.id ? 'Hide Logs' : 'View Logs'}
+                                        <div className="flex flex-wrap items-center gap-3 border-t border-zinc-800/30 pt-5">
+                                            <button onClick={() => onCopy(m.content, m.id)}
+                                                className="flex items-center gap-2 text-[11px] font-bold text-zinc-400 hover:text-white uppercase tracking-[0.14em] transition-colors">
+                                                {copiedId === m.id ? <Check size={10} /> : <Copy size={10} />}
+                                                {copiedId === m.id ? 'Copied' : 'Copy'}
                                             </button>
-                                        )}
-                                        {m.code && (
-                                            <button onClick={() => onToggleCode(showCodeId === m.id ? null : m.id)}
-                                                className="flex items-center gap-1.5 text-[8px] font-extrabold text-zinc-600 hover:text-white uppercase tracking-widest transition-colors">
-                                                <Terminal size={10} />
-                                                {showCodeId === m.id ? 'Hide Code' : 'View Code'}
-                                            </button>
-                                        )}
-                                        {chartCount > 1 && (
-                                            <span className="ml-auto text-[8px] font-extrabold text-zinc-700 uppercase tracking-widest">
-                                                {chartCount} charts in dashboard
-                                            </span>
-                                        )}
+                                            {hasLogs && (
+                                                <button onClick={() => onToggleLogs(showLogsId === m.id ? null : m.id)}
+                                                    className="flex items-center gap-2 text-[11px] font-bold text-zinc-400 hover:text-white uppercase tracking-[0.14em] transition-colors">
+                                                    <ScrollText size={10} />
+                                                    {showLogsId === m.id ? 'Hide Logs' : 'Show Logs'}
+                                                </button>
+                                            )}
+                                            {m.code && (
+                                                <button onClick={() => onToggleCode(showCodeId === m.id ? null : m.id)}
+                                                    className="flex items-center gap-2 text-[11px] font-bold text-zinc-400 hover:text-white uppercase tracking-[0.14em] transition-colors">
+                                                    <Terminal size={10} />
+                                                    {showCodeId === m.id ? 'Hide Code' : 'Show Code'}
+                                                </button>
+                                            )}
+                                            {chartCount > 0 && (
+                                                <span className="ml-auto text-[11px] font-bold text-zinc-500 uppercase tracking-[0.14em]">
+                                                    {chartCount} chart{chartCount === 1 ? '' : 's'}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
                                 {/* ── CODE BLOCK (collapsible, outside main card) ── */}
                                 {m.code && showCodeId === m.id && (
                                     <div className="w-full rounded-2xl overflow-hidden border border-zinc-800/60 animate-scale-in">
-                                        <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800/40 bg-zinc-950/60">
-                                            <span className="text-[8px] font-extrabold text-zinc-600 uppercase tracking-widest flex items-center gap-1.5">
-                                                <Code2 size={10} /> Python · Analysis Code
+                                        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/40 bg-zinc-950/60">
+                                            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-[0.14em] flex items-center gap-2">
+                                                <Code2 size={12} /> Python Code
                                             </span>
                                             <button onClick={() => onCopy(m.code || '', `code-${m.id}`)}
-                                                className="p-1.5 glass rounded-lg text-zinc-600 hover:text-white transition-colors">
-                                                {copiedId === `code-${m.id}` ? <Check size={11} /> : <Copy size={11} />}
+                                                className="rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] font-bold text-zinc-400 hover:text-white transition-colors">
+                                                {copiedId === `code-${m.id}` ? 'Copied' : 'Copy'}
                                             </button>
                                         </div>
-                                        <pre className="p-4 bg-[#0a0a0a] font-mono text-[10px] text-green-400 overflow-x-auto leading-relaxed whitespace-pre-wrap break-words max-h-[80vh] overflow-y-auto custom-scrollbar">
+                                        <pre className="p-4 bg-[#0a0a0a] font-mono text-[12px] text-green-400 overflow-x-auto leading-relaxed whitespace-pre-wrap break-words max-h-[60vh] overflow-y-auto custom-scrollbar">
                                             {m.code}
                                         </pre>
                                         {m.result?.error && (
-                                            <pre className="px-4 pb-4 bg-[#0a0a0a] font-mono text-[10px] text-red-400 overflow-x-auto">
+                                            <pre className="px-4 pb-4 bg-[#0a0a0a] font-mono text-[12px] text-red-400 overflow-x-auto">
                                                 {m.result.error}{m.result.traceback ? `\n\n${m.result.traceback}` : ''}
                                             </pre>
                                         )}
@@ -788,28 +642,28 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                                 {hasLogs && showLogsId === m.id && (
                                     <div className="w-full rounded-2xl overflow-hidden border border-zinc-800/60 animate-scale-in bg-[#0a0a0a]">
-                                        <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800/40 bg-zinc-950/60">
-                                            <span className="text-[8px] font-extrabold text-zinc-600 uppercase tracking-widest flex items-center gap-1.5">
-                                                <ScrollText size={10} /> Execution Logs
+                                        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/40 bg-zinc-950/60">
+                                            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-[0.14em] flex items-center gap-2">
+                                                <ScrollText size={12} /> Execution Logs
                                             </span>
                                         </div>
                                         <div className="p-4 space-y-4">
                                             {m.result?.output && (
                                                 <div>
-                                                    <p className="text-[8px] font-extrabold uppercase tracking-widest text-zinc-500 mb-2">Output</p>
-                                                    <pre className="font-mono text-[10px] text-zinc-300 whitespace-pre-wrap leading-relaxed overflow-x-auto custom-scrollbar">{m.result.output}</pre>
+                                                    <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500 mb-2">Output</p>
+                                                    <pre className="font-mono text-[12px] text-zinc-300 whitespace-pre-wrap leading-relaxed overflow-x-auto custom-scrollbar">{m.result.output}</pre>
                                                 </div>
                                             )}
                                             {m.result?.error && (
                                                 <div>
-                                                    <p className="text-[8px] font-extrabold uppercase tracking-widest text-red-400 mb-2">Error</p>
-                                                    <pre className="font-mono text-[10px] text-red-400 whitespace-pre-wrap leading-relaxed overflow-x-auto custom-scrollbar">{m.result.error}</pre>
+                                                    <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-red-400 mb-2">Error</p>
+                                                    <pre className="font-mono text-[12px] text-red-400 whitespace-pre-wrap leading-relaxed overflow-x-auto custom-scrollbar">{m.result.error}</pre>
                                                 </div>
                                             )}
                                             {m.result?.traceback && (
                                                 <div>
-                                                    <p className="text-[8px] font-extrabold uppercase tracking-widest text-zinc-500 mb-2">Traceback</p>
-                                                    <pre className="font-mono text-[10px] text-amber-300 whitespace-pre-wrap leading-relaxed overflow-x-auto custom-scrollbar">{m.result.traceback}</pre>
+                                                    <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500 mb-2">Traceback</p>
+                                                    <pre className="font-mono text-[12px] text-amber-300 whitespace-pre-wrap leading-relaxed overflow-x-auto custom-scrollbar">{m.result.traceback}</pre>
                                                 </div>
                                             )}
                                         </div>
@@ -829,197 +683,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 {isAnalyzing && renderAnalysisSteps()}
             </div>
 
-            {isInsightsDrawerVisible && (
-                <div className="hidden shrink-0 px-3 pb-2 xl:block sm:px-4">
-                    <div className="max-w-5xl mx-auto rounded-2xl border border-zinc-800/60 bg-zinc-950/75 backdrop-blur-sm overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
-                        <div
-                            onPointerDown={startDrawerResize}
-                            className="h-6 flex items-center justify-center cursor-ns-resize border-b border-zinc-800/40 bg-zinc-950/90 touch-none"
-                            title="Drag to resize insights drawer"
-                        >
-                            <div className="flex items-center gap-1.5 rounded-full border border-zinc-800 bg-black/30 px-3 py-1 text-zinc-600">
-                                <GripHorizontal size={12} />
-                                <span className="text-[8px] font-extrabold uppercase tracking-[2px]">Top Concerns + Recommended Actions</span>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-zinc-800/40">
-                            <div>
-                                <p className="text-[9px] font-extrabold uppercase tracking-[2px] text-zinc-400">Insight Drawer</p>
-                                <p className="text-[11px] text-zinc-600 mt-1">Keep it compact as a HUD or drag it open for a deeper review.</p>
-                            </div>
-                            <button
-                                onClick={() => setIsDrawerCollapsed((prev) => !prev)}
-                                className="px-3 py-1.5 rounded-lg border border-zinc-800 text-[9px] font-extrabold uppercase tracking-widest text-zinc-400 hover:text-white transition-colors"
-                            >
-                                {isDrawerCollapsed ? 'Expand' : 'Collapse'}
-                            </button>
-                        </div>
-
-                        {!isDrawerCollapsed && (
-                            <div
-                                className="overflow-y-auto custom-scrollbar"
-                                style={{ height: `${drawerHeight}px` }}
-                            >
-                                <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-4 p-4">
-                                    <section className="rounded-2xl border border-zinc-800/60 bg-black/20 p-4">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <AlertTriangle size={14} className="text-amber-300" />
-                                            <p className="text-[9px] font-extrabold uppercase tracking-[2px] text-zinc-400">Top Concerns</p>
-                                        </div>
-                                        <div className="space-y-2.5">
-                                            {latestTopConcerns.length > 0 ? latestTopConcerns.map((insight, index) => (
-                                                <button
-                                                    key={`${latestAssistantMessage?.id || 'drawer'}-insight-${index}`}
-                                                    onClick={() => onSend(buildConcernPrompt(insight))}
-                                                    className="w-full rounded-xl border border-zinc-800/50 bg-zinc-900/40 px-3 py-2.5 text-left transition-all hover:border-sky-300/30 hover:bg-zinc-900/70"
-                                                >
-                                                    <div className="flex items-center justify-between gap-2 mb-1">
-                                                        <p className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-600">Concern {index + 1}</p>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-200">
-                                                                <PlayCircle size={11} /> Run Deep Dive
-                                                            </span>
-                                                            <span
-                                                                onClick={(event) => {
-                                                                    event.stopPropagation();
-                                                                    onInspectInsight(insight);
-                                                                }}
-                                                                className="inline-flex items-center gap-1 text-[9px] font-bold text-zinc-500 hover:text-white transition-colors"
-                                                                role="button"
-                                                                tabIndex={0}
-                                                                onKeyDown={(event) => {
-                                                                    if (event.key === 'Enter' || event.key === ' ') {
-                                                                        event.preventDefault();
-                                                                        event.stopPropagation();
-                                                                        onInspectInsight(insight);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <ScanSearch size={11} /> Inspect Rows
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <p className="text-[12px] leading-relaxed text-zinc-200">{renderInsightText(insight)}</p>
-                                                </button>
-                                            )) : (
-                                                isAnalyzing ? (
-                                                    <div className="space-y-2 animate-pulse">
-                                                        <div className="h-16 rounded-xl bg-zinc-900/50 border border-zinc-800/40" />
-                                                        <div className="h-16 rounded-xl bg-zinc-900/50 border border-zinc-800/40" />
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-[11px] text-zinc-600">Run an analysis to populate the highest-priority concerns here.</p>
-                                                )
-                                            )}
-
-                                            {latestForecast && (
-                                                <div className="rounded-xl border border-sky-300/20 bg-sky-400/[0.08] px-3 py-2.5">
-                                                    <p className="mb-1 text-[10px] font-extrabold uppercase tracking-widest text-sky-200">Forecast</p>
-                                                    <p className="text-[12px] leading-relaxed text-zinc-200">{renderInsightText(latestForecast)}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </section>
-
-                                    <section className="rounded-2xl border border-zinc-800/60 bg-black/20 p-4">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <PlayCircle size={14} className="text-emerald-200" />
-                                            <p className="text-[9px] font-extrabold uppercase tracking-[2px] text-zinc-400">Recommended Actions</p>
-                                        </div>
-                                        <div className="space-y-2.5">
-                                            {latestRecommendedActions.length > 0 ? latestRecommendedActions.map((action) => (
-                                                <button
-                                                    key={`${latestAssistantMessage?.id || 'drawer'}-action-${action}`}
-                                                    onClick={() => onSend(buildActionPrompt(action))}
-                                                    className="w-full rounded-xl border border-emerald-300/25 bg-emerald-400/[0.08] px-3 py-3 text-left transition-all hover:border-emerald-300/40 hover:bg-emerald-400/[0.14]"
-                                                >
-                                                    <p className="mb-1 text-[10px] font-extrabold uppercase tracking-widest text-emerald-200">Run This Follow-Up</p>
-                                                    <p className="text-[12px] leading-relaxed text-zinc-100">{action}</p>
-                                                </button>
-                                            )) : isAnalyzing ? (
-                                                <div className="space-y-2 animate-pulse">
-                                                    <div className="h-14 rounded-xl border border-emerald-300/[0.15] bg-emerald-400/[0.08]" />
-                                                    <div className="h-14 rounded-xl border border-emerald-300/[0.15] bg-emerald-400/[0.08]" />
-                                                </div>
-                                            ) : (
-                                                <p className="text-[11px] text-zinc-600">Action prompts will appear here when the agent returns concrete next steps.</p>
-                                            )}
-                                        </div>
-                                    </section>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
             {/* Input Area */}
             <div className="shrink-0 bg-gradient-to-t from-[#06101c] via-[#07111f]/95 to-transparent p-3 sm:p-4">
                 <div className="relative mx-auto max-w-5xl space-y-2.5">
                     <div className="space-y-2">
-                        <div className="overflow-x-auto custom-scrollbar">
-                            <div className="flex min-w-max items-center gap-2 pb-1">
-                            <span className="text-[8px] font-extrabold uppercase tracking-[0.24em] text-slate-400">Context</span>
-                            {activeFiles.length > 0 ? activeFiles.slice(0, isCompactViewport ? 3 : 4).map((file) => (
-                                <span
-                                    key={file.id}
-                                    className="inline-flex items-center gap-1 rounded-full border border-sky-300/20 bg-sky-400/[0.08] px-2.5 py-1 text-[9px] font-bold text-slate-100 transition-all hover:-translate-y-[1px] hover:border-sky-300/[0.38] hover:bg-sky-400/[0.12]"
-                                >
-                                    <Database size={10} className="text-sky-200" />
-                                    <span className="max-w-[140px] truncate">{file.name}</span>
-                                </span>
-                            )) : (
-                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[9px] font-semibold text-slate-400/80">No active files selected yet</span>
-                            )}
-                            {activeFiles.length > (isCompactViewport ? 3 : 4) && (
-                                <span className="text-[9px] font-bold text-slate-400">+{activeFiles.length - (isCompactViewport ? 3 : 4)} more</span>
-                            )}
-                            {hasPendingDatasets && (
-                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[9px] font-bold text-amber-100">
-                                    <Upload size={10} className="text-amber-300" />
-                                    {pendingFiles.length} staged
-                                </span>
-                            )}
-                            {activeFiles.length > 1 && (
-                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-400/[0.1] px-2.5 py-1 text-[9px] font-bold text-emerald-100">
-                                    <ScanSearch size={10} className="text-emerald-300" />
-                                    Cross-file
-                                </span>
-                            )}
-                            </div>
-                        </div>
-
-                        <div className="overflow-x-auto custom-scrollbar">
-                            <div className="flex min-w-max items-center gap-2 pb-1">
-                            <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[9px] font-bold text-slate-200">
-                                <Gauge size={10} className="text-sky-300" />
-                                {contextMeter.status}
-                            </span>
-                            <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[9px] font-bold text-slate-200">
-                                {activeFiles.length} active file{activeFiles.length === 1 ? '' : 's'}
-                            </span>
-                            <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[9px] font-bold ${contextMeter.status === 'Crowded' ? 'border-amber-400/25 bg-amber-400/[0.08] text-amber-100' : 'border-white/10 bg-white/5 text-slate-200'}`}>
-                                {contextMeter.totalEstimatedCells.toLocaleString()} cells
-                            </span>
-                            {contextMeter.status !== 'Comfortable' && !isCompactViewport && (
-                                <span className="text-[9px] font-semibold text-amber-200/80">
-                                    Reduce active files or confirm fewer columns for tighter reasoning.
-                                </span>
-                            )}
-                            </div>
-                        </div>
-
-                        {contextChangeNotice && (
-                            <div className="rounded-xl border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-[10px] font-semibold text-amber-200 animate-fade-in">
-                                {contextChangeNotice}
-                            </div>
-                        )}
-
                         {suggestions.length > 0 && hasLoadedDatasets && (
                             <div className="overflow-x-auto custom-scrollbar">
                                 <div className="flex min-w-max items-center gap-2 pb-1">
-                                <span className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-300">Suggested Questions</span>
+                                <span className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-300">{messages.length > 0 ? 'Next Prompts' : 'Suggested Questions'}</span>
                                 {isLoadingSuggestions && (
                                     <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-400">
                                         <Loader2 size={11} className="animate-spin" />
@@ -1030,7 +701,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     <button
                                         key={prompt}
                                         onClick={() => onSend(prompt)}
-                                        className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1.5 text-[10px] font-semibold text-slate-200/[0.9] transition-all hover:border-emerald-300/35 hover:text-white"
+                                        className="rounded-full border border-white/10 bg-slate-950/50 px-3.5 py-2 text-[11px] font-semibold text-slate-200/[0.95] transition-all hover:border-emerald-300/35 hover:text-white"
                                     >
                                         {prompt}
                                     </button>
@@ -1046,7 +717,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     <button
                                         key={prompt}
                                         onClick={() => onSend(prompt)}
-                                            className="rounded-full border border-white/10 bg-slate-950/55 px-3 py-1.5 text-[10px] font-semibold text-slate-300 transition-all hover:border-amber-300/30 hover:text-white"
+                                            className="rounded-full border border-white/10 bg-slate-950/55 px-3.5 py-2 text-[11px] font-semibold text-slate-300 transition-all hover:border-amber-300/30 hover:text-white"
                                     >
                                         {prompt}
                                     </button>

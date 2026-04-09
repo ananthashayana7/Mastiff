@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { parseApiKeys, isKeyExhaustedError } from '../src/services/llm';
+import { parseApiKeys, isKeyExhaustedError, classifyLlmError } from '../src/services/llm';
 
 /* ------------------------------------------------------------------ */
 /*  parseApiKeys                                                       */
@@ -98,6 +98,40 @@ describe('isKeyExhaustedError', () => {
     it('handles plain string errors', () => {
         expect(isKeyExhaustedError('RESOURCE_EXHAUSTED')).toBe(true);
         expect(isKeyExhaustedError('some other error')).toBe(false);
+    });
+});
+
+describe('classifyLlmError', () => {
+    it('classifies context-window failures distinctly', () => {
+        const result = classifyLlmError({ message: 'The input token count exceeds the maximum context length for this model.' });
+
+        expect(result.code).toBe('context_limit');
+        expect(result.status).toBe(400);
+        expect(result.content).toContain('too large for the current model context window');
+    });
+
+    it('classifies API configuration failures distinctly', () => {
+        const result = classifyLlmError(new Error('At least one Gemini API key must be set'));
+
+        expect(result.code).toBe('configuration');
+        expect(result.status).toBe(503);
+        expect(result.content).toContain('API configuration is incomplete');
+    });
+
+    it('classifies quota and rate-limit failures distinctly', () => {
+        const result = classifyLlmError({ status: 429, message: 'RESOURCE_EXHAUSTED: quota exceeded' });
+
+        expect(result.code).toBe('rate_limit');
+        expect(result.status).toBe(429);
+        expect(result.content).toContain('temporarily rate-limited or out of quota');
+    });
+
+    it('falls back to the generic message for unknown failures', () => {
+        const result = classifyLlmError(new Error('Socket hang up'));
+
+        expect(result.code).toBe('unknown');
+        expect(result.status).toBe(500);
+        expect(result.content).toBe('I encountered an error while processing your request. Please try again.');
     });
 });
 

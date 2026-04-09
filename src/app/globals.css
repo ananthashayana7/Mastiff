@@ -3,21 +3,21 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 239, 244, 251;
-  --background-start-rgb: 10, 16, 27;
-  --background-end-rgb: 5, 10, 18;
-  --accent: #3b82f6;
-  --accent-strong: #10b981;
-  --accent-soft: #93c5fd;
-  --accent-warm: #f59e0b;
-  --accent-glow: rgba(59, 130, 246, 0.16);
-  --surface: rgba(9, 15, 25, 0.9);
-  --surface-hover: rgba(12, 20, 33, 0.94);
-  --border: rgba(148, 163, 184, 0.15);
-  --border-hover: rgba(148, 163, 184, 0.26);
-  --text-primary: #f8fafc;
-  --text-secondary: #d3deed;
-  --text-muted: #7b8da8;
+  --foreground-rgb: 244, 234, 221;
+  --background-start-rgb: 29, 19, 16;
+  --background-end-rgb: 12, 8, 7;
+  --accent: #b45734;
+  --accent-strong: #7a3e2d;
+  --accent-soft: #e7c7a3;
+  --accent-warm: #d9a066;
+  --accent-glow: rgba(180, 87, 52, 0.18);
+  --surface: rgba(24, 15, 13, 0.92);
+  --surface-hover: rgba(35, 22, 19, 0.95);
+  --border: rgba(201, 167, 133, 0.16);
+  --border-hover: rgba(201, 167, 133, 0.28);
+  --text-primary: #f6eee4;
+  --text-secondary: #e2cdb4;
+  --text-muted: #a88f79;
 }
 
 html,
@@ -30,11 +30,11 @@ body {
   color: rgb(var(--foreground-rgb));
   background-color: rgb(var(--background-end-rgb));
   background-image:
-    radial-gradient(circle at 10% 12%, rgba(59, 130, 246, 0.15), transparent 24%),
-    radial-gradient(circle at 86% 14%, rgba(16, 185, 129, 0.12), transparent 22%),
-    radial-gradient(circle at 68% 78%, rgba(245, 158, 11, 0.1), transparent 24%),
-    radial-gradient(circle at 44% 52%, rgba(56, 189, 248, 0.04), transparent 18%),
-    linear-gradient(160deg, #050d17 0%, #0a1421 40%, #07111b 100%);
+    radial-gradient(circle at 10% 12%, rgba(180, 87, 52, 0.16), transparent 24%),
+    radial-gradient(circle at 86% 14%, rgba(217, 160, 102, 0.1), transparent 22%),
+    radial-gradient(circle at 68% 78%, rgba(122, 62, 45, 0.12), transparent 24%),
+    radial-gradient(circle at 44% 52%, rgba(231, 199, 163, 0.04), transparent 18%),
+    linear-gradient(160deg, #100b0a 0%, #1a110f 40%, #0c0807 100%);
   font-family: "Aptos", "Segoe UI Variable Display", "Trebuchet MS", "Segoe UI", sans-serif;
   font-feature-settings: "ss01", "cv11";
   -webkit-font-smoothing: antialiased;
@@ -49,8 +49,8 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+    linear-gradient(rgba(201, 167, 133, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201, 167, 133, 0.05) 1px, transparent 1px);
   background-size: 64px 64px;
   mask-image: radial-gradient(circle at center, black 32%, transparent 90%);
   opacity: 0.06;
@@ -62,7 +62,7 @@ body::after {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 50% -12%, rgba(255, 255, 255, 0.08), transparent 34%);
+    radial-gradient(circle at 50% -12%, rgba(255, 238, 220, 0.08), transparent 34%);
 }
 
 @layer utilities {
@@ -93,36 +93,36 @@ body::after {
 /* === Glassmorphism === */
 .glass {
   background:
-    linear-gradient(180deg, rgba(10, 18, 30, 0.92), rgba(7, 12, 22, 0.86)),
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.06), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.06), transparent 28%);
+    linear-gradient(180deg, rgba(24, 15, 13, 0.94), rgba(14, 10, 9, 0.88)),
+    radial-gradient(circle at top left, rgba(180, 87, 52, 0.08), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(217, 160, 102, 0.06), transparent 28%);
   backdrop-filter: blur(24px) saturate(135%);
   -webkit-backdrop-filter: blur(24px) saturate(135%);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(201, 167, 133, 0.14);
   box-shadow:
     0 24px 70px rgba(2, 6, 23, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    inset 0 1px 0 rgba(255, 244, 232, 0.08);
 }
 
 .glass-hover:hover {
   background:
-    linear-gradient(180deg, rgba(12, 22, 35, 0.95), rgba(8, 15, 26, 0.88)),
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.09), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.08), transparent 28%);
-  border-color: rgba(148, 163, 184, 0.24);
+    linear-gradient(180deg, rgba(31, 20, 17, 0.95), rgba(19, 13, 11, 0.9)),
+    radial-gradient(circle at top left, rgba(180, 87, 52, 0.09), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(217, 160, 102, 0.08), transparent 28%);
+  border-color: rgba(201, 167, 133, 0.24);
 }
 
 /* === Glow Effects === */
 .glow-accent {
   box-shadow:
-    0 0 28px rgba(59, 130, 246, 0.16),
-    0 0 78px rgba(16, 185, 129, 0.06);
+    0 0 28px rgba(180, 87, 52, 0.16),
+    0 0 78px rgba(217, 160, 102, 0.06);
 }
 
 .glow-accent-strong {
   box-shadow:
-    0 0 34px rgba(59, 130, 246, 0.22),
-    0 0 90px rgba(16, 185, 129, 0.07);
+    0 0 34px rgba(180, 87, 52, 0.22),
+    0 0 90px rgba(217, 160, 102, 0.08);
 }
 
 /* === Animations === */

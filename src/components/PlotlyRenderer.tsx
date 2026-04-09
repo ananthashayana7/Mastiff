@@ -181,8 +181,8 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
     const [priceView, setPriceView] = useState<'candles' | 'line'>('candles');
 
     const MASTIFF_COLORWAY = [
-        '#2563EB', '#0F766E', '#F59E0B', '#0EA5E9', '#14B8A6',
-        '#EA580C', '#84CC16', '#DC2626', '#0891B2', '#D97706'
+        '#B45734', '#D9A066', '#7A3E2D', '#E7C7A3', '#9C5C43',
+        '#C07B4A', '#6A3124', '#F1DEC4', '#8C6B52', '#D28E5B'
     ];
 
     const parsedPayload = useMemo(() => {

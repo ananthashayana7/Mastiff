@@ -129,3 +129,28 @@ describe('Error message formatting', () => {
     expect(content).toBe('An error occurred: Network timeout. Please try again.');
   });
 });
+
+describe('Non-OK API error display logic', () => {
+  function getDisplayedApiError(assistantMsg: { content?: string; error?: string; message?: string }, status: number, statusText: string) {
+    return assistantMsg?.content
+      || assistantMsg?.error
+      || assistantMsg?.message
+      || `Server returned ${status} ${statusText}.`;
+  }
+
+  it('prefers friendly classified content over the terse error label', () => {
+    const msg = {
+      error: 'AI rate limit or quota exceeded',
+      content: 'The AI service is temporarily rate-limited or out of quota. Please try again in a few minutes.',
+    };
+
+    expect(getDisplayedApiError(msg, 429, 'Too Many Requests')).toBe(
+      'The AI service is temporarily rate-limited or out of quota. Please try again in a few minutes.'
+    );
+  });
+
+  it('falls back to error when friendly content is missing', () => {
+    const msg = { error: 'Session not found' };
+    expect(getDisplayedApiError(msg, 404, 'Not Found')).toBe('Session not found');
+  });
+});

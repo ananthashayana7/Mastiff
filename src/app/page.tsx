@@ -102,6 +102,13 @@ const App: React.FC = () => {
     updatedAt: new Date(session.updatedAt).getTime(),
   }), []);
 
+  const extractFollowUpSuggestions = useCallback((message: any): string[] => {
+    const prompts = message?.result?.followUpPrompts;
+    return Array.isArray(prompts)
+      ? prompts.filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0).slice(0, 6)
+      : [];
+  }, []);
+
   const createSessionRecord = useCallback(async (title = 'New Chat') => {
     if (!currentUser) {
       throw new Error('No authenticated user');
@@ -485,9 +492,11 @@ const App: React.FC = () => {
     setLinkedConnectorIds([]);
     setInspectingFileId(null);
     setPendingFiles([]);
+    setSuggestions([]);
+    setIsLoadingSuggestions(false);
 
     if (session.messages?.length > 0) {
-      setMessages(session.messages.map((m: any) => ({
+      const mappedMessages = session.messages.map((m: any) => ({
         id: m.id,
         role: m.role,
         content: m.content || '',
@@ -495,7 +504,16 @@ const App: React.FC = () => {
         visualization: m.visualizationUrl,
         result: m.result,
         timestamp: new Date(m.createdAt).getTime()
-      })));
+      }));
+
+      setMessages(mappedMessages);
+
+      const latestAssistant = [...mappedMessages].reverse().find((message) => message.role === 'assistant');
+      const followUpSuggestions = extractFollowUpSuggestions(latestAssistant);
+      if (followUpSuggestions.length > 0) {
+        setSuggestions(followUpSuggestions);
+        setIsLoadingSuggestions(false);
+      }
     } else {
       setMessages([]);
     }
@@ -940,7 +958,21 @@ const App: React.FC = () => {
       }
 
       if (!res.ok) {
-        throw new Error(assistantMsg?.error || assistantMsg?.message || `Server returned ${res.status} ${res.statusText}.`);
+        const errorContent = assistantMsg?.content
+          || assistantMsg?.error
+          || assistantMsg?.message
+          || `Server returned ${res.status} ${res.statusText}.`;
+
+        setMessages(prev => [...prev, {
+          id: assistantMsg.id || crypto.randomUUID(),
+          role: 'assistant',
+          content: errorContent,
+          timestamp: Date.now(),
+          persona: 'System Notice',
+        }]);
+        setSuggestions([]);
+        setIsLoadingSuggestions(false);
+        return;
       }
 
       const responseContent = assistantMsg.content
@@ -958,6 +990,12 @@ const App: React.FC = () => {
         mode: analysisMode,
         sources: assistantMsg.sources
       }]);
+
+      const followUpSuggestions = extractFollowUpSuggestions(assistantMsg);
+      if (followUpSuggestions.length > 0) {
+        setSuggestions(followUpSuggestions);
+        setIsLoadingSuggestions(false);
+      }
 
       // Update session title if first message
       if (messages.length === 0) {
@@ -1034,6 +1072,8 @@ const App: React.FC = () => {
         setFiles([]);
         setPendingFiles([]);
         setActiveFileIds([]);
+        setSuggestions([]);
+        setIsLoadingSuggestions(false);
         setLinkedConnectorIds([]);
         setInspectingFileId(null);
         setIsSidebarOpen(false);
@@ -1110,25 +1150,25 @@ const App: React.FC = () => {
     return (
       <div className="relative flex h-[100dvh] min-h-[100dvh] items-center justify-center overflow-hidden bg-transparent px-6">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-[12%] top-[14%] h-72 w-72 rounded-full bg-sky-400/[0.12] blur-[120px]" />
-          <div className="absolute right-[10%] top-[12%] h-64 w-64 rounded-full bg-amber-300/[0.12] blur-[120px]" />
-          <div className="absolute bottom-[10%] left-[40%] h-72 w-72 rounded-full bg-teal-400/10 blur-[140px]" />
+          <div className="absolute left-[12%] top-[14%] h-72 w-72 rounded-full bg-[#b45734]/[0.14] blur-[120px]" />
+          <div className="absolute right-[10%] top-[12%] h-64 w-64 rounded-full bg-[#d9a066]/[0.12] blur-[120px]" />
+          <div className="absolute bottom-[10%] left-[40%] h-72 w-72 rounded-full bg-[#7a3e2d]/10 blur-[140px]" />
         </div>
         <div className="relative glass min-w-[320px] rounded-[32px] px-10 py-12 text-center shadow-[0_30px_100px_rgba(2,6,23,0.42)]">
           <BrandLockup
             align="center"
             size={58}
             subtitle="Launching Mastiff"
-            title="Decision Intelligence"
+            title="Analytics Workspace"
             className="justify-center"
           />
           <p className="mt-4 text-sm text-slate-300/80">
             Restoring your workspaces, connectors, and analysis context.
           </p>
           <div className="mt-6 flex items-center justify-center gap-3">
-            <Loader2 size={20} className="animate-spin text-sky-300" />
-            <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-sky-100/70">
-              Warming the cockpit
+            <Loader2 size={20} className="animate-spin text-[#e2b98a]" />
+            <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-[#f1dcc2]/75">
+              Preparing workspace
             </span>
           </div>
         </div>
@@ -1146,9 +1186,9 @@ const App: React.FC = () => {
       onDrop={handleDrop}
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-[-5%] top-[-2%] h-80 w-80 rounded-full bg-sky-400/10 blur-[140px]" />
-        <div className="absolute right-[-4%] top-[8%] h-80 w-80 rounded-full bg-teal-400/[0.09] blur-[140px]" />
-        <div className="absolute bottom-[-8%] left-[38%] h-96 w-96 rounded-full bg-amber-300/[0.08] blur-[160px]" />
+        <div className="absolute left-[-5%] top-[-2%] h-80 w-80 rounded-full bg-[#b45734]/10 blur-[140px]" />
+        <div className="absolute right-[-4%] top-[8%] h-80 w-80 rounded-full bg-[#7a3e2d]/[0.09] blur-[140px]" />
+        <div className="absolute bottom-[-8%] left-[38%] h-96 w-96 rounded-full bg-[#d9a066]/[0.08] blur-[160px]" />
       </div>
 
       <Sidebar

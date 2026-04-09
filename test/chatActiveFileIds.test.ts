@@ -7,6 +7,7 @@ const insertMock = vi.fn(() => ({ values: insertValuesMock }));
 const llmGetAnalysisCodeMock = vi.fn();
 const llmSummarizeExecutionMock = vi.fn();
 const llmRepairAnalysisCodeMock = vi.fn();
+const llmChatMock = vi.fn();
 const kernelExecuteMock = vi.fn();
 const authenticateRequestMock = vi.fn();
 
@@ -43,11 +44,28 @@ vi.mock('@/db/connectorSchema', () => ({
 
 vi.mock('@/services/llm', () => ({
   buildDeterministicAnalysisFallbackCode: vi.fn(() => 'result = "fallback"'),
+  classifyLlmError: (error: any) => {
+    if (error?.status === 429) {
+      return {
+        code: 'rate_limit',
+        status: 429,
+        error: 'AI rate limit or quota exceeded',
+        content: 'The AI service is temporarily rate-limited or out of quota. Please try again in a few minutes.',
+      };
+    }
+
+    return {
+      code: 'unknown',
+      status: 500,
+      error: 'An unexpected error occurred during analysis',
+      content: 'I encountered an error while processing your request. Please try again.',
+    };
+  },
   llm: {
     getAnalysisCode: llmGetAnalysisCodeMock,
     summarizeExecution: llmSummarizeExecutionMock,
     repairAnalysisCode: llmRepairAnalysisCodeMock,
-    chat: vi.fn(),
+    chat: llmChatMock,
   },
 }));
 
@@ -79,6 +97,7 @@ describe('chat route activeFileIds filtering', () => {
     llmGetAnalysisCodeMock.mockReset();
     llmSummarizeExecutionMock.mockReset();
     llmRepairAnalysisCodeMock.mockReset();
+    llmChatMock.mockReset();
     kernelExecuteMock.mockReset();
 
     const metadata = {
@@ -128,6 +147,8 @@ describe('chat route activeFileIds filtering', () => {
         content: payload.content || 'summary',
       }],
     }));
+
+    llmChatMock.mockResolvedValue('chat summary');
   });
 
   it('passes only selected files when activeFileIds is provided', async () => {
@@ -212,5 +233,109 @@ describe('chat route activeFileIds filtering', () => {
       expect(executorFiles.map((f) => f.name).sort()).toEqual(['a.csv', 'b.csv']);
       expect(executorFiles.map((f) => f.id).sort()).toEqual(['file-a', 'file-b']);
     }
+  });
+
+  it('returns a plain classified error response for chat-mode rate limits', async () => {
+    llmChatMock.mockRejectedValueOnce({ status: 429, message: 'RESOURCE_EXHAUSTED: quota exceeded' });
+
+    const { POST } = await import('../src/app/api/chat/route');
+
+    const request = new Request('http://localhost/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'session-1',
+        content: 'hello',
+        mode: 'chat',
+      }),
+    });
+
+    const response = await POST(request as any);
+    const body = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(body.content).toBe('The AI service is temporarily rate-limited or out of quota. Please try again in a few minutes.');
+    expect(body.error).toBe('AI rate limit or quota exceeded');
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it('treats pasted CSV data as analysis context and runs chart-capable analysis automatically', async () => {
+    mockFindFirst.mockResolvedValueOnce({
+      id: 'session-inline',
+      userId: 'user-1',
+      files: [],
+      messages: [],
+    });
+
+    llmGetAnalysisCodeMock.mockResolvedValueOnce({
+      explanation: 'Analyze pasted data',
+      code: 'result = 42',
+    });
+
+    const { POST } = await import('../src/app/api/chat/route');
+
+    const request = new Request('http://localhost/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'session-inline',
+        content: ['month,revenue,cost', 'Jan,100,60', 'Feb,120,70', 'Mar,130,72'].join('\n'),
+        mode: 'chat',
+      }),
+    });
+
+    const response = await POST(request as any);
+    expect(response.status).toBe(200);
+    expect(llmGetAnalysisCodeMock).toHaveBeenCalled();
+    expect(llmChatMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to file preview rows when chart recovery produces no visual payload', async () => {
+    const insertedPayloads: any[] = [];
+    insertValuesMock.mockImplementation((payload: any) => {
+      insertedPayloads.push(payload);
+      return {
+        returning: async () => [{
+          id: 'assistant-preview',
+          sessionId: 'session-1',
+          role: 'assistant',
+          content: payload.content || 'summary',
+          result: payload.result,
+        }],
+      };
+    });
+
+    llmGetAnalysisCodeMock.mockResolvedValueOnce({
+      explanation: 'ok',
+      code: 'result = 42',
+    });
+
+    kernelExecuteMock.mockResolvedValueOnce({
+      result: 'Data is empty after loading. Please upload a file with at least one data row.',
+      charts: [],
+      plotly_charts: [],
+      updated_df_sample: [],
+    });
+
+    const { POST } = await import('../src/app/api/chat/route');
+
+    const request = new Request('http://localhost/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'session-1',
+        content: 'analyze this file',
+        mode: 'analysis',
+      }),
+    });
+
+    const response = await POST(request as any);
+    expect(response.status).toBe(200);
+
+    const assistantInsert = insertedPayloads.find((payload) => payload.role === 'assistant');
+    expect(assistantInsert?.result?.updated_df_sample).toEqual([
+      { source_file: 'a.csv', date: '2025-01-01', value: 10 },
+      { source_file: 'b.csv', date: '2025-01-01', value: 10 },
+    ]);
   });
 });

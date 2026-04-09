@@ -13,6 +13,7 @@ import {
     buildDocumentMetadata,
     buildTabularMetadataFallback,
     extractDocumentText,
+    preferRicherTabularMetadata,
     sanitizeFileName,
 } from '@/lib/fileIngestion';
 
@@ -221,8 +222,20 @@ export async function POST(req: NextRequest) {
         let metadata: any;
 
         if (TABULAR_TYPES.includes(ext)) {
+            const supportsFallbackComparison = ext !== '.parquet';
             try {
                 metadata = await runMetadataExtraction(analysisPath);
+                const metadataLooksWeak = !metadata
+                    || typeof metadata !== 'object'
+                    || Number(metadata.row_count || 0) === 0
+                    || Number(metadata.column_count || 0) === 0
+                    || !Array.isArray(metadata.sample)
+                    || metadata.sample.length === 0;
+
+                if (supportsFallbackComparison && metadataLooksWeak) {
+                    const fallbackMetadata = await buildTabularMetadataFallback(analysisPath, storedFilename, ext);
+                    metadata = preferRicherTabularMetadata(metadata, fallbackMetadata);
+                }
             } catch (metadataError: any) {
                 console.warn('Python metadata extraction failed, using fallback parser:', metadataError?.message || metadataError);
                 metadata = await buildTabularMetadataFallback(analysisPath, storedFilename, ext);

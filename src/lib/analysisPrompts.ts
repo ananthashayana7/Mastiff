@@ -8,6 +8,7 @@ interface AutoPromptOptions {
 function buildAssemblyLinePrompt(fileNames: string[], multiFile: boolean): string {
   return `Data ingestion successful: ${fileNames.join(', ')}.
 STRICT RULE: NO greetings, NO preamble, NO long narrative. Start immediately with management-ready output.
+Charts are mandatory. Do not wait for the user to ask for visuals.
 
 This is assembly-line data. Build a management dashboard response with:
 1. FORECAST FIRST: predict the next shift/period and state the top production risk immediately.
@@ -35,6 +36,7 @@ Keep the written output under 180 words. The charts and dashboard should do the 
 function buildFinancialPrompt(fileNames: string[], multiFile: boolean): string {
   return `Data ingestion successful: ${fileNames.join(', ')}.
 STRICT RULE: NO introductory text. Start directly with insights.
+Charts are mandatory. Do not wait for the user to ask for visuals.
 
 Provide:
 1. Forecast first with the next likely revenue, cost, margin, or run-rate direction.
@@ -55,6 +57,7 @@ Keep total text under 160 words.`;
 function buildGeneralPrompt(fileNames: string[], multiFile: boolean): string {
   return `Data ingestion successful: ${fileNames.join(', ')}.
 STRICT RULE: NO introductory text, greetings, or parsing summaries. Start immediately with insights.
+Charts are mandatory whenever the data supports them. Do not wait for the user to ask for visuals.
 
 Provide EXACTLY 3 crisp, actionable bullet points:
 1. Most significant pattern or anomaly with the specific numbers.

@@ -12,7 +12,7 @@ if (!isBuildPhase) {
 }
 
 export const metadata: Metadata = {
-    title: "Mastiff AI - Decision Intelligence Platform",
+    title: "Mastiff AI - Analytics Platform",
     description: "Forecast-first data analysis with interactive charts, drill-down dashboards, and crisp AI-guided actions.",
     icons: {
         icon: '/branding/mastiff-mark.svg',
