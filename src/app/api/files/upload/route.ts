@@ -13,6 +13,7 @@ import {
     buildDocumentMetadata,
     buildTabularMetadataFallback,
     extractDocumentText,
+    formatMetadataExtractionWarning,
     preferRicherTabularMetadata,
     sanitizeFileName,
 } from '@/lib/fileIngestion';
@@ -59,17 +60,36 @@ async function deleteFileRecordsById(fileIds: string[]): Promise<void> {
 async function runMetadataExtraction(filePath: string): Promise<any> {
     return new Promise((resolve, reject) => {
         const scriptPath = path.join(process.cwd(), 'src/services/metadata.py');
-        const pythonCommands = ['python3', 'python', 'py'];
+        const pythonCommands = process.platform === 'win32'
+            ? [
+                { cmd: 'py', args: ['-3'] },
+                { cmd: 'python', args: [] },
+                { cmd: 'python3', args: [] },
+            ]
+            : [
+                { cmd: 'python3', args: [] },
+                { cmd: 'python', args: [] },
+                { cmd: 'py', args: ['-3'] },
+            ];
         let attemptIndex = 0;
+        const attemptErrors: string[] = [];
+
+        const missingPathHint = (detail?: string) =>
+            detail ? `The Python metadata extractor could not be started (${detail}).` : 'The Python metadata extractor could not be started.';
 
         const trySpawn = () => {
             if (attemptIndex >= pythonCommands.length) {
-                reject(new Error(`No Python interpreter found. Tried: ${pythonCommands.join(', ')}`));
+                const detail = attemptErrors.length > 0
+                    ? ` ${attemptErrors.join(' | ')}`
+                    : '';
+                reject(new Error(`No Python interpreter found for metadata extraction. Tried: ${pythonCommands.map((candidate) => candidate.cmd).join(', ')}.${detail}`));
                 return;
             }
 
-            const cmd = pythonCommands[attemptIndex];
-            const py = spawn(cmd, [scriptPath, filePath]);
+            const candidate = pythonCommands[attemptIndex];
+            const py = spawn(candidate.cmd, [...candidate.args, scriptPath, filePath], {
+                windowsHide: true,
+            });
             let stdout = '';
             let stderr = '';
 
@@ -86,19 +106,30 @@ async function runMetadataExtraction(filePath: string): Promise<any> {
                 stderr += data.toString();
             });
 
-            py.on('error', () => {
+            py.on('error', (error: NodeJS.ErrnoException) => {
                 clearTimeout(timeout);
+                attemptErrors.push(`${candidate.cmd}: ${error.code || error.message}`);
                 attemptIndex += 1;
                 trySpawn();
             });
 
             py.on('close', (code) => {
                 clearTimeout(timeout);
+
+                const normalizedStderr = stderr.trim();
+                const likelyMissingInterpreter = code === -4058 || code === 9009;
+                if (likelyMissingInterpreter) {
+                    attemptErrors.push(`${candidate.cmd}: ${normalizedStderr || `exit code ${code}`}`);
+                    attemptIndex += 1;
+                    trySpawn();
+                    return;
+                }
+
                 try {
                     const output = stdout.trim();
                     if (!output) {
                         if (code !== 0) {
-                            reject(new Error(`Metadata extraction failed (code ${code}): ${stderr || 'No stderr output'}`));
+                            reject(new Error(`Metadata extraction failed (code ${code}): ${normalizedStderr || missingPathHint(`exit code ${code}`)}`));
                         } else {
                             reject(new Error('Python metadata extraction returned no output'));
                         }
@@ -112,7 +143,7 @@ async function runMetadataExtraction(filePath: string): Promise<any> {
                     }
 
                     if (code !== 0) {
-                        reject(new Error(`Metadata extraction failed (code ${code}): ${stderr || 'Unknown Python error'}`));
+                        reject(new Error(`Metadata extraction failed (code ${code}): ${normalizedStderr || 'Unknown Python error'}`));
                         return;
                     }
 
@@ -239,7 +270,7 @@ export async function POST(req: NextRequest) {
             } catch (metadataError: any) {
                 console.warn('Python metadata extraction failed, using fallback parser:', metadataError?.message || metadataError);
                 metadata = await buildTabularMetadataFallback(analysisPath, storedFilename, ext);
-                metadata.extraction_warning = metadataError?.message || 'Metadata fallback parser used';
+                metadata.extraction_warning = formatMetadataExtractionWarning(metadataError);
             }
 
             metadata = {

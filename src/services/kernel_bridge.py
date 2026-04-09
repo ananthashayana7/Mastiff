@@ -36,16 +36,21 @@ try:
     from plotly.subplots import make_subplots as _make_subplots
 
     DEFAULT_COLORWAY = [
-        '#0B6E99', '#0F766E', '#D97706', '#4F46E5',
-        '#16A34A', '#EA580C', '#0891B2', '#84CC16'
+        '#38BDF8', '#14B8A6', '#F59E0B', '#818CF8',
+        '#22C55E', '#F97316', '#0EA5E9', '#A3E635',
+        '#FACC15', '#06B6D4', '#0B6E99', '#0F766E',
     ]
 
     pio.templates['mastiff'] = go.layout.Template(
         layout=go.Layout(
             colorway=DEFAULT_COLORWAY,
-            font=dict(family='IBM Plex Sans, DejaVu Sans, Arial', size=12, color='#1f2937'),
-            paper_bgcolor='white',
-            plot_bgcolor='white',
+            font=dict(family='system-ui, IBM Plex Sans, DejaVu Sans, Arial', size=12, color='#e2e8f0'),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(15,23,42,0.6)',
+            xaxis=dict(gridcolor='rgba(148,163,184,0.12)', zerolinecolor='rgba(148,163,184,0.2)'),
+            yaxis=dict(gridcolor='rgba(148,163,184,0.12)', zerolinecolor='rgba(148,163,184,0.2)'),
+            margin=dict(l=50, r=30, t=60, b=40),
+            hoverlabel=dict(bgcolor='#1e293b', font_size=12, font_color='#e2e8f0'),
         )
     )
     pio.templates['mastiff'].layout.colorscale = dict(
@@ -69,6 +74,14 @@ try:
     HAS_SKLEARN = True
 except ImportError:
     HAS_SKLEARN = False
+
+try:
+    import statsmodels.api as sm
+    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+    from statsmodels.tsa.seasonal import seasonal_decompose
+    HAS_STATSMODELS = True
+except ImportError:
+    HAS_STATSMODELS = False
 
 
 class SafeJSONEncoder(json.JSONEncoder):
@@ -97,7 +110,10 @@ class SafeJSONEncoder(json.JSONEncoder):
             return obj.tolist()
         if isinstance(obj, (bytes, bytearray)):
             return obj.decode('utf-8', errors='replace')
-        return super().default(obj)
+        try:
+            return super().default(obj)
+        except TypeError:
+            return str(obj)
 
 
 # Persistent session state across requests
@@ -199,6 +215,31 @@ def _set_name_alias(name: str, filepath: str, df: pd.DataFrame):
 
     session_state['dfs'][name] = df
     session_state['file_sources'][name] = filepath
+
+
+def ensure_unique_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize duplicate column names so df[col] resolves to a Series consistently."""
+    if not isinstance(df, pd.DataFrame) or len(df.columns) == 0:
+        return df
+
+    seen = {}
+    new_columns = []
+    renamed = False
+
+    for index, raw in enumerate(df.columns):
+        label = str(raw).strip() or f'column_{index + 1}'
+        seen[label] = seen.get(label, 0) + 1
+        unique_label = label if seen[label] == 1 else f'{label}_{seen[label]}'
+        if unique_label != str(raw):
+            renamed = True
+        new_columns.append(unique_label)
+
+    if not renamed:
+        return df
+
+    updated = df.copy()
+    updated.columns = new_columns
+    return updated
 
 
 def load_files(files_json_str: str):
@@ -311,6 +352,9 @@ def load_files(files_json_str: str):
                         content = fh.read()
                     loaded_df = pd.DataFrame({'text': content.split('\n')})
 
+            if isinstance(loaded_df, pd.DataFrame):
+                loaded_df = ensure_unique_columns(loaded_df)
+
             if not isinstance(loaded_df, pd.DataFrame):
                 loaded_df = pd.DataFrame({'load_error': [f'Unsupported file type for {name}: {ext}']})
 
@@ -368,6 +412,43 @@ def execute_request(request: dict) -> dict:
     dfs = active_dfs
     df = requested_dfs[0] if requested_dfs else pd.DataFrame()
 
+    # --- Safe pd.to_numeric wrapper to prevent "arg must be a list/tuple/Series" ---
+    _original_to_numeric = pd.to_numeric
+
+    def _safe_to_numeric(arg, errors='raise', downcast=None):
+        """Wrapper around pd.to_numeric that handles DataFrames, scalars, and edge cases."""
+        if arg is None:
+            return np.nan
+        # Scalar passthrough
+        if isinstance(arg, (int, float, np.integer, np.floating)):
+            return arg
+        if isinstance(arg, str):
+            arg = arg.strip().replace(',', '')
+            if not arg or arg in ('-', '\u2014', 'N/A', 'NA', 'null', 'None', 'nan'):
+                return np.nan
+            try:
+                return float(arg)
+            except (ValueError, TypeError):
+                if errors == 'coerce':
+                    return np.nan
+                raise
+        # DataFrame: apply column-wise to return a DataFrame of numeric columns
+        if isinstance(arg, pd.DataFrame):
+            return arg.apply(lambda col: _original_to_numeric(col, errors=errors, downcast=downcast))
+        # Proper iterable types the original function expects
+        if isinstance(arg, (pd.Series, pd.Index, np.ndarray, list, tuple)):
+            return _original_to_numeric(arg, errors=errors, downcast=downcast)
+        # Last resort: try converting to a Series first
+        try:
+            return _original_to_numeric(pd.Series([arg]), errors=errors, downcast=downcast).iloc[0]
+        except Exception:
+            if errors == 'coerce':
+                return np.nan
+            raise TypeError(f"Cannot convert {type(arg).__name__} to numeric")
+
+    # Patch pd.to_numeric in the execution namespace
+    pd.to_numeric = _safe_to_numeric
+
     # Build execution namespace with all available tools
     namespace = {
         'pd': pd,
@@ -382,6 +463,8 @@ def execute_request(request: dict) -> dict:
         'json': json,
         'base64': base64,
         'BytesIO': BytesIO,
+        'StringIO': StringIO,
+        'safe_to_numeric': _safe_to_numeric,
     }
 
     # Add optional libraries
@@ -404,6 +487,10 @@ def execute_request(request: dict) -> dict:
         namespace['linear_model'] = linear_model
         namespace['metrics'] = metrics
         namespace['sklearn'] = __import__('sklearn')
+    if HAS_STATSMODELS:
+        namespace['sm'] = sm
+        namespace['ExponentialSmoothing'] = ExponentialSmoothing
+        namespace['seasonal_decompose'] = seasonal_decompose
 
     # Merge persisted variables
     namespace.update(session_state['variables'])
@@ -565,10 +652,12 @@ def execute_request(request: dict) -> dict:
 
         # Persist variables for future calls (exclude builtins, modules)
         skip_keys = {'pd', 'np', 'plt', 'sns', 'px', 'go', 'pio', 'dfs', 'df', 'result',
-                     'plotly_json', 'os', 'json', 'base64', 'BytesIO', 'matplotlib',
+                     'plotly_json', 'os', 'json', 'base64', 'BytesIO', 'StringIO', 'matplotlib',
                      'scipy_stats', 'preprocessing', 'cluster', 'decomposition',
                      'ensemble', 'linear_model', 'metrics', 'sklearn',
-                     'make_subplots', 'file_sources', '__builtins__'}
+                     'make_subplots', 'file_sources', '__builtins__',
+                     'safe_to_numeric', 'sm', 'ExponentialSmoothing', 'seasonal_decompose',
+                     'dataset_catalog'}
         for k, v in namespace.items():
             if k not in skip_keys and not k.startswith('__'):
                 try:
@@ -595,6 +684,9 @@ def execute_request(request: dict) -> dict:
             'charts': [],
             'plotly_charts': []
         }
+    finally:
+        # Restore original pd.to_numeric to avoid state leakage
+        pd.to_numeric = _original_to_numeric
 
 
 def main():

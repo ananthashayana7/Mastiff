@@ -12,7 +12,11 @@ vi.mock('@/db/schema', () => ({
   files: {},
 }));
 
-import { buildTabularMetadataFallback, preferRicherTabularMetadata } from '../src/lib/fileIngestion';
+import {
+  buildTabularMetadataFallback,
+  formatMetadataExtractionWarning,
+  preferRicherTabularMetadata,
+} from '../src/lib/fileIngestion';
 
 const tempFiles: string[] = [];
 
@@ -108,5 +112,17 @@ describe('buildTabularMetadataFallback', () => {
     expect(preferred.column_count).toBe(3);
     expect(preferred.schema_review_notes).toContain('Fallback recovered rows after removing spacer columns.');
     expect(preferred.schema_review_notes).toContain('Fallback parser replaced a weaker metadata extraction result to preserve usable rows and columns.');
+  });
+
+  it('formats Windows interpreter launch failures into a user-friendly fallback warning', () => {
+    expect(formatMetadataExtractionWarning('Metadata extraction failed (code -4058): No stderr output')).toBe(
+      'Python metadata extractor was unavailable on this machine, so Mastiff used the built-in fallback parser.'
+    );
+  });
+
+  it('preserves non-launch metadata failures in the fallback warning', () => {
+    expect(formatMetadataExtractionWarning('Metadata extraction failed: Unsupported parquet engine')).toContain(
+      'Unsupported parquet engine'
+    );
   });
 });

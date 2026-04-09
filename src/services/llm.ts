@@ -1,5 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { AnalysisMode } from '@/src/types';
+import { buildDeterministicSignalSummaryFromExecution } from '@/lib/deterministicSignalSummary';
+import { buildDeterministicAnalysisFallbackPython } from './deterministicAnalysisFallback';
 
 const MODE_CONFIGS: Record<AnalysisMode, {
     temperature: number;
@@ -245,22 +247,49 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import os
 
+# Safe numeric conversion — prevents "arg must be a list, tuple, 1-d array, or Series"
+def _safe_to_numeric(arg, errors='coerce'):
+    if arg is None:
+        return np.nan
+    if isinstance(arg, (int, float, np.integer, np.floating)):
+        return arg
+    if isinstance(arg, pd.DataFrame):
+        return arg.apply(lambda c: pd.to_numeric(c, errors=errors))
+    if isinstance(arg, (pd.Series, pd.Index, np.ndarray, list, tuple)):
+        return pd.to_numeric(arg, errors=errors)
+    try:
+        return float(str(arg).replace(',', '').strip())
+    except (ValueError, TypeError):
+        return np.nan if errors == 'coerce' else arg
+
+def _dedup_columns(frame):
+    cols = list(frame.columns)
+    seen, new_cols = {}, []
+    for c in cols:
+        key = str(c)
+        seen[key] = seen.get(key, 0) + 1
+        new_cols.append(f'{key}_{seen[key]}' if seen[key] > 1 else key)
+    frame.columns = new_cols
+    return frame
+
 # Deterministic fallback to keep analysis pipeline operational when LLM output is malformed.
 def _is_usable(candidate):
     return isinstance(candidate, pd.DataFrame) and not candidate.empty and list(candidate.columns) != ['load_error']
 
 df = df.copy() if _is_usable(df) else pd.DataFrame()
+if not df.empty:
+    df = _dedup_columns(df)
 _usable_dfs = {}
 
 if 'dfs' in globals() and isinstance(dfs, dict):
     for _name, _candidate in dfs.items():
         if _is_usable(_candidate):
-            _usable_dfs[_name] = _candidate.copy()
+            _usable_dfs[_name] = _dedup_columns(_candidate.copy())
 
 if df.empty and 'dfs' in globals() and isinstance(dfs, dict):
     for _name, _candidate in dfs.items():
         if _is_usable(_candidate):
-            df = _candidate.copy()
+            df = _dedup_columns(_candidate.copy())
             break
 
 # Last-resort: re-read files from disk when the in-memory df is still empty.
@@ -288,9 +317,9 @@ if df.empty and 'dfs' in globals() and isinstance(dfs, dict):
             else:
                 continue
             if _is_usable(_rdf):
-                df = _rdf.copy()
+                df = _dedup_columns(_rdf.copy())
                 dfs[_src_key] = _rdf
-                _usable_dfs[_src_key] = _rdf.copy()
+                _usable_dfs[_src_key] = _dedup_columns(_rdf.copy())
                 break
         except Exception:
             continue
@@ -311,7 +340,10 @@ else:
             _normalized_sets.append(set(_normalized_map.keys()))
             _numeric_hits = 0
             for _col in _source_df.columns:
-                if pd.to_numeric(_source_df[_col], errors='coerce').notna().sum() > 0:
+                _col_data = _source_df[_col]
+                if isinstance(_col_data, pd.DataFrame):
+                    _col_data = _col_data.iloc[:, 0]
+                if _safe_to_numeric(_col_data, errors='coerce').notna().sum() > 0:
                     _numeric_hits += 1
             _profile_rows.append({
                 'source_file': str(_source_name),
@@ -326,7 +358,10 @@ else:
             _numeric_ok = True
             for _source_name, _source_df in _usable_dfs.items():
                 _source_map = {str(_col).strip().lower(): _col for _col in _source_df.columns}
-                _series = pd.to_numeric(_source_df[_source_map[_shared_key]], errors='coerce')
+                _raw = _source_df[_source_map[_shared_key]]
+                if isinstance(_raw, pd.DataFrame):
+                    _raw = _raw.iloc[:, 0]
+                _series = _safe_to_numeric(_raw, errors='coerce')
                 if _series.notna().sum() == 0:
                     _numeric_ok = False
                     break
@@ -342,7 +377,10 @@ else:
             for _source_name, _source_df in _usable_dfs.items():
                 _source_map = {str(_col).strip().lower(): _col for _col in _source_df.columns}
                 _metric_col = _source_map[_primary_metric_key]
-                _metric = pd.to_numeric(_source_df[_metric_col], errors='coerce')
+                _raw_metric = _source_df[_metric_col]
+                if isinstance(_raw_metric, pd.DataFrame):
+                    _raw_metric = _raw_metric.iloc[:, 0]
+                _metric = _safe_to_numeric(_raw_metric, errors='coerce')
                 _compare_rows.append({
                     'source_file': str(_source_name),
                     'metric_sum': float(_metric.fillna(0).sum()),
@@ -468,18 +506,24 @@ else:
         )
 
         fig.update_layout(
-            template='plotly_dark',
-            title='Multi-dataset comparison dashboard',
-            margin=dict(l=40, r=20, t=90, b=40),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(15,23,42,0.6)',
+            font=dict(family='system-ui,sans-serif', color='#e2e8f0'),
+            title=dict(text='Multi-Dataset Comparison Dashboard', font=dict(size=18, color='#f8fafc')),
+            margin=dict(l=50, r=30, t=90, b=40),
             height=780,
-            legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+            legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1, font=dict(color='#cbd5e1')),
             barmode='group',
+            hoverlabel=dict(bgcolor='#1e293b', font_size=12),
         )
         result = fig
 
     numeric_cols = []
     for col in df.columns:
-        s = pd.to_numeric(df[col], errors='coerce')
+        _raw_col = df[col]
+        if isinstance(_raw_col, pd.DataFrame):
+            _raw_col = _raw_col.iloc[:, 0]
+        s = _safe_to_numeric(_raw_col, errors='coerce')
         if s.notna().sum() > 0:
             numeric_cols.append(col)
             df[col] = s
@@ -583,6 +627,26 @@ else:
             col=2,
         )
 
+        # Confidence band (±1 std)
+        if len(valid_series) >= 3:
+            _std_val = float(valid_series[value_col].std())
+            _upper = forecast_df[value_col] + _std_val
+            _lower = forecast_df[value_col] - _std_val
+            fig.add_trace(
+                go.Scatter(
+                    x=list(forecast_df['row_id']) + list(forecast_df['row_id'][::-1]),
+                    y=list(_upper) + list(_lower[::-1]),
+                    fill='toself',
+                    fillcolor='rgba(239,85,59,0.12)',
+                    line=dict(color='rgba(0,0,0,0)'),
+                    name='Confidence band (±1σ)',
+                    showlegend=True,
+                    hoverinfo='skip',
+                ),
+                row=1,
+                col=2,
+            )
+
         fig.add_trace(
             go.Histogram(
                 x=valid_series[value_col],
@@ -620,12 +684,15 @@ else:
                 )
 
         fig.update_layout(
-            template='plotly_dark',
-            title=f'Deterministic fallback dashboard: {value_col}',
-            margin=dict(l=40, r=20, t=90, b=40),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(15,23,42,0.6)',
+            font=dict(family='system-ui,sans-serif', color='#e2e8f0'),
+            title=dict(text=f'Analysis Dashboard: {value_col}', font=dict(size=18, color='#f8fafc')),
+            margin=dict(l=50, r=30, t=90, b=40),
             height=780,
-            legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+            legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1, font=dict(color='#cbd5e1')),
             barmode='group',
+            hoverlabel=dict(bgcolor='#1e293b', font_size=12),
         )
         result = fig
     else:
@@ -638,7 +705,11 @@ else:
         )
         fig.update_layout(title='Fallback Data Preview (no numeric columns detected)', height=520)
         result = fig if ${wantsVisualization ? 'True' : 'False'} else "No numeric columns detected for quantitative analysis."
-`;
+    `;
+}
+
+export function buildResilientDeterministicAnalysisFallbackCode(wantsVisualization: boolean): string {
+    return buildDeterministicAnalysisFallbackPython(wantsVisualization);
 }
 
 export function getGroundedMetaResponse(userQuery: string): string | null {
@@ -1057,19 +1128,23 @@ EXECUTION ENVIRONMENT:
 - Libraries available: pandas, numpy, matplotlib, seaborn, scipy, statsmodels, sklearn (scikit-learn), plotly.
 - sklearn modules available: preprocessing, cluster, decomposition, ensemble, linear_model, metrics.
 - Import sklearn modules directly: e.g., from sklearn.linear_model import LinearRegression
+- statsmodels available: sm (statsmodels.api), ExponentialSmoothing, seasonal_decompose. Use for advanced forecasting.
 - Dataframes available as: dfs["filename"] and df (default first dataframe).
 - dataset_catalog is available as a list of file-level metadata dictionaries for multi-file orchestration.
 - When multiple files are present, inspect dfs first and never assume all files should be stacked blindly.
 - Return result via variable: result.
 - For Plotly visual output, set result to a Plotly figure.
 - Text is mandatory whenever data is analyzed. Visuals support the answer; they never replace the written summary.
+- safe_to_numeric(arg, errors='coerce') is available — use it INSTEAD of pd.to_numeric when the column may be a DataFrame (duplicate column names) or a scalar.
+- DUPLICATE COLUMN SAFETY: When accessing df[col], if the file has duplicate column labels, df[col] returns a DataFrame, not a Series. Always guard with: col_data = df[col]; if isinstance(col_data, pd.DataFrame): col_data = col_data.iloc[:, 0]
+- StringIO is available in the namespace — use it for parsing inline text data.
 
 INSTRUCTIONS:
 - First align your code to the query execution plan above. Do not answer a comparison question like a profile, and do not answer a root-cause question with descriptive stats only.
 - If the request is broad and active data exists, default to: profile -> compare relevant KPIs -> isolate anomalies -> forecast -> recommend actions.
 - If the wording is short or ambiguous but active data exists, make the most likely business interpretation and continue instead of refusing.
 - If the query mixes theory and analysis, do the analysis in Python and print a short assumption note to stdout.
-- Convert data types safely before analysis.
+- Convert data types safely before analysis. Use pd.to_numeric(..., errors='coerce') or safe_to_numeric(...) instead of .astype(float).
 - Handle missing values silently (do not dedicate significant output to nulls — focus on the data that exists).
 - Do all calculations in Python.
 - For every numerical question, write deterministic Python that computes the answer directly from data (never prose-only math).
@@ -1086,10 +1161,15 @@ INSTRUCTIONS:
 
 FORECASTING (MANDATORY):
 - ALWAYS include a trend projection or forecast when time-series or sequential data is detected.
-- Use linear regression, moving averages, or exponential smoothing as appropriate.
-- Show forecast visually on charts with a distinct dashed line or shaded confidence interval.
-- State the forecast period and assumptions clearly.
+- Preferred methods (in order of sophistication):
+  1. ExponentialSmoothing (Holt-Winters) via statsmodels — best for seasonal/trended data (N >= 12).
+  2. Linear regression via numpy polyfit or sklearn — good default for non-seasonal trends.
+  3. Moving averages (rolling mean) — fallback for very short series (N < 8).
+- ALWAYS show ±1σ confidence bands as shaded regions on forecast charts (use fill='toself' with rgba opacity).
+- Show forecast visually on charts with a distinct dashed line and different color from observed data.
+- State the forecast period, method used, and assumptions clearly in print output.
 - If no temporal data exists, project based on current run-rates and state assumptions.
+- For financial data: always compute trailing 3-period moving average alongside the main forecast for smoothing.
 
 ASSEMBLY LINE DATA DETECTION:
 - If the data contains columns related to assembly lines, production, shifts, operators, defects, cycle times, throughput, QA, or manufacturing:
@@ -1280,7 +1360,7 @@ IMPORTANT:
             console.warn('LLM analysis response malformed after retries. Using deterministic fallback code.');
             return {
                 explanation: 'Applied deterministic analysis fallback because model output format was invalid.',
-                code: buildDeterministicAnalysisFallbackCode(wantsVisualization),
+                code: buildResilientDeterministicAnalysisFallbackCode(wantsVisualization),
                 requires_visualization: wantsVisualization,
             };
         } catch (error: any) {
@@ -1288,7 +1368,7 @@ IMPORTANT:
             // Keep analysis operational even if model call fails.
             return {
                 explanation: 'Applied deterministic analysis fallback due to model generation failure.',
-                code: buildDeterministicAnalysisFallbackCode(wantsVisualization),
+                code: buildResilientDeterministicAnalysisFallbackCode(wantsVisualization),
                 requires_visualization: wantsVisualization,
             };
         }
@@ -1402,6 +1482,15 @@ ${traceback || ''}
         const fallback = execution.error
             ? `Execution failed: ${execution.error}`
             : execution.result || 'Execution completed.';
+        const deterministicSignalSummary = execution.error
+            ? null
+            : buildDeterministicSignalSummaryFromExecution(execution.result || '', {
+                hasChart: chartCount > 0,
+            });
+
+        if (deterministicSignalSummary) {
+            return deterministicSignalSummary;
+        }
 
         const client = this.getClient();
         if (!client) return fallback;

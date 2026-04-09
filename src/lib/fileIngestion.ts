@@ -61,6 +61,19 @@ export function preferRicherTabularMetadata(
   };
 }
 
+export function formatMetadataExtractionWarning(error: unknown): string {
+  const message = String(error instanceof Error ? error.message : error || '').trim();
+  if (!message) {
+    return 'Python metadata extractor was unavailable, so Mastiff used the built-in fallback parser.';
+  }
+
+  if (/no python interpreter found|python metadata extraction returned no output|spawn .*enoent|code -4058|system cannot find the file specified/i.test(message)) {
+    return 'Python metadata extractor was unavailable on this machine, so Mastiff used the built-in fallback parser.';
+  }
+
+  return `Python metadata extractor failed, so Mastiff used the built-in fallback parser. ${message}`;
+}
+
 export function sanitizeFileName(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, '_');
 }

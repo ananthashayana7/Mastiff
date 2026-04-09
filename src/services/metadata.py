@@ -17,6 +17,50 @@ MAX_SAMPLE_ROWS = 10
 MAX_TOP_CATEGORIES = 10
 
 
+def _normalize_column_label(value, index):
+    if isinstance(value, tuple):
+        parts = [str(part).strip() for part in value if str(part).strip() and str(part).strip().lower() != 'nan']
+        label = ' | '.join(parts)
+    else:
+        label = str(value).strip()
+
+    if not label or label.lower() == 'nan':
+        return f'column_{index + 1}'
+
+    return label.replace('\n', ' ').strip()
+
+
+def ensure_unique_columns(df):
+    """Normalize and deduplicate column labels so df[col] always returns a Series."""
+    raw_columns = list(df.columns)
+    normalized = [_normalize_column_label(value, index) for index, value in enumerate(raw_columns)]
+    counts = {}
+    unique_columns = []
+    renamed_pairs = []
+
+    for original, label in zip(raw_columns, normalized):
+        occurrence = counts.get(label, 0) + 1
+        counts[label] = occurrence
+        unique_label = label if occurrence == 1 else f'{label} ({occurrence})'
+        unique_columns.append(unique_label)
+
+        if str(original) != unique_label:
+            renamed_pairs.append((str(original), unique_label))
+
+    duplicate_count = sum(1 for count in counts.values() if count > 1)
+    renamed = len(renamed_pairs) > 0
+
+    if renamed:
+        df = df.copy()
+        df.columns = unique_columns
+
+    return df, {
+        'renamed': renamed,
+        'duplicate_count': duplicate_count,
+        'renamed_pairs': renamed_pairs[:8],
+    }
+
+
 def read_csv_flexible(file_path, forced_sep=None):
     """Read CSV-like files with delimiter and encoding fallbacks."""
     encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']
@@ -158,9 +202,19 @@ def analyze_file(file_path):
 
         # Clean up
         df = df.dropna(how='all')
+        df, column_resolution = ensure_unique_columns(df)
         
         # Memory estimate
         memory_mb = round(df.memory_usage(deep=True).sum() / (1024 * 1024), 2)
+
+        schema_review_notes = []
+        if column_resolution['duplicate_count'] > 0:
+            schema_review_notes.append(
+                f"Resolved {column_resolution['duplicate_count']} duplicate column name group(s) to preserve metadata extraction."
+            )
+        if column_resolution['renamed_pairs']:
+            preview = ', '.join(f"{before} -> {after}" for before, after in column_resolution['renamed_pairs'][:4])
+            schema_review_notes.append(f"Normalized column labels: {preview}")
 
         metadata = {
             "row_count": len(df),
@@ -168,7 +222,8 @@ def analyze_file(file_path):
             "memory_mb": memory_mb,
             "columns": {},
             "sample": df.head(MAX_SAMPLE_ROWS).replace({np.nan: None}).to_dict(orient='records'),
-            "dtypes_summary": df.dtypes.astype(str).value_counts().to_dict()
+            "dtypes_summary": df.dtypes.astype(str).value_counts().to_dict(),
+            "schema_review_notes": schema_review_notes,
         }
 
         for col in df.columns:

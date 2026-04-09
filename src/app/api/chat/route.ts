@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { messages, sessions } from '@/db/schema';
 import { connectors } from '@/db/connectorSchema';
 import { eq, asc, and, inArray } from 'drizzle-orm';
-import { buildDeterministicAnalysisFallbackCode, classifyLlmError, llm } from '@/services/llm';
+import { buildResilientDeterministicAnalysisFallbackCode, classifyLlmError, llm } from '@/services/llm';
 import { kernelService } from '@/services/kernel';
 import { generateDataIntelligenceReport, formatWarningsForPrompt, analyseFile, formatForPrompt, DataIntelligenceReport } from '@/services/dataIntelligenceService';
 import { AnalysisMode } from '@/src/types';
@@ -78,7 +78,7 @@ function isTabularParseError(errorText: string): boolean {
     return /columns passed, passed data had|parsererror|error tokenizing data|expected\s+\d+\s+fields|saw\s+\d+|too many columns specified|shape of passed values/i.test(errorText || '');
 }
 
-export function buildInlineFinancialFallbackCode(rawContent: string): string {
+function buildInlineFinancialFallbackCode(rawContent: string): string {
     const b64 = Buffer.from(rawContent || '', 'utf8').toString('base64');
 
     return `
@@ -546,7 +546,7 @@ export async function POST(req: NextRequest) {
                             code: repaired.code,
                         };
                         executionResult = repairedResult;
-                    } else if (/could not convert string to float|valueerror/i.test(String(repairedResult.error || ''))) {
+                    } else if (/could not convert string to float|valueerror|arg must be a list, tuple|cannot convert.*to numeric/i.test(String(repairedResult.error || ''))) {
                         // Targeted second-pass repair for dirty numeric text in pasted/tabular data.
                         const numericRepair = await llm.repairAnalysisCode(
                             `${content}\n\nTARGETED FIX: sanitize numeric columns for '', '-', 'N/A', and whitespace using pd.to_numeric(..., errors='coerce').fillna(0). Avoid direct astype(float) on raw strings.`,
@@ -691,7 +691,7 @@ export async function POST(req: NextRequest) {
                     try {
                         const deterministicVisualizationCode = hasPastedData
                             ? buildInlineFinancialFallbackCode(content)
-                            : buildDeterministicAnalysisFallbackCode(true);
+                            : buildResilientDeterministicAnalysisFallbackCode(true);
                         const deterministicVisualizationExecution = await kernelService.execute(sessionId, deterministicVisualizationCode, executorFiles);
                         const deterministicChartCount = countVisualizationArtifacts(deterministicVisualizationExecution);
 
