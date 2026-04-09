@@ -15,6 +15,7 @@ import { AutoChartSuggestion } from './AutoChartSuggestion';
 import { exportToPDF } from '../services/ReportExporter';
 import { BrandLockup, BrandMark } from './BrandMark';
 import { hasAutoChartableData } from '../lib/autoChart';
+import { buildAnalysisBodyContent } from '../lib/chatResponseEnvelope';
 
 interface ChatWindowProps {
     currentSession: Session | null;
@@ -426,6 +427,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     const executiveInsights = m.result?.responseEnvelope?.insights?.filter(Boolean) || [];
                                     const executiveForecast = m.result?.responseEnvelope?.forecast || '';
                                     const dataQualityVerdict = m.result?.responseEnvelope?.dataQuality || '';
+                                    const analysisBody = buildAnalysisBodyContent(m.content, m.result?.responseEnvelope);
                                     const visualRecoveryPrompt = activeFiles.length > 0
                                         ? `Use only these active datasets: ${activeFiles.map((file) => file.name).join(', ')}. Build an executive chart pack with an overview chart, a trend chart, and a driver breakdown.`
                                         : 'Build an executive chart pack from the current analysis context with an overview chart, a trend chart, and a driver breakdown.';
@@ -563,10 +565,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                             </section>
                                         )}
 
-                                        <section className="space-y-3 border-t border-zinc-800/30 pt-5">
-                                            <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-300">Analysis</p>
-                                            <MarkdownRenderer content={m.content} className="text-[15px] leading-8 text-zinc-200 xl:text-base" />
-                                        </section>
+                                        {analysisBody && (
+                                            <section className="space-y-3 border-t border-zinc-800/30 pt-5">
+                                                <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-300">Analysis</p>
+                                                <MarkdownRenderer content={analysisBody} className="text-[15px] leading-8 text-zinc-200 xl:text-base" />
+                                            </section>
+                                        )}
 
                                         {m.sources && m.sources.length > 0 && (
                                             <section className="space-y-2 border-t border-zinc-800/30 pt-5">

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildAnalysisResponseEnvelope,
+  buildAnalysisBodyContent,
   buildFollowUpPrompts,
   renderEnvelopeAsSummary,
 } from '../src/lib/chatResponseEnvelope';
@@ -25,7 +26,7 @@ describe('chat response envelope', () => {
     expect(result.envelope.headline).toContain('Margin held');
     expect(result.envelope.insights).toHaveLength(4);
     expect(result.envelope.actions).toHaveLength(3);
-    expect(result.envelope.forecast).toContain('Forecast');
+    expect(result.envelope.forecast).toContain('continued mid-single-digit growth');
     expect(result.envelope.dataQuality).toContain('Data Quality');
   });
 
@@ -85,5 +86,53 @@ describe('chat response envelope', () => {
     expect(prompts.length).toBeGreaterThanOrEqual(3);
     expect(prompts[0]).toContain('rows, segments, and metric drivers');
     expect(prompts.some((prompt) => prompt.includes('30-60-90 day execution plan'))).toBe(true);
+  });
+
+  it('cleans noisy action and impact labels out of key insights', () => {
+    const summary = [
+      'Executive Signal',
+      'Executive Summary',
+      '1) Optimize inventory management to reduce waste and stabilize profitability.',
+      '2) Action: Implement a robust inventory forecasting and control system to minimize stock write-downs and obsolescence.',
+      '3) Evidence: The -24,325 T INR changes in inventories in May 25 were the primary driver of the 86.6% PAT drop.',
+      '4) Impact: High (Profit, Environmental Sustainability)',
+      'Action: Assign a finance owner to the monthly inventory bridge.',
+      'Action: Reconcile write-down and valuation logic before the next close.',
+      'Action: Split obsolete stock from normal inventory in management reporting.',
+      'Forecast: Action: Implement a robust inventory forecasting and control system.',
+      'Data Quality: Directional only - add data or tighter scope for higher-confidence guidance.',
+    ].join('\n');
+
+    const result = buildAnalysisResponseEnvelope(summary, { hasChart: true, hasCode: false });
+
+    expect(result.envelope.headline.toLowerCase()).not.toContain('executive summary');
+    expect(result.envelope.insights.some((insight) => /^action:/i.test(insight))).toBe(false);
+    expect(result.envelope.insights.some((insight) => /^evidence:/i.test(insight))).toBe(false);
+    expect(result.envelope.insights.some((insight) => /business impact is high/i.test(insight))).toBe(true);
+    expect(result.envelope.forecast).not.toMatch(/^action:/i);
+  });
+
+  it('removes envelope-only summary lines from the analysis body', () => {
+    const summary = [
+      'Executive Signal: Demand is improving, but margin capture still needs intervention.',
+      '1) Gross margin improved by 2.1 points.',
+      '2) Volume improved in the highest-conversion segment.',
+      '3) Freight and discount leakage remain the main margin risk.',
+      'Action: Shift spend into the best-converting priority segment.',
+      'Action: Audit freight leakage on the worst lanes this week.',
+      'Action: Tighten exception-based discounting before next month.',
+      'Forecast: Momentum indicates incremental growth if spend remains constant.',
+      'Data Quality: Stable for decision support.',
+    ].join('\n');
+
+    const { envelope } = buildAnalysisResponseEnvelope(summary, { hasChart: true, hasCode: true });
+    expect(buildAnalysisBodyContent(summary, envelope)).toBe('');
+
+    const detailed = `${summary}\n\nFreight leakage is concentrated in the west lanes.\nDiscount overrides spiked in the final week.`;
+    const analysisBody = buildAnalysisBodyContent(detailed, envelope);
+
+    expect(analysisBody).toContain('Freight leakage is concentrated in the west lanes.');
+    expect(analysisBody).toContain('Discount overrides spiked in the final week.');
+    expect(analysisBody).not.toContain('Executive Signal');
   });
 });

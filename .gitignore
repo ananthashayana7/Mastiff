@@ -25,6 +25,10 @@ dist-ssr
 
 .next
 tsconfig.tsbuildinfo
+uploads/
+*.pyc
+__pycache__/
+src/services/__pycache__/
 
 # Local environment secrets
 .env

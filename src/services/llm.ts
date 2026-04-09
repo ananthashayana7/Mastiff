@@ -1515,12 +1515,15 @@ CRITICAL OUTPUT RULES:
 - START IMMEDIATELY. No greeting, no setup sentence, no filler.
 - USE THIS EXACT OUTPUT ORDER:
     1. One line starting with "Executive Signal:".
-    2. Exactly 4 numbered insights using "1)", "2)", "3)", "4)".
+    2. Exactly 3 numbered insights using "1)", "2)", "3)".
     3. Exactly 3 action lines, each starting with "→ Action:".
     4. One line starting with "Forecast:".
     5. One line starting with "Data Quality:".
+- Each insight must be a finding, not a recommendation label. Never start an insight with "Action:", "Recommendation:", "Impact:", or "Evidence:".
+- The 3 insights must be distinct. Do not restate the Executive Signal in insight 1, and do not repeat the same thesis across insights, actions, and forecast.
 - Each insight must carry a specific number, driver, anomaly, or business condition when evidence exists.
 - The 3 actions must be distinct: one immediate move, one structural improvement, one risk-control move.
+- The forecast line must describe what likely happens next. It must not repeat an action item.
 - NO FILLER TEXT: Remove "Let me analyze...", "Based on the data...", "It's worth noting..." — skip preamble entirely.
 - USE BULLET POINTS over paragraphs. Every bullet must be a standalone, actionable insight.
 - TOTAL RESPONSE LENGTH: Aim for 160-240 words maximum. Quality over quantity.
