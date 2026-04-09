@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { X, Info, Table, BarChart2, List, Hash, Database, AlertCircle, Sparkles } from 'lucide-react';
+import { X, Info, Table, ChartBar, List, Hash, Database, WarningCircle, Sparkle } from '@phosphor-icons/react';
 import { DataFile } from '../types';
 
 interface DataInspectorProps {
@@ -340,7 +340,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                                 return (
                                     <div key={col} className="space-y-3">
                                         <div className="flex items-center gap-2 px-1">
-                                            <BarChart2 size={12} className="text-sky-300" />
+                                            <ChartBar size={12} className="text-sky-300" />
                                             <span className="text-[10px] font-black text-white uppercase tracking-widest">{col}</span>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
@@ -386,7 +386,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                             })
                         ) : (
                             <div className="flex flex-col items-center justify-center py-10 text-center space-y-3 opacity-50">
-                                <AlertCircle size={32} className="text-zinc-700" />
+                                <WarningCircle size={32} className="text-zinc-700" />
                                 <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">No numeric data available for statistics</p>
                             </div>
                         )}
@@ -396,7 +396,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                 {activeTab === 'workbench' && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="space-y-3 rounded-2xl border-2 border-dashed border-sky-300/20 bg-zinc-900/60 p-4 text-center">
-                            <Sparkles size={24} className="mx-auto text-sky-300" />
+                            <Sparkle size={24} className="mx-auto text-sky-300" />
                             <div>
                                 <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Data Workbench</h4>
                                 <p className="text-[7px] text-zinc-500 font-bold uppercase mt-1">Direct Manipulation & Cleaning</p>

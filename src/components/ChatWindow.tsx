@@ -2,11 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-    Menu, Globe, ChevronDown, Cpu, Search, Paperclip, Send,
-    Zap, Loader2, FileUp, Terminal, Volume2, Copy, Check, ExternalLink, Sparkles, Download,
-    BarChart3, Code2, Upload, ArrowRight, Table, PlayCircle, ScrollText,
-    Square, ScanSearch
-} from 'lucide-react';
+    List, Globe, CaretDown, Cpu, MagnifyingGlass, Paperclip, PaperPlaneTilt,
+    Lightning, SpinnerGap, FileArrowUp, Terminal, SpeakerHigh, Copy, Check, ArrowSquareOut, Sparkle, DownloadSimple,
+    ChartBar, Code, UploadSimple, ArrowRight, Table, PlayCircle, Scroll,
+    Square, Scan, TrendUp, ChartLine, ArrowClockwise
+} from '@phosphor-icons/react';
 import { ChatMessage, AnalysisMode, AnalystPersona, DataFile, Session } from '../types';
 import { ChartRenderer } from './ChartRenderer';
 import { PlotlyRenderer } from './PlotlyRenderer';
@@ -96,6 +96,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         'Give me the sharpest management summary from these active datasets.',
         'Show the top anomalies, forecast signals, and the actions I should take next.',
         'Compare the active files and tell me where performance or rejection differs most.',
+        'Run a comprehensive forecasting analysis on the active dataset with trend projections and confidence intervals.',
     ];
     const hasLoadedDatasets = files.some((file) => file.id !== 'sample-sales');
     const hasPendingDatasets = pendingFiles.length > 0;
@@ -115,7 +116,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <div className="mx-auto flex max-w-6xl justify-start animate-fade-in">
             <div className="inline-flex max-w-[520px] items-center gap-3 rounded-full border border-white/10 bg-[linear-gradient(180deg,rgba(14,22,35,0.96),rgba(9,15,25,0.86))] px-4 py-3 shadow-[0_16px_50px_rgba(2,6,23,0.24)]">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(37,99,235,0.96),rgba(13,148,136,0.88),rgba(245,158,11,0.82))] text-white shadow-lg">
-                    {isSearchEnabled ? <Globe size={16} className="animate-pulse" /> : <Loader2 size={16} className="animate-spin" />}
+                    {isSearchEnabled ? <Globe size={16} className="animate-pulse" /> : <SpinnerGap size={16} className="animate-spin" />}
                 </div>
                 <div className="min-w-0">
                     <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-100">
@@ -169,6 +170,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         return `${datasetContext} Deep dive into this concern: ${concern}. Show the rows and columns driving it, focus on the latest relevant period, and surface the top 3 anomalies or contributors with exact values.`;
     };
 
+    const buildForecastPrompt = (existingContent: string): string => {
+        const datasetContext = activeFiles.length > 0
+            ? `Active datasets: ${activeFiles.map((f) => f.name).join(', ')}.`
+            : 'Current analysis context.';
+        return `${datasetContext} Run a comprehensive forecasting analysis: (1) Detect all time-series or sequential columns automatically; (2) Apply linear trend + exponential smoothing for a short-term forecast (next 3–6 periods); (3) Plot observed values as a solid line, forecast as a dashed line, and a shaded 80% confidence interval band; (4) If finance data is present (revenue, profit, cost, margin), add YoY/MoM growth rates and project next quarter; (5) List the top 3 forecast-backed recommendations ranked by financial impact; (6) State assumptions, data quality, and confidence caveats explicitly. Use plotly subplots with multiple panels: main trend+forecast chart, growth rate bar chart, and a summary table.`;
+    };
+
     const extractTopConcerns = (content: string): string[] => {
         return content
             .split(/\r?\n/)
@@ -204,7 +212,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             <header className="z-20 mx-2 mt-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,23,37,0.92),rgba(9,14,24,0.84))] px-3 py-2.5 shadow-[0_18px_55px_rgba(2,6,23,0.24)] backdrop-blur-xl sm:mx-3 sm:px-4 xl:mx-4 2xl:mx-5">
                 <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
                     <button className="rounded-xl p-2 text-slate-400 transition-colors hover:text-white 2xl:hidden" onClick={onToggleSidebar}>
-                        <Menu size={18} />
+                        <List size={18} />
                     </button>
 
                     {/* Persona Selector */}
@@ -223,7 +231,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             <span className="hidden text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-200 sm:inline">
                                 {activePersona.name}
                             </span>
-                            <ChevronDown size={10} className={`text-slate-400 transition-transform ${showPersonaMenu ? 'rotate-180' : ''}`} />
+                            <CaretDown size={10} className={`text-slate-400 transition-transform ${showPersonaMenu ? 'rotate-180' : ''}`} />
                         </button>
                         {showPersonaMenu && (
                             <div className="absolute left-0 top-full z-[50] mt-2 w-56 animate-scale-in rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.95),rgba(10,16,28,0.9))] p-1.5 shadow-[0_30px_80px_rgba(2,6,23,0.4)] backdrop-blur-xl">
@@ -274,7 +282,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         }}
                         className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-slate-300 transition-all hover:border-amber-300/25 hover:text-white"
                     >
-                        <Download size={13} />
+                        <DownloadSimple size={13} />
                         <span className="text-[8px] font-extrabold uppercase tracking-widest hidden sm:inline">Export</span>
                     </button>
                 </div>
@@ -307,7 +315,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 >
                                     <div className="flex flex-col items-center gap-3">
                                         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950/70 transition-all group-hover:bg-teal-400/[0.12]">
-                                            <Upload size={22} className="text-slate-300 transition-colors group-hover:text-teal-200" />
+                                            <UploadSimple size={22} className="text-slate-300 transition-colors group-hover:text-teal-200" />
                                         </div>
                                         <div>
                                             <p className="text-xs font-black uppercase tracking-[0.26em] text-slate-100 transition-colors group-hover:text-white">
@@ -348,7 +356,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     </div>
                                 )}
                                 <div className="flex items-center justify-center gap-2">
-                                    <Zap size={16} className="text-teal-300" />
+                                    <Lightning size={16} className="text-teal-300" />
                                     <h3 className="text-[10px] font-extrabold uppercase tracking-[0.3em] text-slate-300/75">Suggested Analyses</h3>
                                 </div>
                                 {isLoadingSuggestions ? (
@@ -356,7 +364,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         <div className="absolute inset-0 animate-neural-scan bg-gradient-to-r from-transparent via-sky-400/[0.08] to-transparent -translate-x-full" />
                                         <div className="relative flex flex-col items-center gap-4">
                                             <div className="flex items-center gap-3">
-                                                <Loader2 size={16} className="animate-spin text-sky-300" />
+                                                <SpinnerGap size={16} className="animate-spin text-sky-300" />
                                                 <span className="text-[10px] font-extrabold uppercase tracking-[2px] text-white/80">Analyzing your data...</span>
                                             </div>
                                             <div className="w-full max-w-xs h-1 bg-zinc-950 rounded-full overflow-hidden">
@@ -436,36 +444,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     </div>
 
                                     <div className="space-y-5 px-5 py-5 sm:px-6">
-                                        {executiveHeadline && (
-                                            <section className="space-y-2">
-                                                <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-emerald-200/80">Executive Signal</p>
-                                                <p className="text-lg font-semibold leading-relaxed text-white xl:text-xl">{renderInsightText(executiveHeadline)}</p>
-                                            </section>
-                                        )}
-
-                                        {executiveInsights.length > 0 && (
-                                            <section className="space-y-3">
-                                                <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-300">Key Insights</p>
-                                                <div className="grid gap-3 lg:grid-cols-2">
-                                                    {executiveInsights.slice(0, 4).map((insight, index) => (
-                                                        <button
-                                                            key={`${m.id}-insight-card-${index}`}
-                                                            onClick={() => onSend(buildConcernPrompt(insight))}
-                                                            className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition-all hover:border-sky-300/28 hover:bg-white/[0.08]"
-                                                        >
-                                                            <div className="flex items-center justify-between gap-3">
-                                                                <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Insight {index + 1}</span>
-                                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-200">
-                                                                    <ScanSearch size={12} /> Explore
-                                                                </span>
-                                                            </div>
-                                                            <p className="mt-3 text-sm leading-relaxed text-zinc-100 xl:text-[15px]">{renderInsightText(insight)}</p>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </section>
-                                        )}
-
                                         {showChartsSection && (
                                             <section className="space-y-3">
                                                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -516,11 +494,41 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                             onClick={() => onSend(visualRecoveryPrompt)}
                                                             className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(14,165,233,0.98),rgba(13,148,136,0.94),rgba(245,158,11,0.88))] px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white transition-all hover:brightness-110"
                                                         >
-                                                            <BarChart3 size={13} />
+                                                            <ChartBar size={13} />
                                                             Run visual recovery
                                                         </button>
                                                     </div>
                                                 )}
+                                            </section>
+                                        )}
+
+                                        {executiveHeadline && (
+                                            <section className="space-y-2">
+                                                <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-emerald-200/80">Executive Signal</p>
+                                                <p className="text-lg font-semibold leading-relaxed text-white xl:text-xl">{renderInsightText(executiveHeadline)}</p>
+                                            </section>
+                                        )}
+
+                                        {executiveInsights.length > 0 && (
+                                            <section className="space-y-3">
+                                                <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-300">Key Insights</p>
+                                                <div className="grid gap-3 lg:grid-cols-2">
+                                                    {executiveInsights.slice(0, 4).map((insight, index) => (
+                                                        <button
+                                                            key={`${m.id}-insight-card-${index}`}
+                                                            onClick={() => onSend(buildConcernPrompt(insight))}
+                                                            className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition-all hover:border-sky-300/28 hover:bg-white/[0.08]"
+                                                        >
+                                                            <div className="flex items-center justify-between gap-3">
+                                                                <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Insight {index + 1}</span>
+                                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-200">
+                                                                    <Scan size={12} /> Explore
+                                                                </span>
+                                                            </div>
+                                                            <p className="mt-3 text-sm leading-relaxed text-zinc-100 xl:text-[15px]">{renderInsightText(insight)}</p>
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </section>
                                         )}
 
@@ -570,7 +578,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                         <a key={`src-${m.id}-${i}`} href={src.uri} target="_blank" rel="noopener noreferrer"
                                                             className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] font-semibold text-zinc-300 hover:text-white transition-all">
                                                             <span className="truncate max-w-[220px]">{src.title}</span>
-                                                            <ExternalLink size={10} />
+                                                            <ArrowSquareOut size={10} />
                                                         </a>
                                                     ))}
                                                 </div>
@@ -594,10 +602,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                 {copiedId === m.id ? <Check size={10} /> : <Copy size={10} />}
                                                 {copiedId === m.id ? 'Copied' : 'Copy'}
                                             </button>
+                                            {m.result && (
+                                                <button onClick={() => onSend(buildForecastPrompt(m.content))}
+                                                    className="flex items-center gap-2 text-[11px] font-bold text-sky-300 hover:text-white uppercase tracking-[0.14em] transition-colors">
+                                                    <TrendUp size={11} weight="bold" />
+                                                    Forecast
+                                                </button>
+                                            )}
                                             {hasLogs && (
                                                 <button onClick={() => onToggleLogs(showLogsId === m.id ? null : m.id)}
                                                     className="flex items-center gap-2 text-[11px] font-bold text-zinc-400 hover:text-white uppercase tracking-[0.14em] transition-colors">
-                                                    <ScrollText size={10} />
+                                                    <Scroll size={10} />
                                                     {showLogsId === m.id ? 'Hide Logs' : 'Show Logs'}
                                                 </button>
                                             )}
@@ -622,7 +637,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     <div className="w-full rounded-2xl overflow-hidden border border-zinc-800/60 animate-scale-in">
                                         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/40 bg-zinc-950/60">
                                             <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-[0.14em] flex items-center gap-2">
-                                                <Code2 size={12} /> Python Code
+                                                <Code size={12} /> Python Code
                                             </span>
                                             <button onClick={() => onCopy(m.code || '', `code-${m.id}`)}
                                                 className="rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] font-bold text-zinc-400 hover:text-white transition-colors">
@@ -644,7 +659,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     <div className="w-full rounded-2xl overflow-hidden border border-zinc-800/60 animate-scale-in bg-[#0a0a0a]">
                                         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/40 bg-zinc-950/60">
                                             <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-[0.14em] flex items-center gap-2">
-                                                <ScrollText size={12} /> Execution Logs
+                                                <Scroll size={12} /> Execution Logs
                                             </span>
                                         </div>
                                         <div className="p-4 space-y-4">
@@ -693,7 +708,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 <span className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-300">{messages.length > 0 ? 'Next Prompts' : 'Suggested Questions'}</span>
                                 {isLoadingSuggestions && (
                                     <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-400">
-                                        <Loader2 size={11} className="animate-spin" />
+                                        <SpinnerGap size={11} className="animate-spin" />
                                         Refreshing
                                     </span>
                                 )}
@@ -730,7 +745,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     {isSearchEnabled && (
                         <div className="absolute -top-9 left-0 right-0 flex justify-center animate-fade-in">
                             <div className="flex items-center gap-2 rounded-full border border-sky-300/20 bg-sky-400/[0.16] px-3 py-1 text-[8px] font-extrabold uppercase tracking-[0.24em] text-white shadow-lg glow-accent">
-                                <Search size={10} /> Web Search Active
+                                <MagnifyingGlass size={10} /> Web Search Active
                             </div>
                         </div>
                     )}
@@ -760,7 +775,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         : 'bg-slate-950/70 text-slate-600'
                                     }`}
                             >
-                                {isAnalyzing ? <Square size={17} /> : <Send size={17} />}
+                                {isAnalyzing ? <Square size={17} /> : <PaperPlaneTilt size={17} />}
                             </button>
                         </div>
                     </div>

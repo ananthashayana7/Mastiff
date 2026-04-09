@@ -10,7 +10,7 @@ import {
   ComposedChart
 } from 'recharts';
 import { VisualizationData } from '../types';
-import { Download, Table as TableIcon, FileText, ArrowUp, ArrowDown, Search, Filter, X, RefreshCw, Cpu, TrendingUp, MousePointer2, Maximize2, Minimize2, BarChart3 } from 'lucide-react';
+import { DownloadSimple, Table as TableIcon, FileText, ArrowUp, ArrowDown, MagnifyingGlass, Funnel, X, ArrowClockwise, Cpu, TrendUp, Cursor, ArrowsOut, ArrowsIn, ChartBar } from '@phosphor-icons/react';
 import html2canvas from 'html2canvas';
 
 const COLORS = [
@@ -129,10 +129,10 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
           </div>
           <div className="flex gap-1.5">
             <button onClick={() => setIsFilterActive(!isFilterActive)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all text-[8px] font-extrabold uppercase tracking-widest ${isFilterActive ? 'bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(20,184,166,0.88))] text-white' : 'glass text-zinc-500 hover:text-white'}`}>
-              <Filter size={11} /> Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
+              <Funnel size={11} /> Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
             </button>
-            <button onClick={handleExportCSV} className="flex items-center gap-1.5 px-2.5 py-1.5 glass rounded-lg text-zinc-500 hover:text-white transition-all text-[8px] font-extrabold uppercase tracking-widest"><Download size={11} /> CSV</button>
-            <button onClick={handleExportImage} className="flex items-center gap-1.5 px-2.5 py-1.5 glass rounded-lg text-zinc-500 hover:text-white transition-all text-[8px] font-extrabold uppercase tracking-widest"><Download size={11} /> PNG</button>
+            <button onClick={handleExportCSV} className="flex items-center gap-1.5 px-2.5 py-1.5 glass rounded-lg text-zinc-500 hover:text-white transition-all text-[8px] font-extrabold uppercase tracking-widest"><DownloadSimple size={11} /> CSV</button>
+            <button onClick={handleExportImage} className="flex items-center gap-1.5 px-2.5 py-1.5 glass rounded-lg text-zinc-500 hover:text-white transition-all text-[8px] font-extrabold uppercase tracking-widest"><DownloadSimple size={11} /> PNG</button>
           </div>
         </div>
         {isFilterActive && (
@@ -396,7 +396,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
           </FunnelChart>
         );
       default:
-        return <div className="flex flex-col items-center justify-center h-full gap-4 text-zinc-700"><RefreshCw className="animate-spin" size={28} /></div>;
+        return <div className="flex flex-col items-center justify-center h-full gap-4 text-zinc-700"><ArrowClockwise className="animate-spin" size={28} /></div>;
     }
   };
 
@@ -409,21 +409,18 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
             {title}
           </h3>
           <p className="ml-3 mt-0.5 flex items-center gap-1 text-[8px] font-bold uppercase tracking-[2px] text-slate-400">
-            <MousePointer2 size={8} /> Click to drill down
+            <Cursor size={8} /> Click to drill down
           </p>
         </div>
         <div className="flex gap-1.5">
           <button onClick={() => setIsExpanded(!isExpanded)} className="rounded-lg border border-white/10 bg-white/[0.04] p-1.5 text-slate-400 transition-all hover:border-sky-300/30 hover:text-white">
-            {isExpanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+            {isExpanded ? <ArrowsIn size={12} /> : <ArrowsOut size={12} />}
           </button>
           <button onClick={handleExportCSV} className="rounded-lg border border-white/10 bg-white/[0.04] p-1.5 text-slate-400 transition-all hover:border-sky-300/30 hover:text-white" title="Export CSV">
             <FileText size={12} />
           </button>
           <button onClick={handleExportImage} className="rounded-lg border border-white/10 bg-white/[0.04] p-1.5 text-slate-400 transition-all hover:border-sky-300/30 hover:text-white" title="Export Image">
-            <Download size={12} />
-          </button>
-        </div>
-      </div>
+            <DownloadSimple size={12} />
       <div className={`w-full ${isExpanded ? 'h-[calc(100vh-120px)]' : 'h-[320px]'}`}>
         <ResponsiveContainer width="100%" height="100%">
           {renderContent()}

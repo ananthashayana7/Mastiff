@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
+import { DownloadSimple, ArrowsOut, ArrowsIn, ArrowCounterClockwise } from '@phosphor-icons/react';
 import { ChartRenderer } from './ChartRenderer';
 import type { VisualizationData } from '../types';
 
@@ -1196,13 +1196,13 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                         </select>
                     )}
                     <button onClick={handleResetZoom} title="Reset zoom" className="rounded-md border border-white/10 bg-white/[0.04] p-1.5 text-slate-400 transition-all hover:border-sky-300/30 hover:bg-white/[0.08] hover:text-white">
-                        <RotateCcw size={12} />
+                        <ArrowCounterClockwise size={12} />
                     </button>
                     <button onClick={() => setIsExpanded(!isExpanded)} className="rounded-md border border-white/10 bg-white/[0.04] p-1.5 text-slate-400 transition-all hover:border-sky-300/30 hover:bg-white/[0.08] hover:text-white">
-                        {isExpanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+                        {isExpanded ? <ArrowsIn size={12} /> : <ArrowsOut size={12} />}
                     </button>
                     <button onClick={handleExport} className="rounded-md border border-white/10 bg-white/[0.04] p-1.5 text-slate-400 transition-all hover:border-sky-300/30 hover:bg-white/[0.08] hover:text-white">
-                        <Download size={12} />
+                        <DownloadSimple size={12} />
                     </button>
                 </div>
             </div>
