@@ -69,6 +69,31 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
     const likelyMergedCellIssue = (activeFile.type === 'xlsx' || activeFile.type === 'xls')
         && (suspiciousHeaderColumns.length > 0 || sparseColumns.length >= Math.ceil(Math.max(activeFile.columns.length, 1) / 3));
     const schemaReviewNotes = metadata?.schema_review_notes || [];
+    const datasetIntelligence = metadata?.datasetIntelligence;
+    const analysisMemory = metadata?.analysisMemory;
+
+    const renderTagGroup = (label: string, values: string[] | undefined, tone: 'neutral' | 'sky' | 'amber' = 'neutral') => {
+        if (!values || values.length === 0) return null;
+
+        const toneClass = tone === 'sky'
+            ? 'border-sky-200 bg-sky-50 text-sky-800'
+            : tone === 'amber'
+                ? 'border-amber-200 bg-amber-50 text-amber-800'
+                : 'border-stone-200 bg-stone-50 text-stone-700';
+
+        return (
+            <div className="space-y-2">
+                <p className="text-[7px] font-black uppercase tracking-[0.24em] text-stone-500">{label}</p>
+                <div className="flex flex-wrap gap-2">
+                    {values.slice(0, 8).map((value) => (
+                        <span key={`${label}-${value}`} className={`rounded-full border px-2.5 py-1 text-[9px] font-bold ${toneClass}`}>
+                            {value}
+                        </span>
+                    ))}
+                </div>
+            </div>
+        );
+    };
 
     const toggleColumn = (columnName: string) => {
         if (!isPending) return;
@@ -106,40 +131,40 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
     };
 
     return (
-        <aside className="fixed inset-y-0 right-0 z-[130] flex w-full max-w-[min(30rem,100vw)] flex-col border-l border-white/10 bg-[linear-gradient(180deg,rgba(8,14,25,0.98),rgba(5,10,18,0.96))] shadow-2xl animate-in slide-in-from-right">
-            <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-950/50 p-5 backdrop-blur-md">
+        <aside className="fixed inset-y-0 right-0 z-[130] flex w-full max-w-[min(34rem,100vw)] flex-col border-l border-stone-200 bg-[linear-gradient(180deg,rgba(255,252,247,0.98),rgba(247,244,238,0.98))] text-stone-900 shadow-[0_24px_80px_rgba(28,25,23,0.12)] animate-in slide-in-from-right">
+            <div className="flex shrink-0 items-center justify-between border-b border-stone-200 bg-white/85 p-5 backdrop-blur-md">
                 <div className="flex items-center gap-2.5">
-                    <div className="rounded-lg bg-sky-400/10 p-2 text-sky-300">
+                    <div className="rounded-xl bg-sky-50 p-2 text-sky-700">
                         <Info size={18} />
                     </div>
                     <div>
-                        <h3 className="text-sm font-black text-white uppercase italic tracking-tighter">Data Inspector</h3>
-                        <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest truncate max-w-[150px]">{activeFile.name}</p>
+                        <h3 className="font-serif text-lg font-semibold tracking-[-0.03em] text-stone-900">Data Inspector</h3>
+                        <p className="max-w-[220px] truncate text-[10px] font-bold uppercase tracking-[0.24em] text-stone-500">{activeFile.name}</p>
                     </div>
                 </div>
-                <button onClick={onClose} className="p-2 bg-zinc-900/50 hover:bg-zinc-800 rounded-xl text-zinc-500 hover:text-white transition-all">
+                <button onClick={onClose} className="rounded-xl border border-stone-200 bg-stone-50 p-2 text-stone-500 transition-all hover:bg-stone-100 hover:text-stone-900">
                     <X size={16} />
                 </button>
             </div>
 
-            <div className="p-3 bg-zinc-950/50 border-b border-zinc-900 overflow-x-auto flex gap-2 shrink-0 custom-scrollbar">
+            <div className="custom-scrollbar flex shrink-0 gap-2 overflow-x-auto border-b border-stone-200 bg-stone-50/80 p-3">
                 {files.map(f => (
                     <button
                         key={f.id}
                         onClick={() => setInternalFileId(f.id)}
-                        className={`flex-none rounded-lg border px-3 py-1.5 text-[8px] font-black uppercase tracking-widest transition-all ${activeFile.id === f.id ? 'border-sky-300/35 bg-[linear-gradient(135deg,rgba(56,189,248,0.18),rgba(20,184,166,0.16),rgba(245,158,11,0.14))] text-white shadow-[0_0_10px_rgba(56,189,248,0.18)]' : 'border-zinc-800 bg-black text-zinc-500 hover:text-white'}`}
+                        className={`flex-none rounded-xl border px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] transition-all ${activeFile.id === f.id ? 'border-sky-200 bg-white text-stone-900 shadow-[0_6px_18px_rgba(28,25,23,0.06)]' : 'border-stone-200 bg-white/70 text-stone-500 hover:border-stone-300 hover:text-stone-900'}`}
                     >
                         {f.name}
                     </button>
                 ))}
             </div>
 
-            <div className="flex p-1.5 bg-zinc-950 border-b border-zinc-900 shrink-0">
+            <div className="flex shrink-0 border-b border-stone-200 bg-white p-1.5">
                 {(['overview', 'columns', 'stats', 'workbench'] as TabType[]).map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`flex-1 rounded-lg px-1 py-2 text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(20,184,166,0.88))] text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'
+                        className={`flex-1 rounded-xl px-1 py-2.5 text-[9px] font-black uppercase tracking-[0.18em] transition-all ${activeTab === tab ? 'bg-stone-900 text-white shadow-lg' : 'text-stone-500 hover:text-stone-900'
                             }`}
                     >
                         {tab}
@@ -147,34 +172,34 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                 ))}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-8">
+            <div className="custom-scrollbar flex-1 overflow-y-auto p-5 space-y-8">
                 {isPending && (
-                    <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
-                        <p className="text-[8px] font-black text-amber-400 uppercase tracking-[3px]">Pending Activation</p>
-                        <p className="text-[11px] text-zinc-300 leading-relaxed">
+                    <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                        <p className="text-[8px] font-black uppercase tracking-[0.28em] text-amber-700">Pending Activation</p>
+                        <p className="text-[12px] leading-relaxed text-stone-700">
                             Review the normalized sample before Mastiff uses this file in chat. The detected schema is inferred from the upload parser.
                         </p>
-                        <p className="text-[10px] text-zinc-500 leading-relaxed">
+                        <p className="text-[11px] leading-relaxed text-stone-500">
                             Data types, inferred header row, and sheet selection are already applied. Confirm the useful columns and Mastiff will activate the file immediately.
                         </p>
                     </div>
                 )}
 
                 {(metadata?.extraction_warning || likelyMergedCellIssue) && (
-                    <div className="rounded-2xl border border-red-900/40 bg-red-950/20 p-4 space-y-2">
-                        <p className="text-[8px] font-black text-red-400 uppercase tracking-[3px]">Parsing Warning</p>
+                    <div className="space-y-2 rounded-2xl border border-red-200 bg-red-50 p-4">
+                        <p className="text-[8px] font-black uppercase tracking-[0.28em] text-red-600">Parsing Warning</p>
                         {metadata?.extraction_warning && (
-                            <p className="text-[11px] text-zinc-300 leading-relaxed">
+                            <p className="text-[12px] leading-relaxed text-stone-700">
                                 {metadata.extraction_warning}
                             </p>
                         )}
                         {likelyMergedCellIssue && (
-                            <p className="text-[11px] text-zinc-300 leading-relaxed">
+                            <p className="text-[12px] leading-relaxed text-stone-700">
                                 This spreadsheet looks like it may contain merged headers or formatting rows. Mastiff detected placeholder headers or very sparse columns after flattening. Review the sample carefully before activation.
                             </p>
                         )}
                         {suspiciousHeaderColumns.length > 0 && (
-                            <p className="text-[10px] text-zinc-500 leading-relaxed">
+                            <p className="text-[11px] leading-relaxed text-stone-500">
                                 Suspicious headers: {suspiciousHeaderColumns.slice(0, 4).join(', ')}{suspiciousHeaderColumns.length > 4 ? '...' : ''}
                             </p>
                         )}
@@ -182,11 +207,11 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                 )}
 
                 {schemaReviewNotes.length > 0 && (
-                    <div className="rounded-2xl border border-sky-300/20 bg-sky-400/[0.06] p-4 space-y-2">
-                        <p className="text-[8px] font-black text-sky-200 uppercase tracking-[3px]">Schema Review Notes</p>
+                    <div className="space-y-2 rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                        <p className="text-[8px] font-black uppercase tracking-[0.28em] text-sky-700">Schema Review Notes</p>
                         <div className="space-y-1.5">
                             {schemaReviewNotes.slice(0, 4).map((note, index) => (
-                                <p key={`${activeFile.id}-schema-note-${index}`} className="text-[11px] leading-relaxed text-zinc-300">
+                                <p key={`${activeFile.id}-schema-note-${index}`} className="text-[12px] leading-relaxed text-stone-700">
                                     {note}
                                 </p>
                             ))}
@@ -195,12 +220,12 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                 )}
 
                 {normalizedFocusTerm && (
-                    <div className="rounded-2xl border border-sky-300/20 bg-sky-400/[0.06] p-4 space-y-2">
-                        <p className="text-[8px] font-black text-sky-200 uppercase tracking-[3px]">Focused Inspection</p>
-                        <p className="text-[11px] text-zinc-300 leading-relaxed">
-                            Filtering the sample for matches related to <span className="font-mono text-zinc-100">{focusTerm}</span>.
+                    <div className="space-y-2 rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                        <p className="text-[8px] font-black uppercase tracking-[0.28em] text-sky-700">Focused Inspection</p>
+                        <p className="text-[12px] leading-relaxed text-stone-700">
+                            Filtering the sample for matches related to <span className="font-mono text-stone-900">{focusTerm}</span>.
                         </p>
-                        <p className="text-[10px] text-zinc-500 leading-relaxed">
+                        <p className="text-[11px] leading-relaxed text-stone-500">
                             Showing {previewRows.length} matching preview row{previewRows.length === 1 ? '' : 's'} from the current sample.
                         </p>
                     </div>
@@ -209,39 +234,39 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                 {activeTab === 'overview' && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="grid grid-cols-2 gap-3">
-                            <div className="p-3 bg-zinc-900/40 rounded-2xl border border-zinc-800/50 text-center space-y-1">
-                                <p className="text-[7px] font-black text-zinc-500 uppercase tracking-widest">Total Rows</p>
-                                <p className="text-lg font-black text-white">{metadata?.row_count.toLocaleString() || activeFile.preview.length}+</p>
-                                <Database size={12} className="mx-auto text-sky-300 opacity-60" />
+                            <div className="space-y-1 rounded-2xl border border-stone-200 bg-white p-4 text-center shadow-[0_4px_16px_rgba(28,25,23,0.04)]">
+                                <p className="text-[8px] font-black uppercase tracking-[0.24em] text-stone-500">Total Rows</p>
+                                <p className="text-2xl font-black tracking-[-0.04em] text-stone-900">{metadata?.row_count.toLocaleString() || activeFile.preview.length}+</p>
+                                <Database size={12} className="mx-auto text-sky-700 opacity-70" />
                             </div>
-                            <div className="p-3 bg-zinc-900/40 rounded-2xl border border-zinc-800/50 text-center space-y-1">
-                                <p className="text-[7px] font-black text-zinc-500 uppercase tracking-widest">Columns</p>
-                                <p className="text-lg font-black text-white">{metadata?.column_count || activeFile.columns.length}</p>
-                                <Table size={12} className="mx-auto text-teal-300 opacity-60" />
+                            <div className="space-y-1 rounded-2xl border border-stone-200 bg-white p-4 text-center shadow-[0_4px_16px_rgba(28,25,23,0.04)]">
+                                <p className="text-[8px] font-black uppercase tracking-[0.24em] text-stone-500">Columns</p>
+                                <p className="text-2xl font-black tracking-[-0.04em] text-stone-900">{metadata?.column_count || activeFile.columns.length}</p>
+                                <Table size={12} className="mx-auto text-emerald-700 opacity-70" />
                             </div>
                         </div>
 
                         <div className="space-y-3">
-                            <p className="text-[8px] font-black text-zinc-600 uppercase tracking-[3px]">Entity Metadata</p>
-                            <div className="bg-zinc-900/20 border border-zinc-800 rounded-2xl divide-y divide-zinc-900 overflow-hidden">
-                                <div className="p-3 flex justify-between items-center text-[10px] font-bold">
-                                    <span className="text-zinc-500">Schema Type</span>
-                                    <span className="text-white uppercase px-2 py-0.5 bg-zinc-800 rounded">{activeFile.type}</span>
+                            <p className="text-[8px] font-black uppercase tracking-[0.28em] text-stone-500">Entity Metadata</p>
+                            <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white divide-y divide-stone-200">
+                                <div className="flex items-center justify-between p-3 text-[11px] font-bold">
+                                    <span className="text-stone-500">Schema Type</span>
+                                    <span className="rounded-full bg-stone-100 px-2.5 py-1 uppercase text-stone-900">{activeFile.type}</span>
                                 </div>
-                                <div className="p-3 flex justify-between items-center text-[10px] font-bold">
-                                    <span className="text-zinc-500">Size</span>
-                                    <span className="text-white">{(activeFile.preview.length * activeFile.columns.length * 10).toLocaleString()} bytes (Est)</span>
+                                <div className="flex items-center justify-between p-3 text-[11px] font-bold">
+                                    <span className="text-stone-500">Size</span>
+                                    <span className="text-stone-900">{(activeFile.preview.length * activeFile.columns.length * 10).toLocaleString()} bytes (Est)</span>
                                 </div>
                                 {metadata?.sheet_name && (
-                                    <div className="p-3 flex justify-between items-center text-[10px] font-bold">
-                                        <span className="text-zinc-500">Active Sheet</span>
-                                        <span className="text-white">{metadata.sheet_name}</span>
+                                    <div className="flex items-center justify-between p-3 text-[11px] font-bold">
+                                        <span className="text-stone-500">Active Sheet</span>
+                                        <span className="text-stone-900">{metadata.sheet_name}</span>
                                     </div>
                                 )}
                                 {(metadata?.dropped_empty_rows || metadata?.dropped_empty_columns) ? (
-                                    <div className="p-3 flex justify-between items-center text-[10px] font-bold">
-                                        <span className="text-zinc-500">Normalization</span>
-                                        <span className="text-white">
+                                    <div className="flex items-center justify-between p-3 text-[11px] font-bold">
+                                        <span className="text-stone-500">Normalization</span>
+                                        <span className="text-stone-900">
                                             -{metadata?.dropped_empty_rows || 0} empty rows • -{metadata?.dropped_empty_columns || 0} empty cols
                                         </span>
                                     </div>
@@ -249,23 +274,53 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                             </div>
                         </div>
 
+                        {datasetIntelligence && (
+                            <div className="space-y-3">
+                                <p className="text-[8px] font-black uppercase tracking-[0.28em] text-stone-500">Persistent Dataset Intelligence</p>
+                                <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4 shadow-[0_4px_16px_rgba(28,25,23,0.04)]">
+                                    <div className="space-y-2">
+                                        {datasetIntelligence.summary.slice(0, 4).map((line, index) => (
+                                            <p key={`${activeFile.id}-memory-summary-${index}`} className="text-[12px] leading-relaxed text-stone-700">
+                                                {line}
+                                            </p>
+                                        ))}
+                                    </div>
+
+                                    {renderTagGroup('Candidate KPIs', datasetIntelligence.candidateKpis, 'sky')}
+                                    {renderTagGroup('Dimensions', datasetIntelligence.dimensions)}
+                                    {renderTagGroup('Date Fields', datasetIntelligence.dateFields)}
+                                    {renderTagGroup('Key Candidates', datasetIntelligence.keyCandidates)}
+                                    {renderTagGroup('Known Anomalies', datasetIntelligence.anomalies, 'amber')}
+
+                                    {analysisMemory && (
+                                        <div className="space-y-3 border-t border-stone-200 pt-4">
+                                            <p className="text-[7px] font-black uppercase tracking-[0.24em] text-stone-500">Derived Analysis Memory</p>
+                                            {renderTagGroup('Top Findings', analysisMemory.topFindings)}
+                                            {renderTagGroup('Common Filters', analysisMemory.commonFilters)}
+                                            {renderTagGroup('Previous Charts', analysisMemory.previousCharts)}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {previewRows.length > 0 && (
                             <div className="space-y-3">
-                                <p className="text-[8px] font-black text-zinc-600 uppercase tracking-[3px]">{normalizedFocusTerm ? 'Matching Sample Rows' : 'Data Sample'}</p>
-                                <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900/20">
+                                <p className="text-[8px] font-black uppercase tracking-[0.28em] text-stone-500">{normalizedFocusTerm ? 'Matching Sample Rows' : 'Data Sample'}</p>
+                                <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
                                     <table className="w-full text-left border-collapse">
                                         <thead>
-                                            <tr className="bg-zinc-900/50">
+                                            <tr className="bg-stone-50">
                                                 {previewColumns.map(col => (
-                                                    <th key={col} className="px-3 py-2 text-[8px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800">{col}</th>
+                                                    <th key={col} className="border-b border-stone-200 px-3 py-2 text-[8px] font-black uppercase tracking-[0.24em] text-stone-500">{col}</th>
                                                 ))}
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {previewRows.slice(0, 5).map((row, i) => (
-                                                <tr key={i} className="border-b border-zinc-900/50 last:border-0">
+                                                <tr key={i} className="border-b border-stone-100 last:border-0">
                                                     {previewColumns.map(col => (
-                                                        <td key={col} className="px-3 py-2 text-[9px] font-bold text-zinc-400 truncate max-w-[80px]">{renderCellValue(row[col])}</td>
+                                                        <td key={col} className="max-w-[120px] truncate px-3 py-2 text-[10px] font-medium text-stone-700">{renderCellValue(row[col])}</td>
                                                     ))}
                                                 </tr>
                                             ))}
@@ -276,9 +331,9 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                         )}
 
                         {normalizedFocusTerm && previewRows.length === 0 && (
-                            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/20 p-4">
-                                <p className="text-[10px] font-bold text-zinc-400">No preview rows matched this concern in the current sample.</p>
-                                <p className="text-[9px] text-zinc-600 mt-1">Try a narrower follow-up in chat or inspect a different active dataset.</p>
+                            <div className="rounded-2xl border border-stone-200 bg-white p-4">
+                                <p className="text-[11px] font-semibold text-stone-700">No preview rows matched this concern in the current sample.</p>
+                                <p className="mt-1 text-[10px] text-stone-500">Try a narrower follow-up in chat or inspect a different active dataset.</p>
                             </div>
                         )}
                     </div>
@@ -290,7 +345,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                             const info = metadata?.columns[col];
                             const isSelected = selectedColumns.includes(col);
                             return (
-                                <div key={col} className={`group space-y-3 rounded-2xl border p-4 transition-all ${isPending && !isSelected ? 'border-zinc-900 bg-zinc-950/40 opacity-60' : 'border-zinc-800 bg-zinc-900/40 hover:border-sky-300/40'}`}>
+                                <div key={col} className={`group space-y-3 rounded-2xl border p-4 transition-all ${isPending && !isSelected ? 'border-stone-200 bg-stone-50 opacity-60' : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-[0_8px_24px_rgba(28,25,23,0.05)]'}`}>
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             {isPending && (
@@ -301,29 +356,29 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                                                     className="accent-sky-300"
                                                 />
                                             )}
-                                            <div className="p-1.5 bg-zinc-800 rounded-lg text-zinc-400 group-hover:text-white transition-colors">
+                                            <div className="rounded-lg bg-stone-100 p-1.5 text-stone-500 transition-colors group-hover:text-stone-900">
                                                 {info?.dtype.includes('int') || info?.dtype.includes('float') ? <Hash size={12} /> : <List size={12} />}
                                             </div>
-                                            <span className="text-[11px] font-black text-white truncate max-w-[120px]">{col}</span>
+                                            <span className="max-w-[160px] truncate text-[11px] font-black text-stone-900">{col}</span>
                                         </div>
-                                        <span className="text-[7px] font-black text-zinc-600 uppercase tracking-widest bg-zinc-950 px-2 py-0.5 rounded-full">{info?.dtype || 'unknown'}</span>
+                                        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[7px] font-black uppercase tracking-widest text-stone-500">{info?.dtype || 'unknown'}</span>
                                     </div>
 
                                     <div className="flex items-center gap-4">
                                         <div className="flex-1 space-y-1">
-                                            <div className="flex justify-between text-[7px] font-black uppercase text-zinc-500">
+                                            <div className="flex justify-between text-[7px] font-black uppercase text-stone-500">
                                                 <span>Fill Rate</span>
                                                 <span className={info && info.null_percentage > 10 ? 'text-red-500' : 'text-green-500'}>
                                                     {info ? (100 - info.null_percentage).toFixed(1) : '100'}%
                                                 </span>
                                             </div>
-                                            <div className="h-1 w-full bg-zinc-950 rounded-full overflow-hidden">
+                                            <div className="h-1 w-full overflow-hidden rounded-full bg-stone-200">
                                                 <div className={`h-full ${info && info.null_percentage > 10 ? 'bg-red-500' : 'bg-sky-400'}`} style={{ width: `${info ? (100 - info.null_percentage) : 100}%` }} />
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[7px] font-black text-zinc-600 uppercase tracking-widest">Uniqueness</p>
-                                            <p className="text-[10px] font-black text-white">{info?.unique_count || '?'}</p>
+                                            <p className="text-[7px] font-black uppercase tracking-widest text-stone-500">Uniqueness</p>
+                                            <p className="text-[10px] font-black text-stone-900">{info?.unique_count || '?'}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -341,42 +396,42 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                                     <div key={col} className="space-y-3">
                                         <div className="flex items-center gap-2 px-1">
                                             <ChartBar size={12} className="text-sky-300" />
-                                            <span className="text-[10px] font-black text-white uppercase tracking-widest">{col}</span>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-stone-900">{col}</span>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
-                                            <div className="p-3 bg-zinc-900/60 rounded-2xl border border-zinc-800">
-                                                <p className="text-[7px] font-black text-zinc-600 uppercase mb-1">Central Tendency</p>
+                                            <div className="rounded-2xl border border-stone-200 bg-white p-3">
+                                                <p className="mb-1 text-[7px] font-black uppercase text-stone-500">Central Tendency</p>
                                                 <div className="space-y-1">
-                                                    <div className="flex justify-between text-[9px] font-bold"><span className="text-zinc-500">Mean</span><span className="text-white">{stats.mean.toFixed(2)}</span></div>
-                                                    <div className="flex justify-between text-[9px] font-bold"><span className="text-zinc-500">Median</span><span className="text-white">{stats.median.toFixed(2)}</span></div>
+                                                    <div className="flex justify-between text-[9px] font-bold"><span className="text-stone-500">Mean</span><span className="text-stone-900">{stats.mean.toFixed(2)}</span></div>
+                                                    <div className="flex justify-between text-[9px] font-bold"><span className="text-stone-500">Median</span><span className="text-stone-900">{stats.median.toFixed(2)}</span></div>
                                                 </div>
                                             </div>
-                                            <div className="p-3 bg-zinc-900/60 rounded-2xl border border-zinc-800">
-                                                <p className="text-[7px] font-black text-zinc-600 uppercase mb-1">Dispersion</p>
+                                            <div className="rounded-2xl border border-stone-200 bg-white p-3">
+                                                <p className="mb-1 text-[7px] font-black uppercase text-stone-500">Dispersion</p>
                                                 <div className="space-y-1">
-                                                    <div className="flex justify-between text-[9px] font-bold"><span className="text-zinc-500">Std Dev</span><span className="text-white">{stats.std.toFixed(2)}</span></div>
-                                                    <div className="flex justify-between text-[9px] font-bold"><span className="text-zinc-500">Range</span><span className="text-white">{(stats.max - stats.min).toFixed(0)}</span></div>
+                                                    <div className="flex justify-between text-[9px] font-bold"><span className="text-stone-500">Std Dev</span><span className="text-stone-900">{stats.std.toFixed(2)}</span></div>
+                                                    <div className="flex justify-between text-[9px] font-bold"><span className="text-stone-500">Range</span><span className="text-stone-900">{(stats.max - stats.min).toFixed(0)}</span></div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="p-4 bg-zinc-950 border border-zinc-900 rounded-2xl space-y-3">
-                                            <div className="flex justify-between text-[8px] font-black text-zinc-500 uppercase tracking-widest">
+                                        <div className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                                            <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-stone-500">
                                                 <span>Distribution</span>
-                                                <span className="text-white">Q1: {stats.q1.toFixed(1)} | Q3: {stats.q3.toFixed(1)}</span>
+                                                <span className="text-stone-900">Q1: {stats.q1.toFixed(1)} | Q3: {stats.q3.toFixed(1)}</span>
                                             </div>
                                             <div className="relative h-6 flex items-center">
-                                                <div className="absolute inset-x-0 h-0.5 bg-zinc-800 rounded-full" />
+                                                <div className="absolute inset-x-0 h-0.5 rounded-full bg-stone-200" />
                                                 <div className="absolute h-3 rounded-sm border-x border-sky-300 bg-sky-300/25"
                                                     style={{
                                                         left: `${((stats.q1 - stats.min) / (stats.max - stats.min)) * 100}%`,
                                                         right: `${100 - ((stats.q3 - stats.min) / (stats.max - stats.min)) * 100}%`
                                                     }}
                                                 />
-                                                <div className="absolute w-0.5 h-4 bg-white"
+                                                <div className="absolute h-4 w-0.5 bg-stone-900"
                                                     style={{ left: `${((stats.median - stats.min) / (stats.max - stats.min)) * 100}%` }}
                                                 />
                                             </div>
-                                            <div className="flex justify-between text-[7px] font-black text-zinc-700 uppercase">
+                                            <div className="flex justify-between text-[7px] font-black uppercase text-stone-500">
                                                 <span>{stats.min.toFixed(0)}</span>
                                                 <span>{stats.max.toFixed(0)}</span>
                                             </div>
@@ -385,9 +440,9 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                                 );
                             })
                         ) : (
-                            <div className="flex flex-col items-center justify-center py-10 text-center space-y-3 opacity-50">
-                                <WarningCircle size={32} className="text-zinc-700" />
-                                <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">No numeric data available for statistics</p>
+                            <div className="flex flex-col items-center justify-center space-y-3 py-10 text-center opacity-60">
+                                <WarningCircle size={32} className="text-stone-400" />
+                                <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">No numeric data available for statistics</p>
                             </div>
                         )}
                     </div>
@@ -395,16 +450,16 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
 
                 {activeTab === 'workbench' && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <div className="space-y-3 rounded-2xl border-2 border-dashed border-sky-300/20 bg-zinc-900/60 p-4 text-center">
-                            <Sparkle size={24} className="mx-auto text-sky-300" />
+                        <div className="space-y-3 rounded-2xl border-2 border-dashed border-sky-200 bg-sky-50/70 p-4 text-center">
+                            <Sparkle size={24} className="mx-auto text-sky-700" />
                             <div>
-                                <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Data Workbench</h4>
-                                <p className="text-[7px] text-zinc-500 font-bold uppercase mt-1">Direct Manipulation & Cleaning</p>
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-900">Data Workbench</h4>
+                                <p className="mt-1 text-[7px] font-bold uppercase text-stone-500">Direct Manipulation & Cleaning</p>
                             </div>
                         </div>
 
                         <div className="space-y-4">
-                            <p className="text-[8px] font-black text-zinc-600 uppercase tracking-[3px]">Quick Actions</p>
+                            <p className="text-[8px] font-black uppercase tracking-[0.28em] text-stone-500">Quick Actions</p>
                             <div className="grid grid-cols-1 gap-2">
                                 {[
                                     { label: 'Drop Empty Rows', desc: 'Remove all rows with missing values', code: `dfs['${activeFile.name}'] = dfs['${activeFile.name}'].dropna()` },
@@ -417,45 +472,45 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                                             // Call global handleSend with the cleaning code
                                             (window as any).beagleCleanup?.(action.code, action.label);
                                         }}
-                                        className="group rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 text-left transition-all hover:border-sky-300/40 hover:bg-zinc-900/60"
+                                        className="group rounded-xl border border-stone-200 bg-white p-3 text-left transition-all hover:border-stone-300 hover:bg-stone-50"
                                     >
-                                        <p className="text-[9px] font-black uppercase text-white transition-colors group-hover:text-sky-200">{action.label}</p>
-                                        <p className="text-[7px] text-zinc-600 font-bold mt-0.5">{action.desc}</p>
+                                        <p className="text-[9px] font-black uppercase text-stone-900 transition-colors group-hover:text-sky-700">{action.label}</p>
+                                        <p className="mt-0.5 text-[7px] font-bold text-stone-500">{action.desc}</p>
                                     </button>
                                 ))}
                             </div>
                         </div>
 
-                        <div className="p-4 bg-zinc-950 border border-zinc-900 rounded-2xl">
-                            <p className="text-[7px] font-black text-zinc-500 uppercase tracking-widest mb-3">Workbench Status</p>
+                        <div className="rounded-2xl border border-stone-200 bg-white p-4">
+                            <p className="mb-3 text-[7px] font-black uppercase tracking-widest text-stone-500">Workbench Status</p>
                             <div className="flex items-center gap-3">
-                                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                <span className="text-[8px] font-black text-zinc-300 uppercase tracking-widest">Kernel Connected & Ready</span>
+                                <div className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
+                                <span className="text-[8px] font-black uppercase tracking-widest text-stone-700">Kernel Connected & Ready</span>
                             </div>
                         </div>
                     </div>
                 )}
             </div>
 
-            <div className="border-t border-white/10 bg-slate-950/70 p-4">
+            <div className="border-t border-stone-200 bg-white/90 p-4">
                 {isPending ? (
                     <div className="grid grid-cols-3 gap-2">
                         <button
                             onClick={() => onRejectPendingFile?.(activeFile.id)}
-                            className="py-2.5 bg-zinc-950 text-zinc-300 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-zinc-900 transition-all border border-zinc-800"
+                            className="rounded-xl border border-stone-200 bg-stone-50 py-2.5 text-[9px] font-black uppercase tracking-widest text-stone-600 transition-all hover:bg-stone-100 hover:text-stone-900"
                         >
                             Remove
                         </button>
                         <button
                             onClick={onClose}
-                            className="py-2.5 bg-zinc-900 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-zinc-800 transition-all border border-zinc-800"
+                            className="rounded-xl border border-stone-200 bg-white py-2.5 text-[9px] font-black uppercase tracking-widest text-stone-900 transition-all hover:bg-stone-50"
                         >
                             Close
                         </button>
                         <button
                             onClick={() => onConfirmPendingFile?.(activeFile.id, selectedColumns)}
                             disabled={selectedColumns.length === 0}
-                            className="rounded-xl border border-sky-300/30 bg-[linear-gradient(135deg,rgba(56,189,248,0.95),rgba(20,184,166,0.88),rgba(245,158,11,0.82))] py-2.5 text-[9px] font-black uppercase tracking-widest text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="rounded-xl border border-stone-900 bg-stone-900 py-2.5 text-[9px] font-black uppercase tracking-widest text-white transition-all hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             Confirm & Analyze
                         </button>
@@ -463,7 +518,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                 ) : (
                     <button
                         onClick={onClose}
-                        className="w-full py-2.5 bg-zinc-900 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-zinc-800 transition-all border border-zinc-800"
+                        className="w-full rounded-xl border border-stone-900 bg-stone-900 py-2.5 text-[9px] font-black uppercase tracking-widest text-white transition-all hover:bg-stone-800"
                     >
                         Close Inspector
                     </button>

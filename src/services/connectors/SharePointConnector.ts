@@ -7,13 +7,15 @@
 import axios, { AxiosInstance } from 'axios';
 import { BaseDataConnector, ConnectorConfig, QueryResult, DataSource, ColumnSchema } from './BaseConnector';
 import { AppError } from '@/src/lib/errors';
+import { resolveSharePointSite } from '@/lib/sharepointSite';
 
 interface SharePointConfig extends ConnectorConfig {
     tenantId: string;
     clientId: string;
     clientSecret: string;
     refreshToken: string;
-    siteId: string;
+    siteId?: string;
+    siteUrl?: string;
     driveId?: string;
     accessToken?: string;
     tokenExpiry?: number;
@@ -82,6 +84,28 @@ export class SharePointConnector extends BaseDataConnector {
         return this.accessToken as string;
     }
 
+    private async ensureSiteResolved(): Promise<void> {
+        const cfg = this.config as SharePointConfig;
+        if (cfg.siteId) {
+            return;
+        }
+
+        if (!this.client) {
+            throw new AppError('CONNECTION_ERROR', 'SharePoint client not initialized');
+        }
+
+        if (!cfg.siteUrl) {
+            throw new AppError(
+                'CONFIG_ERROR',
+                'SharePoint config requires either siteId or a siteUrl starting with https://prettlcloud.sharepoint.com/'
+            );
+        }
+
+        const resolved = await resolveSharePointSite(this.client, cfg.siteUrl);
+        cfg.siteId = resolved.siteId;
+        cfg.siteUrl = resolved.webUrl || resolved.normalizedUrl;
+    }
+
     async connect(): Promise<void> {
         try {
             const token = await this.ensureToken();
@@ -91,6 +115,7 @@ export class SharePointConnector extends BaseDataConnector {
                 timeout: 30000,
             });
 
+            await this.ensureSiteResolved();
             const cfg = this.config as SharePointConfig;
             await this.client.get(`/sites/${cfg.siteId}`);
 

@@ -11,6 +11,24 @@ type DatasetMetadata = {
   columns?: Record<string, DatasetColumnMeta>;
   sample?: Record<string, unknown>[];
   selectedColumns?: string[];
+  datasetIntelligence?: {
+    summary?: string[];
+    measures?: string[];
+    dimensions?: string[];
+    dateFields?: string[];
+    keyCandidates?: string[];
+    candidateKpis?: string[];
+    missingnessHotspots?: string[];
+    anomalies?: string[];
+    businessTerms?: string[];
+  };
+  analysisMemory?: {
+    topFindings?: string[];
+    commonFilters?: string[];
+    previousCharts?: string[];
+    recentActions?: string[];
+    acceptedMappings?: Array<{ from: string; to: string }>;
+  };
 };
 
 type DatasetInput = {
@@ -122,6 +140,24 @@ export function buildCompactFileContext(file: DatasetInput): { name: string; sch
       categorical_columns: categoricalColumns.slice(0, 16),
       key_candidates: keyCandidates.slice(0, 8),
       sparse_columns: sparseColumns.slice(0, 8),
+      dataset_intelligence: metadata.datasetIntelligence ? {
+        summary: metadata.datasetIntelligence.summary?.slice(0, 4),
+        measures: metadata.datasetIntelligence.measures?.slice(0, 10),
+        dimensions: metadata.datasetIntelligence.dimensions?.slice(0, 10),
+        date_fields: metadata.datasetIntelligence.dateFields?.slice(0, 6),
+        key_candidates: metadata.datasetIntelligence.keyCandidates?.slice(0, 6),
+        candidate_kpis: metadata.datasetIntelligence.candidateKpis?.slice(0, 6),
+        missingness_hotspots: metadata.datasetIntelligence.missingnessHotspots?.slice(0, 4),
+        anomalies: metadata.datasetIntelligence.anomalies?.slice(0, 4),
+        business_terms: metadata.datasetIntelligence.businessTerms?.slice(0, 6),
+      } : undefined,
+      analysis_memory: metadata.analysisMemory ? {
+        top_findings: metadata.analysisMemory.topFindings?.slice(0, 3),
+        common_filters: metadata.analysisMemory.commonFilters?.slice(0, 4),
+        previous_charts: metadata.analysisMemory.previousCharts?.slice(0, 4),
+        recent_actions: metadata.analysisMemory.recentActions?.slice(0, 3),
+        accepted_mappings: metadata.analysisMemory.acceptedMappings?.slice(0, 4),
+      } : undefined,
       columns: compactColumns,
     }, null, 2),
     sample: Array.isArray(metadata.sample) ? metadata.sample.slice(0, 6) : [],

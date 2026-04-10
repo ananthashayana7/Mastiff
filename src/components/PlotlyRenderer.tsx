@@ -13,11 +13,142 @@ type RangePreset = 'ALL' | '1M' | '3M' | '6M' | 'YTD' | '1Y';
 type PointWindow = 'all' | '12' | '24' | '60';
 type TimeAggregation = 'raw' | 'week' | 'month' | 'quarter' | 'year';
 
+function isPlaceholderText(value: string): boolean {
+    const normalized = value.trim().toLowerCase();
+    return !normalized
+        || normalized === 'chart'
+        || /click to enter/i.test(normalized)
+        || normalized === 'untitled';
+}
+
+function extractTitleText(value: any): string {
+    if (typeof value === 'string') return value.trim();
+    if (typeof value?.text === 'string') return value.text.trim();
+    return '';
+}
+
 function getLayoutTitle(layout: any): string {
-    if (!layout) return 'Chart';
-    if (typeof layout.title === 'string') return layout.title;
-    if (typeof layout.title?.text === 'string') return layout.title.text;
+    const title = extractTitleText(layout?.title);
+    if (!isPlaceholderText(title)) return title;
     return 'Chart';
+}
+
+function getIndicatorTitle(trace: any): string {
+    const indicatorTitle = extractTitleText(trace?.title);
+    if (!isPlaceholderText(indicatorTitle)) return indicatorTitle;
+    return '';
+}
+
+function inferTraceName(trace: any, index: number): string {
+    const explicitName = typeof trace?.name === 'string' ? trace.name.trim() : '';
+    if (!isPlaceholderText(explicitName)) return explicitName;
+
+    const indicatorTitle = getIndicatorTitle(trace);
+    if (indicatorTitle) return indicatorTitle;
+
+    const traceType = String(trace?.type || 'scatter').toLowerCase();
+    if (traceType === 'candlestick' || traceType === 'ohlc') return 'Price';
+    if (traceType === 'histogram') return 'Distribution';
+    if (traceType === 'heatmap') return 'Heatmap intensity';
+    if (traceType === 'table') return 'Tabular view';
+    if (traceType === 'pie') return 'Composition';
+    if (traceType === 'bar' && /y2|volume/i.test(String(trace?.yaxis || ''))) return 'Volume';
+
+    const axisHint = extractTitleText(trace?.meta?.seriesLabel);
+    if (!isPlaceholderText(axisHint)) return axisHint;
+
+    return `Series ${index + 1}`;
+}
+
+function inferAxisTitle(axisTitle: any, traces: any[], axis: 'x' | 'y'): string {
+    const explicit = extractTitleText(axisTitle);
+    if (!isPlaceholderText(explicit)) return explicit;
+
+    if (axis === 'x') {
+        const xValues = traces.flatMap((trace) => Array.isArray(trace?.x) ? trace.x.slice(0, 8) : []);
+        const looksTemporal = xValues.some((value) => {
+            if (value instanceof Date) return true;
+            if (typeof value === 'string') {
+                return !Number.isNaN(Date.parse(value)) || /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|q[1-4]|fy|ytd)/i.test(value);
+            }
+            return false;
+        });
+        if (looksTemporal) return 'Period';
+        return xValues.some((value) => typeof value === 'string') ? 'Category' : 'Observation';
+    }
+
+    const namedTraces = traces.map((trace, index) => inferTraceName(trace, index).toLowerCase());
+    if (namedTraces.some((name) => /(margin|rate|growth|share|mix|ratio|yield|utili|conversion|%|percent)/i.test(name))) {
+        return 'Rate (%)';
+    }
+    if (namedTraces.some((name) => /(revenue|sales|income|profit|pat|pbt|ebit|ebitda|cost|expense|cash|amount|value|price)/i.test(name))) {
+        return 'Amount';
+    }
+    if (namedTraces.some((name) => /(volume|units|count|orders|tickets|headcount)/i.test(name))) {
+        return 'Volume';
+    }
+    return 'Value';
+}
+
+function axisRefToLayoutKey(axisRef: string, axis: 'x' | 'y'): string {
+    const normalized = String(axisRef || axis).trim().toLowerCase();
+    if (normalized === axis) {
+        return `${axis}axis`;
+    }
+    const suffix = normalized.slice(1);
+    return `${axis}axis${suffix}`;
+}
+
+function normalizeAxisLayouts(layout: any, traces: any[]): Record<string, any> {
+    const axisEntries = Object.entries(layout || {}).filter(([key]) => /^xaxis\d*$|^yaxis\d*$/.test(key));
+    const normalized: Record<string, any> = {};
+
+    const ensureAxis = (axisKey: string, axis: 'x' | 'y') => {
+        const traceKey = axis === 'x' ? axisKey.replace('axis', '') : axisKey.replace('axis', '');
+        const relevantTraces = traces.filter((trace) => {
+            const ref = axis === 'x' ? String(trace?.xaxis || 'x') : String(trace?.yaxis || 'y');
+            return axisRefToLayoutKey(ref, axis) === axisKey;
+        });
+        normalized[axisKey] = {
+            ...(layout?.[axisKey] || {}),
+            title: {
+                text: inferAxisTitle(layout?.[axisKey]?.title, relevantTraces.length > 0 ? relevantTraces : traces, axis),
+            },
+        };
+    };
+
+    if (!axisEntries.some(([key]) => key === 'xaxis')) ensureAxis('xaxis', 'x');
+    if (!axisEntries.some(([key]) => key === 'yaxis')) ensureAxis('yaxis', 'y');
+
+    axisEntries.forEach(([key]) => {
+        ensureAxis(key, key.startsWith('x') ? 'x' : 'y');
+    });
+
+    return normalized;
+}
+
+function resolveChartTitle(layout: any, traces: any[]): string {
+    const explicit = getLayoutTitle(layout);
+    if (explicit !== 'Chart') return explicit;
+
+    const seriesNames = traces
+        .map((trace, index) => inferTraceName(trace, index))
+        .filter((name, index, source) => !isPlaceholderText(name) && source.indexOf(name) === index)
+        .slice(0, 3);
+
+    if (seriesNames.length >= 2) {
+        return `${seriesNames.slice(0, 2).join(' vs ')} analysis`;
+    }
+    if (seriesNames.length === 1) {
+        return `${seriesNames[0]} analysis`;
+    }
+    return 'Business metric analysis';
+}
+
+function shouldShowLegend(trace: any): boolean {
+    const traceType = String(trace?.type || 'scatter').toLowerCase();
+    if (traceType === 'table') return false;
+    return trace?.showlegend !== false;
 }
 
 function normalizeAxisLabel(value: any, index: number): string {
@@ -63,7 +194,7 @@ function buildPlotlyFallbackVisualization(payload: any): VisualizationData | nul
     const layout = Array.isArray(payload) ? {} : (payload?.layout || {});
     if (traces.length === 0) return null;
 
-    const title = `${getLayoutTitle(layout)} (Fallback View)`;
+    const title = `${resolveChartTitle(layout, traces)} (Fallback View)`;
     const primaryTrace = traces.find((trace: any) => trace) || traces[0];
     const traceType = String(primaryTrace?.type || 'scatter').toLowerCase();
 
@@ -820,10 +951,22 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 return output;
             };
 
-            const indicatorTraces = buildTradingTraces(withMovingAverage);
-            const preferBottomLegend = isMultiPanelChart || indicatorTraces.length > 6 || hasTableTrace;
+            const indicatorTraces = buildTradingTraces(withMovingAverage).map((trace: any, index: number) => ({
+                ...trace,
+                name: inferTraceName(trace, index),
+            }));
+            const legendableTraceCount = indicatorTraces.filter((trace: any) => shouldShowLegend(trace)).length;
+            const preferBottomLegend = isMultiPanelChart || legendableTraceCount > 6 || hasTableTrace;
             const defaultTopMargin = preferBottomLegend ? 76 : 92;
             const defaultBottomMargin = preferBottomLegend ? 112 : 56;
+            const chartTitle = resolveChartTitle(parsedData.layout, indicatorTraces);
+            const normalizedAxisLayouts = normalizeAxisLayouts(parsedData.layout, indicatorTraces);
+            if (normalizeSeries) {
+                normalizedAxisLayouts.yaxis = {
+                    ...(normalizedAxisLayouts.yaxis || {}),
+                    title: { text: 'Change (%)' },
+                };
+            }
 
             const sanitizeAnnotationText = (value: unknown): string => {
                 return String(value || '')
@@ -858,7 +1001,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 autosize: true,
                 dragmode: 'pan',
                 xaxis: {
-                    ...(parsedData.layout?.xaxis || {}),
+                    ...(normalizedAxisLayouts.xaxis || parsedData.layout?.xaxis || {}),
                     gridcolor: 'rgba(148, 163, 184, 0.15)',
                     zerolinecolor: 'rgba(148, 163, 184, 0.2)',
                     linecolor: 'rgba(148, 163, 184, 0.25)',
@@ -871,7 +1014,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     spikethickness: 1,
                 },
                 yaxis: {
-                    ...(parsedData.layout?.yaxis || {}),
+                    ...(normalizedAxisLayouts.yaxis || parsedData.layout?.yaxis || {}),
                     gridcolor: 'rgba(148, 163, 184, 0.15)',
                     zerolinecolor: 'rgba(148, 163, 184, 0.2)',
                     linecolor: 'rgba(148, 163, 184, 0.25)',
@@ -882,11 +1025,11 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     spikemode: 'across',
                     spikecolor: 'rgba(46, 196, 182, 0.45)',
                     spikethickness: 1,
-                    title: normalizeSeries ? { text: 'Change (%)' } : parsedData.layout?.yaxis?.title,
                 },
-                title: parsedData.layout?.title
+                title: chartTitle
                     ? {
-                        ...(typeof parsedData.layout.title === 'string' ? { text: parsedData.layout.title } : parsedData.layout.title),
+                        ...(typeof parsedData.layout?.title === 'string' ? { text: parsedData.layout.title } : parsedData.layout?.title),
+                        text: chartTitle,
                         x: 0.02,
                         xanchor: 'left',
                         y: 0.98,
@@ -895,10 +1038,11 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                             size: 15,
                             color: '#F8FAFC',
                             family: 'IBM Plex Sans, system-ui, sans-serif',
-                            ...(typeof parsedData.layout.title === 'object' ? parsedData.layout.title.font : {}),
+                            ...(typeof parsedData.layout?.title === 'object' ? parsedData.layout.title.font : {}),
                         },
                     }
                     : undefined,
+                showlegend: legendableTraceCount > 1,
                 legend: {
                     ...(parsedData.layout?.legend || {}),
                     orientation: 'h',
@@ -909,6 +1053,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     font: { color: '#CBD5E1', size: 10 },
                     bgcolor: 'rgba(0,0,0,0)',
                     tracegroupgap: 8,
+                    title: legendableTraceCount > 1 ? { text: 'Series' } : undefined,
                 },
                 colorway: MASTIFF_COLORWAY,
                 hovermode: isMultiPanelChart ? 'closest' : (hasXAxisSeries ? 'x unified' : 'closest'),
@@ -925,6 +1070,19 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     font: { color: '#f4f4f5', size: 11, family: 'IBM Plex Sans' }
                 },
             };
+
+            Object.entries(normalizedAxisLayouts).forEach(([axisKey, axisLayout]) => {
+                if (axisKey !== 'xaxis' && axisKey !== 'yaxis') {
+                    layout[axisKey] = {
+                        ...(axisLayout || {}),
+                        gridcolor: axisKey.startsWith('x') ? 'rgba(148, 163, 184, 0.15)' : ((axisLayout as any)?.gridcolor || 'rgba(148, 163, 184, 0.15)'),
+                        zerolinecolor: 'rgba(148, 163, 184, 0.2)',
+                        linecolor: 'rgba(148, 163, 184, 0.25)',
+                        tickfont: { color: '#a1a1aa', size: 10 },
+                        automargin: true,
+                    };
+                }
+            });
 
             if (supportsRangePresets) {
                 layout.xaxis.rangeselector = parsedData.layout?.xaxis?.rangeselector ?? {
@@ -1008,6 +1166,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 if (traceType === 'table') {
                     return {
                         ...trace,
+                        showlegend: false,
                         header: {
                             ...(trace.header || {}),
                             fill: { color: '#D1FAE5' },
@@ -1028,11 +1187,17 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 }
 
                 if (keepIntrinsicColor) {
-                    return trace;
+                    return {
+                        ...trace,
+                        name: inferTraceName(trace, i),
+                        showlegend: shouldShowLegend(trace) && legendableTraceCount > 1,
+                    };
                 }
 
                 return {
                     ...trace,
+                    name: inferTraceName(trace, i),
+                    showlegend: shouldShowLegend(trace) && legendableTraceCount > 1,
                     marker: {
                         ...(trace.marker || {}),
                         color: trace.marker?.color || MASTIFF_COLORWAY[i % MASTIFF_COLORWAY.length],

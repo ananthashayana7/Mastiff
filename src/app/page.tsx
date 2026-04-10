@@ -38,8 +38,17 @@ interface SilentAnalysisOptions {
   personaLabel?: string;
 }
 
+function resolveDbFileColumns(metadata: DataFile['metadata'] | undefined): string[] {
+  const selectedColumns = metadata?.selectedColumns;
+  if (Array.isArray(selectedColumns) && selectedColumns.length > 0) {
+    return selectedColumns;
+  }
+
+  return Object.keys(metadata?.columns || {});
+}
+
 const PERSONAS: AnalystPersona[] = [
-  { id: 'default', name: 'MASTIFF AI', icon: 'M', description: 'Core LLM with Python Sandbox integration.', instruction: 'Focus on comprehensive, logical data analysis. Provide well-rounded insights covering trends, patterns, anomalies, and actionable recommendations. Use professional formatting with clear sections.' },
+  { id: 'default', name: 'SPARTA', icon: 'S', description: 'Core LLM with Python Sandbox integration.', instruction: 'Focus on comprehensive, logical data analysis. Provide well-rounded insights covering trends, patterns, anomalies, and actionable recommendations. Use professional formatting with clear sections.' },
   { id: 'statistician', name: 'Scientist', icon: 'S', description: 'Deep statistical validation & rigor.', instruction: 'Approach every question with statistical rigor. Emphasize significance tests, confidence intervals, effect sizes, distributions, and hypothesis testing. Cite specific statistical methods used. Flag when sample sizes are too small for reliable inference. Always quantify uncertainty.' },
   { id: 'business', name: 'Strategist', icon: 'G', description: 'Business & growth strategy focus.', instruction: 'Frame all analysis through a business strategy lens. Focus on revenue impact, market positioning, competitive advantages, ROI, cost optimization, and growth levers. Provide boardroom-ready executive summaries. Prioritize actionable recommendations with projected business outcomes.' },
 ];
@@ -159,12 +168,33 @@ const App: React.FC = () => {
   const loadConnectors = useCallback(async (userId: string) => {
     setIsLoadingConnectors(true);
     try {
-      const response = await fetch(`/api/connectors?userId=${encodeURIComponent(userId)}&limit=100`, {
-        headers: buildAuthHeaders(userId),
-      });
+      const connectorPath = '/api/connectors?limit=100';
+      const requestInit: RequestInit = {
+        headers: {
+          Accept: 'application/json',
+          ...buildAuthHeaders(userId),
+        },
+        credentials: 'same-origin',
+        cache: 'no-store',
+      };
+
+      let response: Response;
+      try {
+        response = await fetch(connectorPath, requestInit);
+      } catch (initialError) {
+        if (typeof window === 'undefined') {
+          throw initialError;
+        }
+
+        const absoluteConnectorUrl = new URL(connectorPath, window.location.origin).toString();
+        response = await fetch(absoluteConnectorUrl, requestInit);
+      }
 
       if (!response.ok) {
+        const errorBody = await response.text().catch(() => '');
+        console.error('Failed to load connectors:', response.status, errorBody);
         setConnectors([]);
+        setLinkedConnectorIds([]);
         return;
       }
 
@@ -175,6 +205,7 @@ const App: React.FC = () => {
     } catch (error) {
       console.error('Failed to load connectors:', error);
       setConnectors([]);
+      setLinkedConnectorIds([]);
     } finally {
       setIsLoadingConnectors(false);
     }
@@ -347,7 +378,7 @@ const App: React.FC = () => {
         type: dbFile.fileType,
         content: '',
         preview: dbFile.metadata?.sample || [],
-        columns: Object.keys(dbFile.metadata?.columns || {}),
+        columns: resolveDbFileColumns(dbFile.metadata),
         metadata: dbFile.metadata,
       }));
 
@@ -525,7 +556,7 @@ const App: React.FC = () => {
         type: f.fileType,
         content: '',
         preview: f.metadata?.sample || [],
-        columns: Object.keys(f.metadata?.columns || {}),
+        columns: resolveDbFileColumns(f.metadata),
         metadata: f.metadata
       }));
 
@@ -737,7 +768,7 @@ const App: React.FC = () => {
           type: dbFile.fileType,
           content: '',
           preview: dbFile.metadata?.sample || [],
-          columns: Object.keys(dbFile.metadata?.columns || {}),
+          columns: resolveDbFileColumns(dbFile.metadata),
           metadata: dbFile.metadata
         };
 
@@ -1148,26 +1179,25 @@ const App: React.FC = () => {
   // Show loading while checking auth
   if (isAuthChecking || !currentUser) {
     return (
-      <div className="relative flex h-[100dvh] min-h-[100dvh] items-center justify-center overflow-hidden bg-transparent px-6">
+      <div className="relative flex h-[100dvh] min-h-[100dvh] items-center justify-center overflow-hidden bg-transparent px-6 text-stone-900">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-[12%] top-[14%] h-72 w-72 rounded-full bg-[#b45734]/[0.14] blur-[120px]" />
-          <div className="absolute right-[10%] top-[12%] h-64 w-64 rounded-full bg-[#d9a066]/[0.12] blur-[120px]" />
-          <div className="absolute bottom-[10%] left-[40%] h-72 w-72 rounded-full bg-[#7a3e2d]/10 blur-[140px]" />
+          <div className="absolute left-[12%] top-[14%] h-72 w-72 rounded-full bg-sky-200/60 blur-[120px]" />
+          <div className="absolute right-[10%] top-[12%] h-64 w-64 rounded-full bg-stone-200/70 blur-[120px]" />
+          <div className="absolute bottom-[10%] left-[40%] h-72 w-72 rounded-full bg-amber-100/70 blur-[140px]" />
         </div>
-        <div className="relative glass min-w-[320px] rounded-[32px] px-10 py-12 text-center shadow-[0_30px_100px_rgba(2,6,23,0.42)]">
+        <div className="relative min-w-[320px] rounded-[32px] border border-stone-200 bg-white/90 px-10 py-12 text-center shadow-[0_24px_80px_rgba(28,25,23,0.08)] backdrop-blur-xl">
           <BrandLockup
             align="center"
             size={58}
-            subtitle="Launching Mastiff"
-            title="Analytics Workspace"
+            title="SPARTA"
             className="justify-center"
           />
-          <p className="mt-4 text-sm text-slate-300/80">
+          <p className="mt-4 text-sm text-stone-600">
             Restoring your workspaces, connectors, and analysis context.
           </p>
           <div className="mt-6 flex items-center justify-center gap-3">
-            <SpinnerGap size={20} className="animate-spin text-[#e2b98a]" />
-            <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-[#f1dcc2]/75">
+            <SpinnerGap size={20} className="animate-spin text-sky-600" />
+            <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-stone-500">
               Preparing workspace
             </span>
           </div>
@@ -1180,17 +1210,18 @@ const App: React.FC = () => {
 
   return (
     <div
-      className={`relative flex h-[100dvh] min-h-[100dvh] overflow-hidden text-slate-100 drop-zone ${isDragging ? 'drop-active' : ''}`}
+      className={`relative flex h-[100dvh] min-h-[100dvh] overflow-hidden text-stone-900 drop-zone ${isDragging ? 'drop-active' : ''}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-[-5%] top-[-2%] h-80 w-80 rounded-full bg-[#b45734]/10 blur-[140px]" />
-        <div className="absolute right-[-4%] top-[8%] h-80 w-80 rounded-full bg-[#7a3e2d]/[0.09] blur-[140px]" />
-        <div className="absolute bottom-[-8%] left-[38%] h-96 w-96 rounded-full bg-[#d9a066]/[0.08] blur-[160px]" />
+        <div className="absolute left-[-5%] top-[-2%] h-80 w-80 rounded-full bg-sky-200/50 blur-[140px]" />
+        <div className="absolute right-[-4%] top-[8%] h-80 w-80 rounded-full bg-stone-200/60 blur-[140px]" />
+        <div className="absolute bottom-[-8%] left-[38%] h-96 w-96 rounded-full bg-amber-100/60 blur-[160px]" />
       </div>
 
+      <div className="relative m-3 flex flex-1 overflow-hidden rounded-[34px] border border-stone-200 bg-white/72 shadow-[0_20px_80px_rgba(28,25,23,0.08)] backdrop-blur-2xl">
       <Sidebar
         files={files}
         pendingFiles={pendingFiles}
@@ -1261,6 +1292,7 @@ const App: React.FC = () => {
         onToggleLogs={setShowLogsId}
         onCopy={copyToClipboard}
       />
+      </div>
 
       <DataInspector
         inspectingFileId={inspectingFileId}

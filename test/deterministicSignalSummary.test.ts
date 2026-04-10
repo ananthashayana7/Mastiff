@@ -4,6 +4,7 @@ import {
   buildDeterministicSignalSummaryFromExecution,
   extractDeterministicExecutionSignal,
 } from '../src/lib/deterministicSignalSummary';
+import { validateSummaryContract } from '../src/lib/chatResponseContract';
 
 const FINANCE_SIGNAL_LINE = '__MASTIFF_SIGNAL__=' + JSON.stringify({
   kind: 'financial_statement',
@@ -60,6 +61,61 @@ describe('deterministic signal summary', () => {
     expect(summary).toContain('**Inventory swing**');
     expect(summary).toContain('**29,459.8 T INR**');
     expect(summary).toContain('See interactive visuals below.');
-    expect(summary).toContain('Forecast: Low-confidence run-rate only.');
+    expect(summary).toContain('Forecast: Base case keeps PAT near');
+    expect(summary).not.toContain('Base case:');
+    expect(summary).not.toContain('Recovery case:');
+    expect(summary).not.toContain('Stress case:');
+  });
+
+  it('keeps the finance summary compliant with the route response contract', () => {
+    const summary = buildDeterministicSignalSummaryFromExecution(FINANCE_SIGNAL_LINE, { hasChart: true }) || '';
+
+    const validation = validateSummaryContract(
+      'Start immediately. Exactly 3 actionable bullets. No introductory text. Analysis this financial statement.',
+      summary,
+      true,
+      true
+    );
+
+    expect(validation.valid).toBe(true);
+    expect(validation.violations).toEqual([]);
+  });
+
+  it('builds a time-aware operating summary from a non-financial single-dataset signal', () => {
+    const summary = buildDeterministicSignalSummaryFromExecution('__MASTIFF_SIGNAL__=' + JSON.stringify({
+      kind: 'single_dataset_numeric',
+      rows: 312,
+      columns: 28,
+      primaryMetric: 'TotalCount',
+      topSegmentLabel: '10 Apr 2026 10:00 PM',
+      topSegmentValue: 1218,
+      forecastValue: 742,
+      timeAxis: 'Date',
+      timeGrain: 'Hourly',
+      periodCount: 42,
+      latestPeriodLabel: '10 Apr 2026 09:00 PM',
+      latestPeriodValue: 681,
+      lowestPeriodLabel: '09 Apr 2026 04:00 PM',
+      lowestPeriodValue: 402,
+      baselineValue: 612,
+      changeVsBaselinePct: 11.3,
+      volatilityPct: 18.4,
+      forecastChangePct: 9.0,
+      driverDimension: 'Shifts',
+      driverLabel: 'Shift B',
+      driverValue: 84210,
+      driverSharePct: 37.5,
+      forecastBasis: 'Hourly sequence aligned on Date',
+      coverageNote: 'Single dataset fallback ran on 312 rows and 28 columns, aligned on Date at hourly grain, and ranked Shifts as the main categorical driver.',
+      dataQuality: 'Fallback result is reproducible and time-aligned on Date at hourly grain, but causal diagnosis still depends on operational driver fields.',
+    }), { hasChart: true });
+
+    expect(summary).toContain('**TotalCount** peaked at **1,218**');
+    expect(summary).toContain('Using **Date** as the time axis');
+    expect(summary).toContain('**Shifts = Shift B**');
+    expect(summary).toContain('**37.5%** of the observed total');
+    expect(summary).toContain('hourly sequence aligned on date');
+    expect(summary).toContain('**42** hourly periods');
+    expect(summary).toContain('**18.4%** volatility');
   });
 });

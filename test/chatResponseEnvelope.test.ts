@@ -14,6 +14,7 @@ describe('chat response envelope', () => {
       '2) Gross margin expanded 2.1 points after discounting eased in the core mix.',
       '3) The biggest drag is freight inflation, which widened faster than price realization.',
       '4) Leadership should protect high-margin SKUs before chasing low-quality volume.',
+      '5) The current mix shift is supportive, but only if lane-level leakage is contained in the next cycle.',
       '→ Action: Tighten freight surcharge recovery on the worst-affected lanes.',
       '→ Action: Rebalance inventory toward the highest-margin SKUs this cycle.',
       '→ Action: Review discount exceptions weekly until contribution stabilizes.',
@@ -24,9 +25,11 @@ describe('chat response envelope', () => {
     const result = buildAnalysisResponseEnvelope(summary, { hasChart: true, hasCode: true });
     expect(result.usedFallback).toBe(false);
     expect(result.envelope.headline).toContain('Margin held');
-    expect(result.envelope.insights).toHaveLength(4);
+    expect(result.envelope.insights).toHaveLength(5);
     expect(result.envelope.actions).toHaveLength(3);
     expect(result.envelope.forecast).toContain('continued mid-single-digit growth');
+    expect(result.envelope.forecastOptions).toHaveLength(3);
+    expect(result.envelope.forecastOptions[0].label).toBe('Base Case');
     expect(result.envelope.dataQuality).toContain('Data Quality');
   });
 
@@ -38,6 +41,7 @@ describe('chat response envelope', () => {
     expect(result.envelope.insights.length).toBeGreaterThanOrEqual(3);
     expect(result.envelope.actions).toHaveLength(3);
     expect(result.envelope.forecast.length).toBeGreaterThan(10);
+    expect(result.envelope.forecastOptions).toHaveLength(3);
   });
 
   it('renders envelope into compact summary format', () => {
@@ -47,6 +51,7 @@ describe('chat response envelope', () => {
       '2) Volume improved in the highest-conversion segment.',
       '3) Freight and discount leakage remain the main margin risk.',
       '4) Reinvestment should follow the strongest contribution pockets only.',
+      '5) The next month will only hold the gain if leakage does not return in the weakest lanes.',
       '→ Action: Shift spend into the best-converting priority segment.',
       '→ Action: Audit freight leakage on the worst lanes this week.',
       '→ Action: Tighten exception-based discounting before next month.',
@@ -61,6 +66,8 @@ describe('chat response envelope', () => {
     expect(rendered).toContain('1) ');
     expect(rendered).toContain('2) ');
     expect(rendered).toContain('3) ');
+    expect(rendered).toContain('4) ');
+    expect(rendered).toContain('5) ');
     expect(rendered).toContain('→ Action: ');
     expect(rendered).toContain('Forecast: ');
     expect(rendered).toContain('Data Quality: ');
@@ -85,7 +92,48 @@ describe('chat response envelope', () => {
 
     expect(prompts.length).toBeGreaterThanOrEqual(3);
     expect(prompts[0]).toContain('rows, segments, and metric drivers');
+    expect(envelope.forecastOptions.some((option) => option.label === 'Stress Case')).toBe(true);
     expect(prompts.some((prompt) => prompt.includes('30-60-90 day execution plan'))).toBe(true);
+  });
+
+  it('uses dataset context to suggest better follow-up loops', () => {
+    const summary = [
+      'Executive Signal: Rejects improved overall, but one shift still concentrates the quality loss.',
+      '1) Reject quantity fell 18% week over week.',
+      '2) Shift B still explains the largest reject concentration.',
+      '3) The newest line recovered fastest after the last intervention.',
+      '4) A deeper before-vs-after read is needed around the March process change.',
+      '5) Forecast risk stays tied to the same unstable shift pattern.',
+      'Action: Audit Shift B changeovers this week.',
+      'Action: Lock in the recovered line settings as the new baseline.',
+      'Action: Add a weekly quality checkpoint before scaling output.',
+      'Forecast: Base case improves if the unstable shift stops leaking rejects.',
+      'Data Quality: Directional but good enough for operating decisions.',
+    ].join('\n');
+
+    const { envelope } = buildAnalysisResponseEnvelope(summary, { hasChart: true, hasCode: true });
+    const prompts = buildFollowUpPrompts(envelope, {
+      provenance: {
+        sourceFiles: [{ name: 'ops_march.xlsx' }, { name: 'ops_april.xlsx' }],
+        reliability: { label: 'Moderate', notes: ['Partial schema overlap across files.'] },
+      },
+      datasets: [{
+        name: 'ops_march.xlsx',
+        candidateKpis: ['reject_qty'],
+        measures: ['reject_qty', 'total_produced'],
+        dimensions: ['shift', 'line'],
+        dateFields: ['posting_date'],
+        keyCandidates: ['sku'],
+        analysisMemory: {
+          commonFilters: ['after March'],
+          previousCharts: ['line'],
+        },
+      }],
+    });
+
+    expect(prompts.some((prompt) => prompt.includes('Break reject_qty down by shift'))).toBe(true);
+    expect(prompts.some((prompt) => prompt.includes('before and after the key shift in posting_date'))).toBe(true);
+    expect(prompts.some((prompt) => prompt.includes('Compare the active source files'))).toBe(true);
   });
 
   it('cleans noisy action and impact labels out of key insights', () => {

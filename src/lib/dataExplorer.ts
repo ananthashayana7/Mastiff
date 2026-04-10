@@ -149,6 +149,8 @@ export function buildSuggestionContext(files: DataFile[]): string {
     ...(multiDatasetBlock ? [multiDatasetBlock] : []),
     ...files.map((file) => {
       const summary = summarizeFileQuality(file);
+      const dossier = file.metadata?.datasetIntelligence;
+      const memory = file.metadata?.analysisMemory;
       return [
         `FILE: ${file.name}`,
         `Rows: ${file.metadata?.row_count || file.preview.length || 0}`,
@@ -158,6 +160,10 @@ export function buildSuggestionContext(files: DataFile[]): string {
         `Date columns: ${formatColumnList(summary.dateColumns)}`,
         `Categorical columns: ${formatColumnList(summary.categoricalColumns)}`,
         `Sparse columns: ${formatColumnList(summary.sparseColumns)}`,
+        dossier?.candidateKpis?.length ? `Candidate KPIs: ${formatColumnList(dossier.candidateKpis)}` : '',
+        dossier?.summary?.length ? `Dataset memory: ${dossier.summary.slice(0, 2).join(' ')}` : '',
+        memory?.topFindings?.length ? `Prior findings: ${memory.topFindings.slice(0, 2).join(' ')}` : '',
+        memory?.commonFilters?.length ? `Repeated filters: ${formatColumnList(memory.commonFilters)}` : '',
       ].join('\n');
     }),
   ].join('\n\n');

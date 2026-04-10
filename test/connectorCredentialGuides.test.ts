@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
  * with field descriptions and setup steps.
  */
 
-type ConnectorType = 'sheets' | 'snowflake' | 'bigquery' | 'postgres' | 'api';
+type ConnectorType = 'sheets' | 'sharepoint' | 'snowflake' | 'bigquery' | 'postgres' | 'api';
 
 const connectorCredentialGuides: Record<ConnectorType, { fields: { name: string; description: string }[]; steps: string[] }> = {
     sheets: {
@@ -22,6 +22,25 @@ const connectorCredentialGuides: Record<ConnectorType, { fields: { name: string;
             'Use the generated Client ID and Client Secret to complete the OAuth consent flow.',
             'After authorizing, you will receive a refresh token — paste it into the "refreshToken" field above.',
             'To find your Spreadsheet ID, open the Google Sheet and copy the ID from the URL between /d/ and /edit.',
+        ],
+    },
+    sharepoint: {
+        fields: [
+            { name: 'tenantId', description: 'Azure AD tenant ID (GUID) for your Microsoft 365 organization.' },
+            { name: 'clientId', description: 'Application (client) ID from your Azure App Registration used for Graph API access.' },
+            { name: 'clientSecret', description: 'Client secret generated for your Azure App Registration.' },
+            { name: 'refreshToken', description: 'OAuth refresh token for delegated Graph access to SharePoint resources.' },
+            { name: 'siteUrl', description: 'Preferred input. Paste the SharePoint site URL or tenant root, for example https://prettlcloud.sharepoint.com/sites/finance or https://prettlcloud.sharepoint.com/. Mastiff will resolve the Graph site automatically.' },
+            { name: 'siteId', description: 'Optional override if you already know the Microsoft Graph Site ID. If siteUrl is present, Mastiff can populate siteId automatically after a successful test.' },
+            { name: 'driveId', description: 'Optional specific document library drive ID. If omitted, all site drives are listed.' },
+        ],
+        steps: [
+            'Create an app registration in Azure Portal and grant Microsoft Graph delegated permissions: Files.Read, Sites.Read.All, offline_access.',
+            'Create a client secret and copy tenantId, clientId, and clientSecret from the app registration overview.',
+            'Run OAuth consent flow to obtain a refresh token for the SharePoint user context.',
+            'Paste your SharePoint URL, for example https://prettlcloud.sharepoint.com/sites/finance. You do not need Graph Explorer for the normal setup path.',
+            'Test the connector once; Mastiff will resolve and store the Microsoft Graph siteId automatically.',
+            'Optionally provide driveId to lock Mastiff to one document library; otherwise all available libraries are listed.',
         ],
     },
     snowflake: {
@@ -85,13 +104,14 @@ const connectorCredentialGuides: Record<ConnectorType, { fields: { name: string;
 
 const connectorCredentialTemplates: Record<ConnectorType, string> = {
     sheets: '{\n  "refreshToken": "",\n  "spreadsheetId": ""\n}',
+    sharepoint: '{\n  "tenantId": "",\n  "clientId": "",\n  "clientSecret": "",\n  "refreshToken": "",\n  "siteUrl": "https://prettlcloud.sharepoint.com/sites/example-site",\n  "siteId": "",\n  "driveId": ""\n}',
     snowflake: '{\n  "account": "",\n  "username": "",\n  "password": "",\n  "database": "",\n  "schema": "",\n  "warehouse": ""\n}',
     bigquery: '{\n  "projectId": "",\n  "datasetId": "",\n  "serviceAccountKey": "{}"\n}',
     postgres: '{\n  "host": "",\n  "port": 5432,\n  "database": "",\n  "username": "",\n  "password": "",\n  "ssl": false\n}',
     api: '{\n  "baseUrl": "https://api.example.com",\n  "authType": "apikey",\n  "apiKey": ""\n}',
 };
 
-const allConnectorTypes: ConnectorType[] = ['sheets', 'snowflake', 'bigquery', 'postgres', 'api'];
+const allConnectorTypes: ConnectorType[] = ['sheets', 'sharepoint', 'snowflake', 'bigquery', 'postgres', 'api'];
 
 describe('Connector credential guides', () => {
     it('provides a guide for every connector type', () => {
@@ -151,5 +171,18 @@ describe('Connector credential guides', () => {
         expect(spreadsheetField!.description).toContain('docs.google.com/spreadsheets/d/');
         expect(spreadsheetField!.description.toLowerCase()).toContain('/d/');
         expect(spreadsheetField!.description.toLowerCase()).toContain('/edit');
+    });
+
+    it('SharePoint guide prefers siteUrl over manual Graph siteId lookup', () => {
+        const sharepointGuide = connectorCredentialGuides.sharepoint;
+        const allText = [
+            ...sharepointGuide.fields.map((f) => `${f.name} ${f.description}`),
+            ...sharepointGuide.steps,
+        ].join(' ');
+
+        expect(allText).toContain('https://prettlcloud.sharepoint.com/');
+        expect(allText).toContain('siteUrl');
+        expect(allText.toLowerCase()).toContain('resolve');
+        expect(allText.toLowerCase()).toContain('you do not need graph explorer for the normal setup path');
     });
 });

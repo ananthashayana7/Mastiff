@@ -19,21 +19,20 @@ interface BrandLockupProps {
 export const BrandMark: React.FC<BrandMarkProps> = ({
     size = 44,
     className = '',
-    title = 'Mastiff',
+    title = 'SPARTA logo',
 }) => {
     return (
         <div
-            className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-[28%] border border-black/10 bg-white shadow-[0_18px_46px_rgba(3,7,18,0.24)] ${className}`}
+            className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-[28%] border border-stone-300 bg-[radial-gradient(circle_at_30%_25%,#fffaf0,#f2e4ce_62%,#e7d1ac)] shadow-[0_12px_28px_rgba(28,25,23,0.14)] ${className}`}
             style={{ width: size, height: size }}
             role="img"
             aria-label={title}
         >
-            <div className="absolute inset-[1px] rounded-[24%] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(243,244,246,0.98))]" />
             <img
                 src="/branding/mastiff-mark.svg"
                 alt=""
                 aria-hidden="true"
-                className="relative z-10 h-[84%] w-[84%] object-contain"
+                className="relative z-10 h-[96%] w-[96%] object-contain"
                 draggable={false}
             />
         </div>
@@ -43,8 +42,8 @@ export const BrandMark: React.FC<BrandMarkProps> = ({
 export const BrandLockup: React.FC<BrandLockupProps> = ({
     size = 44,
     className = '',
-    title = 'Mastiff',
-    subtitle = 'Analytics Workspace',
+    title = 'SPARTA',
+    subtitle,
     align = 'left',
 }) => {
     const alignment = align === 'center'
@@ -55,10 +54,12 @@ export const BrandLockup: React.FC<BrandLockupProps> = ({
         <div className={`flex gap-3 ${alignment} ${className}`}>
             <BrandMark size={size} />
             <div className="min-w-0">
-                <div className="bg-[linear-gradient(135deg,#f5e7d3,#d9a066,#b45734)] bg-clip-text text-[10px] font-black uppercase tracking-[0.34em] text-transparent">
-                    {subtitle}
-                </div>
-                <div className="mt-1 text-[clamp(1rem,2vw,1.3rem)] font-black tracking-[-0.04em] text-white">
+                {subtitle ? (
+                    <div className="bg-[linear-gradient(135deg,#7c1a16,#c0482f,#d39a54)] bg-clip-text text-[10px] font-black uppercase tracking-[0.3em] text-transparent">
+                        {subtitle}
+                    </div>
+                ) : null}
+                <div className="mt-1 text-[clamp(1rem,2vw,1.32rem)] font-black tracking-[-0.05em] text-stone-900">
                     {title}
                 </div>
             </div>

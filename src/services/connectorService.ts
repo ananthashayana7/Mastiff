@@ -1,5 +1,6 @@
 import { encryptData, decryptData } from '@/lib/encryption';
 import { db } from '@/db';
+import { resolveSharePointSite } from '@/lib/sharepointSite';
 
 /**
  * Base Connector Interface
@@ -400,6 +401,18 @@ export class SharePointConnector implements DataConnector {
     return this.token;
   }
 
+  private async ensureSiteResolved() {
+    if (this.config.siteId) return;
+    if (!this.client) throw new Error('SharePoint client not initialized');
+    if (!this.config.siteUrl) {
+      throw new Error('SharePoint config requires either siteId or a siteUrl starting with https://prettlcloud.sharepoint.com/');
+    }
+
+    const resolved = await resolveSharePointSite(this.client, this.config.siteUrl);
+    this.config.siteId = resolved.siteId;
+    this.config.siteUrl = resolved.webUrl || resolved.normalizedUrl;
+  }
+
   async connect(): Promise<void> {
     const axios = require('axios');
     const token = await this.ensureToken();
@@ -408,6 +421,7 @@ export class SharePointConnector implements DataConnector {
       headers: { Authorization: `Bearer ${token}` },
       timeout: 30000,
     });
+    await this.ensureSiteResolved();
     await this.client.get(`/sites/${this.config.siteId}`);
   }
 

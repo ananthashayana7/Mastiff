@@ -15,6 +15,38 @@ import { encryptionService } from '@/services/encryptionService';
 import { createConnector } from '@/services/connectors/connectorConfig';
 import { eq, and } from 'drizzle-orm';
 
+async function persistResolvedSharePointCredentials(
+    connectorId: string,
+    connectorType: string,
+    originalCredentials: Record<string, any>,
+    connectorInstance: unknown,
+) {
+    if (connectorType !== 'sharepoint') {
+        return;
+    }
+
+    const runtimeConfig = (connectorInstance as any)?.config || {};
+    const nextCredentials = { ...originalCredentials };
+    let changed = false;
+
+    for (const key of ['siteId', 'siteUrl', 'driveId']) {
+        const nextValue = runtimeConfig?.[key];
+        if (nextValue && nextValue !== originalCredentials?.[key]) {
+            nextCredentials[key] = nextValue;
+            changed = true;
+        }
+    }
+
+    if (!changed) {
+        return;
+    }
+
+    await db.update(connectors).set({
+        encryptedCredentials: encryptionService.encryptToString(JSON.stringify(nextCredentials)),
+        updatedAt: new Date(),
+    }).where(eq(connectors.id, connectorId));
+}
+
 async function getOwnedConnector(request: NextRequest, connectorId: string) {
     const user = await authenticateRequest(request);
     if (!user?.id) {
@@ -67,6 +99,7 @@ export async function POST(
         });
 
         const success = await connectorInstance.testConnection();
+        await persistResolvedSharePointCredentials(params.id, connectorRow.type, credentials, connectorInstance);
         await connectorInstance.disconnect().catch(() => undefined);
 
         await db
@@ -132,6 +165,7 @@ export async function GET(
 
         await connectorInstance.connect();
         const sources = await connectorInstance.listSources();
+        await persistResolvedSharePointCredentials(params.id, connectorRow.type, credentials, connectorInstance);
         await connectorInstance.disconnect().catch(() => undefined);
 
         await db

@@ -12,8 +12,8 @@ if (!isBuildPhase) {
 }
 
 export const metadata: Metadata = {
-    title: "Mastiff AI - Analytics Platform",
-    description: "Forecast-first data analysis with interactive charts, drill-down dashboards, and crisp AI-guided actions.",
+    title: "SPARTA - Analytics Platform",
+    description: "SPARTA analytics workspace with interactive charts, decision-ready drill-downs, and AI-guided actions.",
     icons: {
         icon: '/branding/mastiff-mark.svg',
         shortcut: '/branding/mastiff-mark.svg',

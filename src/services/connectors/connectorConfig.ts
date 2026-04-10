@@ -27,8 +27,8 @@ export const connectorSchemas = {
         optional: ['accessToken', 'tokenExpiry', 'spreadsheetId', 'clientId', 'clientSecret'],
     },
     [ConnectorType.SHAREPOINT]: {
-        required: ['tenantId', 'clientId', 'clientSecret', 'refreshToken', 'siteId'],
-        optional: ['accessToken', 'tokenExpiry', 'driveId'],
+        required: ['tenantId', 'clientId', 'clientSecret', 'refreshToken'],
+        optional: ['accessToken', 'tokenExpiry', 'driveId', 'siteId', 'siteUrl'],
     },
     [ConnectorType.SNOWFLAKE]: {
         required: ['account', 'username', 'password', 'database', 'schema'],
@@ -64,6 +64,13 @@ function normalizeRuntimeConfig(config: ConnectorConfig): ConnectorConfig {
     }
     if (!normalized.baseUrl && credentials.url) {
         normalized.baseUrl = credentials.url;
+    }
+    if (!normalized.siteUrl) {
+        normalized.siteUrl = credentials.siteUrl
+            || credentials.sharepointUrl
+            || credentials.sharePointUrl
+            || credentials.site_url
+            || (typeof normalized.baseUrl === 'string' && /\.sharepoint\.com/i.test(normalized.baseUrl) ? normalized.baseUrl : undefined);
     }
     if (!normalized.refreshToken && credentials.refresh_token) {
         normalized.refreshToken = credentials.refresh_token;
@@ -105,6 +112,10 @@ export function validateConnectorConfig(
         if (!runtimeConfig[required]) {
             errors.push(`Missing required field: ${required}`);
         }
+    }
+
+    if (runtimeConfig.type === ConnectorType.SHAREPOINT && !runtimeConfig.siteId && !runtimeConfig.siteUrl) {
+        errors.push('Missing required field: siteId or siteUrl');
     }
 
     return {

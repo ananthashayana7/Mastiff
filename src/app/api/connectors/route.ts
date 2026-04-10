@@ -13,8 +13,16 @@ import { validateCSRFRequest } from '@/lib/csrf';
 import { z } from 'zod';
 import { db } from '@/db';
 import { connectors } from '@/db/connectorSchema';
-import { encryptionService } from '@/services/encryptionService';
 import { eq, desc } from 'drizzle-orm';
+
+function getClientAddress(request: NextRequest): string {
+    const forwardedFor = request.headers.get('x-forwarded-for');
+    if (forwardedFor) {
+        return forwardedFor.split(',')[0]?.trim() || 'unknown';
+    }
+
+    return request.headers.get('x-real-ip') || 'unknown';
+}
 
 /**
  * Connector creation schema
@@ -37,7 +45,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: csrfValidation.error || 'Invalid CSRF token' }, { status: 403 });
         }
 
-        const clientId = request.ip || 'unknown';
+        const clientId = getClientAddress(request);
         await rateLimiter.checkLimit('connector:create', clientId, 50, 3600);
 
         const body = await request.json();
@@ -48,6 +56,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         const userId = user.id;
+
+        const { encryptionService } = await import('@/services/encryptionService');
 
         const encryptedCredentials = encryptionService.encryptToString(
             JSON.stringify(validated.credentials)
@@ -87,7 +97,7 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
     try {
-        const clientId = request.ip || 'unknown';
+        const clientId = getClientAddress(request);
         await rateLimiter.checkLimit('connector:list', clientId, 200, 3600);
 
         const user = await authenticateRequest(request);

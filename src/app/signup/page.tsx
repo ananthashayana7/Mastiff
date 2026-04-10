@@ -118,7 +118,7 @@ export default function SignupPage() {
                 <div className="relative overflow-hidden border-b border-white/10 p-8 sm:p-10 lg:border-b-0 lg:border-r">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(56,189,248,0.14),transparent_32%),radial-gradient(circle_at_82%_16%,rgba(251,113,133,0.12),transparent_28%),radial-gradient(circle_at_56%_88%,rgba(45,212,191,0.1),transparent_34%)]" />
                     <div className="relative">
-                        <BrandLockup size={64} subtitle="Team-ready analytics" title="Mastiff" />
+                        <BrandLockup size={64} title="SPARTA" />
                         <p className="mt-6 max-w-md text-[15px] leading-7 text-slate-200/80">
                             Stand up a cleaner analytics workspace with forecast-first summaries, deeper drill-downs, and management-ready outputs from day one.
                         </p>
@@ -183,7 +183,7 @@ export default function SignupPage() {
                                 </a>
                                 <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                                     <div className="h-px flex-1 bg-white/10" />
-                                    <span>Or create a Mastiff account</span>
+                                    <span>Or create a SPARTA account</span>
                                     <div className="h-px flex-1 bg-white/10" />
                                 </div>
                             </>

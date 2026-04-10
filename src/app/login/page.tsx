@@ -104,7 +104,7 @@ export default function LoginPage() {
                 <div className="relative overflow-hidden border-b border-white/10 p-8 sm:p-10 lg:border-b-0 lg:border-r">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(56,189,248,0.14),transparent_32%),radial-gradient(circle_at_82%_16%,rgba(251,113,133,0.12),transparent_28%),radial-gradient(circle_at_56%_88%,rgba(45,212,191,0.1),transparent_34%)]" />
                     <div className="relative">
-                        <BrandLockup size={64} subtitle="Management-ready analytics" title="Mastiff" />
+                        <BrandLockup size={64} title="SPARTA" />
                         <p className="mt-6 max-w-md text-[15px] leading-7 text-slate-200/80">
                             A sharper analysis workspace for teams that want forecast-first insights, live connectors, and interactive drill-down visuals without the clutter.
                         </p>
@@ -153,7 +153,7 @@ export default function LoginPage() {
                     <div className="mb-8 flex items-center justify-between">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-[0.28em] text-slate-300/70">Sign in</p>
-                            <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-white">Sign in to Mastiff</h1>
+                            <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-white">Sign in to SPARTA</h1>
                         </div>
                         <BrandMark size={48} className="hidden sm:inline-flex" />
                     </div>
@@ -169,7 +169,7 @@ export default function LoginPage() {
                                 </a>
                                 <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
                                     <div className="h-px flex-1 bg-white/10" />
-                                    <span>Or use Mastiff password login</span>
+                                    <span>Or use SPARTA password login</span>
                                     <div className="h-px flex-1 bg-white/10" />
                                 </div>
                             </>

@@ -10,6 +10,7 @@ services:
     environment:
       - API_KEY=${API_KEY}
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-beagle}
+      - JWT_SECRET=${JWT_SECRET:-mastiff-ai-secret-key-change-in-production}
     depends_on:
       db:
         condition: service_healthy

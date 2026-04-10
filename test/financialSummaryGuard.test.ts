@@ -37,7 +37,10 @@ describe('financial summary guard', () => {
     expect(summary).toContain('**33,917 T INR**');
     expect(summary).toContain('**5.0%** PAT margin');
     expect(summary).toContain('**86.6%**');
+    expect(summary).toContain('**📈 Forecast Options**');
     expect(summary).toContain('**67,834 T INR**');
+    expect(summary).toContain('Recovery case');
+    expect(summary).toContain('Stress case');
     expect(summary).toContain('📊 See interactive charts below for details.');
     expect(summary).not.toContain('90% drop');
   });

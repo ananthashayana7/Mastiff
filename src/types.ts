@@ -59,6 +59,31 @@ export interface DataFile {
     duplicate_resolution?: 'none' | 'replaced' | 'versioned';
     replaced_file_ids?: string[];
     version_label?: string;
+    datasetIntelligence?: {
+      generatedAt: string;
+      summary: string[];
+      businessTerms: string[];
+      units: string[];
+      measures: string[];
+      dimensions: string[];
+      dateFields: string[];
+      keyCandidates: string[];
+      candidateKpis: string[];
+      missingnessHotspots: string[];
+      anomalies: string[];
+      columnRoles: Record<string, 'measure' | 'dimension' | 'date' | 'key' | 'text' | 'unknown'>;
+    };
+    analysisMemory?: {
+      lastUpdatedAt: string;
+      detectedKpis: string[];
+      topFindings: string[];
+      commonFilters: string[];
+      previousCharts: string[];
+      recentPrompts: string[];
+      recentActions: string[];
+      acceptedMappings: Array<{ from: string; to: string }>;
+      renamedBusinessTerms: string[];
+    };
     columns: Record<string, {
       dtype: string;
       null_count: number;
@@ -103,9 +128,33 @@ export interface ChatMessage {
       insights: string[];
       actions: string[];
       forecast: string;
+      forecastOptions: ForecastOption[];
       dataQuality: string;
       hasChart: boolean;
       hasCode: boolean;
+    };
+    provenance?: {
+      sourceFiles: Array<{
+        id?: string;
+        name: string;
+        rowCount: number;
+        columnCount: number;
+        selectedColumns: string[];
+        ignoredColumns: string[];
+      }>;
+      rowsAnalyzed: number;
+      columnsConsidered: string[];
+      ignoredColumns: string[];
+      dateRange?: {
+        field: string;
+        min: string;
+        max: string;
+      };
+      reliability: {
+        label: 'High' | 'Moderate' | 'Low';
+        notes: string[];
+      };
+      warnings: string[];
     };
     responseEnvelopeMeta?: {
       usedFallback: boolean;
@@ -119,6 +168,13 @@ export interface ChatMessage {
   mode?: AnalysisMode;
   persona?: string;
   sources?: GroundingSource[];
+}
+
+export interface ForecastOption {
+  id: string;
+  label: string;
+  summary: string;
+  confidence: 'Low' | 'Medium' | 'High';
 }
 
 export type AnalysisMode = 'chat' | 'analysis';

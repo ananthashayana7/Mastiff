@@ -1,4 +1,5 @@
 import { spawn, ChildProcess, execFile } from 'child_process';
+import fs from 'fs';
 import path from 'path';
 
 const BASE_KERNEL_TIMEOUT_MS = 60000;
@@ -12,6 +13,17 @@ function sleep(ms: number): Promise<void> {
 class KernelService {
     private processes: Map<string, ChildProcess> = new Map();
     private dependencyCheckedCommands: Set<string> = new Set();
+    private bridgeFingerprints: Map<string, string> = new Map();
+
+    private getBridgePath(): string {
+        return path.join(process.cwd(), 'src', 'services', 'kernel_bridge.py');
+    }
+
+    private getBridgeFingerprint(): string {
+        const bridgePath = this.getBridgePath();
+        const stats = fs.statSync(bridgePath);
+        return `${bridgePath}:${stats.mtimeMs}:${stats.size}`;
+    }
 
     private normalizeExecutionResponse(res: any): any {
         if (!res || typeof res !== 'object') return res;
@@ -45,12 +57,21 @@ class KernelService {
 
         while (retries <= MAX_RETRIES) {
             try {
+                const currentBridgeFingerprint = this.getBridgeFingerprint();
                 let process = this.processes.get(sessionId);
+                const knownFingerprint = this.bridgeFingerprints.get(sessionId);
+
+                if (process && knownFingerprint && knownFingerprint !== currentBridgeFingerprint) {
+                    console.log(`Kernel [${sessionId}] bridge changed on disk. Restarting Python kernel.`);
+                    this.terminate(sessionId);
+                    process = undefined;
+                }
 
                 if (!process || process.killed || process.exitCode !== null) {
                     // Process doesn't exist or has died — start a new one
                     process = await this.startKernel(sessionId);
                     this.processes.set(sessionId, process);
+                    this.bridgeFingerprints.set(sessionId, currentBridgeFingerprint);
                 }
 
                 return await this.sendRequest(process, code, files, sessionId);
@@ -221,7 +242,7 @@ class KernelService {
     }
 
     private async startKernel(sessionId: string): Promise<ChildProcess> {
-        const bridgePath = path.join(process.cwd(), 'src', 'services', 'kernel_bridge.py');
+        const bridgePath = this.getBridgePath();
 
         // Try 'py' first (Windows launcher), fall back to 'python3', then 'python'
         const pythonCommands = ['py', 'python3', 'python'];
@@ -260,11 +281,13 @@ class KernelService {
         pythonProcess.on('close', (code) => {
             console.log(`Kernel [${sessionId}] closed with code ${code}`);
             this.processes.delete(sessionId);
+            this.bridgeFingerprints.delete(sessionId);
         });
 
         pythonProcess.on('error', (err) => {
             console.error(`Kernel [${sessionId}] process error:`, err);
             this.processes.delete(sessionId);
+            this.bridgeFingerprints.delete(sessionId);
         });
 
         return pythonProcess;
@@ -281,6 +304,7 @@ class KernelService {
                 }, 3000);
             } catch { }
             this.processes.delete(sessionId);
+            this.bridgeFingerprints.delete(sessionId);
         }
     }
 

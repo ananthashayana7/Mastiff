@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { messages, sessions } from '@/db/schema';
+import { files as filesTable, messages, sessions } from '@/db/schema';
 import { connectors } from '@/db/connectorSchema';
 import { eq, asc, and, inArray } from 'drizzle-orm';
 import { buildResilientDeterministicAnalysisFallbackCode, classifyLlmError, llm } from '@/services/llm';
@@ -10,11 +10,17 @@ import { AnalysisMode } from '@/src/types';
 import { authenticateRequest } from '@/lib/auth';
 import { validateCSRFRequest } from '@/lib/csrf';
 import { buildRecoverySnippet } from './recoverySnippets';
-import { buildDeterministicFinancialSummary } from '../../../lib/financialSummaryGuard';
 import { buildContractFallbackSummary, containsTechnicalArtifacts, validateSummaryContract } from '../../../lib/chatResponseContract';
 import { buildAnalysisResponseEnvelope, buildFollowUpPrompts, renderEnvelopeAsSummary } from '../../../lib/chatResponseEnvelope';
 import { buildAutoChartRowsFromFiles, buildAutoChartRowsFromInlineTable, hasAutoChartableData } from '../../../lib/autoChart';
+import { buildFinancialDatasetMismatchMessage, shouldWarnOnFinancialDatasetMismatch } from '../../../lib/domainMismatchGuard';
 import { buildCompactFileContext, buildMultiDatasetPromptBlock } from '../../../lib/multiDatasetIntelligence';
+import {
+    buildAnalysisProvenance,
+    buildDatasetMemoryPromptBlock,
+    ensureDatasetMetadataProfile,
+    mergeDatasetAnalysisMemory,
+} from '../../../lib/datasetMemory';
 import {
     buildQueryPlanPromptBlock,
     deriveQueryPlan,
@@ -78,11 +84,12 @@ function isTabularParseError(errorText: string): boolean {
     return /columns passed, passed data had|parsererror|error tokenizing data|expected\s+\d+\s+fields|saw\s+\d+|too many columns specified|shape of passed values/i.test(errorText || '');
 }
 
-function buildInlineFinancialFallbackCode(rawContent: string): string {
+export function buildInlineFinancialFallbackCode(rawContent: string): string {
     const b64 = Buffer.from(rawContent || '', 'utf8').toString('base64');
 
-    return `
+    return String.raw`
 import base64
+import json
 import re
 import numpy as np
 import pandas as pd
@@ -91,6 +98,7 @@ from plotly.subplots import make_subplots
 
 raw = base64.b64decode("${b64}").decode("utf-8", errors="ignore")
 lines = [ln for ln in raw.splitlines() if ln.strip()]
+SIGNAL_MARKER = "__MASTIFF_SIGNAL__="
 
 months = ["Jan'25", "Feb'25", "Mar'25", "Apr'25", "May'25", "Jun'25"]
 
@@ -162,6 +170,8 @@ else:
 
     df_m = pd.DataFrame(monthly_map, index=months)
     df_y = pd.DataFrame(ytd_map, index=months)
+    df_m = df_m.apply(lambda col: pd.to_numeric(col, errors='coerce')).fillna(0.0)
+    df_y = df_y.apply(lambda col: pd.to_numeric(col, errors='coerce')).fillna(0.0)
 
     # Defensive required columns for consistent plotting.
     for col in ['Revenue from operations', 'Total expenses', 'Profit before tax (EBIT)', 'Profit for the year (PAT)',
@@ -190,6 +200,93 @@ else:
     f_rev = trend_forecast(df_m['Revenue from operations'])
     f_exp = trend_forecast(df_m['Total expenses'])
     f_pat = trend_forecast(df_m['Profit for the year (PAT)'])
+
+    pat_series = df_m['Profit for the year (PAT)'].astype(float).values
+    revenue_series = df_m['Revenue from operations'].astype(float).values
+    total_income_series = df_m[total_income_col].astype(float).values
+    inventory_series = df_m['Changes in inventories of finished goods and work-in-progress'].astype(float).values
+    raw_material_series = df_m['Cost of raw material consumed'].astype(float).values
+    employee_series = df_m['Employee benefits expense'].astype(float).values
+    other_income_series = df_m['Other income'].astype(float).values
+    depreciation_col = 'Depreciation and amortisation expenses' if 'Depreciation and amortisation expenses' in df_m.columns else 'Depreciation'
+    if depreciation_col not in df_m.columns:
+        df_m[depreciation_col] = 0.0
+    depreciation_series = df_m[depreciation_col].astype(float).values
+    other_expenses_series = (np.abs(df_m['Total expenses']).astype(float) - np.abs(df_m['Cost of raw material consumed']).astype(float) - np.abs(df_m['Employee benefits expense']).astype(float)).values
+
+    worst_idx = int(np.argmin(pat_series)) if len(pat_series) else 0
+    prior_idx = max(worst_idx - 1, 0)
+    best_revenue_idx = int(np.argmax(revenue_series)) if len(revenue_series) else 0
+    worst_pat = float(pat_series[worst_idx]) if len(pat_series) else 0.0
+    prior_pat = float(pat_series[prior_idx]) if len(pat_series) else 0.0
+    pat_drop_pct = float(((prior_pat - worst_pat) / abs(prior_pat)) * 100.0) if abs(prior_pat) > 1e-9 else 0.0
+
+    driver_changes = {
+        'Inventory swing': float(inventory_series[worst_idx] - inventory_series[prior_idx]) if len(inventory_series) > worst_idx else 0.0,
+        'Raw material': float(raw_material_series[worst_idx] - raw_material_series[prior_idx]) if len(raw_material_series) > worst_idx else 0.0,
+        'Employee cost': float(employee_series[worst_idx] - employee_series[prior_idx]) if len(employee_series) > worst_idx else 0.0,
+        'Other expenses': float(other_expenses_series[worst_idx] - other_expenses_series[prior_idx]) if len(other_expenses_series) > worst_idx else 0.0,
+        'Other income': float(other_income_series[worst_idx] - other_income_series[prior_idx]) if len(other_income_series) > worst_idx else 0.0,
+        'Depreciation': float(depreciation_series[worst_idx] - depreciation_series[prior_idx]) if len(depreciation_series) > worst_idx else 0.0,
+    }
+    primary_driver_name, primary_driver_delta = min(driver_changes.items(), key=lambda item: item[1])
+
+    other_income_spike_idx = int(np.argmax(other_income_series)) if len(other_income_series) else -1
+    other_income_spike_value = float(other_income_series[other_income_spike_idx]) if other_income_spike_idx >= 0 else 0.0
+    other_income_recurring = bool(len(other_income_series) >= 2 and np.any(other_income_series[-2:] > 0))
+
+    dep_positive_indexes = np.where(depreciation_series > 0)[0].tolist() if len(depreciation_series) else []
+    dep_positive_idx = int(dep_positive_indexes[0]) if dep_positive_indexes else -1
+    dep_positive_value = float(depreciation_series[dep_positive_idx]) if dep_positive_idx >= 0 else 0.0
+
+    ytd_income_last = float(df_y[total_income_col].iloc[-1]) if len(df_y) else float(np.nansum(total_income_series))
+    ytd_pat_last = float(df_y['Profit for the year (PAT)'].iloc[-1]) if len(df_y) else float(np.nansum(pat_series))
+    ytd_pat_margin = (ytd_pat_last / ytd_income_last * 100.0) if ytd_income_last else 0.0
+
+    revenue_cv_pct = float((np.std(revenue_series, ddof=1) / np.mean(revenue_series)) * 100.0) if len(revenue_series) >= 2 and np.mean(revenue_series) != 0 else 0.0
+    pat_cv_pct = float((np.std(pat_series, ddof=1) / np.mean(np.abs(pat_series))) * 100.0) if len(pat_series) >= 2 and np.mean(np.abs(pat_series)) != 0 else 0.0
+
+    signal = {
+        'kind': 'financial_statement',
+        'datasetName': 'inline_pasted_financial_table',
+        'coverageNote': f"Inline financial statement parsed across {len(months)} monthly periods with YTD totals.",
+        'months': [str(month) for month in months],
+        'ytdPat': ytd_pat_last,
+        'ytdTotalIncome': ytd_income_last,
+        'ytdPatMarginPct': ytd_pat_margin,
+        'worstMonthLabel': str(months[worst_idx]),
+        'worstMonthPat': worst_pat,
+        'priorMonthLabel': str(months[prior_idx]),
+        'priorMonthPat': prior_pat,
+        'patDropPct': pat_drop_pct,
+        'worstMonthRevenue': float(revenue_series[worst_idx]) if len(revenue_series) > worst_idx else 0.0,
+        'highestRevenueMonthLabel': str(months[best_revenue_idx]),
+        'highestRevenueValue': float(revenue_series[best_revenue_idx]) if len(revenue_series) > best_revenue_idx else 0.0,
+        'primaryObservedDriver': primary_driver_name,
+        'primaryObservedDriverDelta': float(primary_driver_delta),
+        'inventoryCurrent': float(inventory_series[worst_idx]) if len(inventory_series) > worst_idx else 0.0,
+        'inventoryPrior': float(inventory_series[prior_idx]) if len(inventory_series) > prior_idx else 0.0,
+        'otherIncomeSpikeLabel': str(months[other_income_spike_idx]) if other_income_spike_idx >= 0 else None,
+        'otherIncomeSpikeValue': other_income_spike_value,
+        'otherIncomeRecurring': other_income_recurring,
+        'depreciationAnomalyLabel': str(months[dep_positive_idx]) if dep_positive_idx >= 0 else None,
+        'depreciationAnomalyValue': dep_positive_value,
+        'nextPeriodLabel': "Jul'25",
+        'forecastPat': float(f_pat),
+        'forecastBandStd': float(np.std(pat_series, ddof=1)) if len(pat_series) >= 3 else 0.0,
+        'revenueCvPct': revenue_cv_pct,
+        'patCvPct': pat_cv_pct,
+        'monthlyCount': int(len(months)),
+        'dataQuality': 'Directional finance read from pasted inline P&L structure; suitable for management triage, but accounting-style line items still need validation.',
+    }
+
+    print(f"Coverage note: {signal['coverageNote']}")
+    print(f"YTD PAT: {ytd_pat_last:,.2f}")
+    print(f"YTD total income: {ytd_income_last:,.2f}")
+    print(f"YTD PAT margin: {ytd_pat_margin:,.2f}%")
+    print(f"Worst month: {months[worst_idx]} PAT {worst_pat:,.2f} ({pat_drop_pct:,.1f}% below {months[prior_idx]})")
+    print(f"Primary observed driver: {primary_driver_name} ({primary_driver_delta:,.2f})")
+    print(SIGNAL_MARKER + json.dumps(signal, default=float, separators=(',', ':')))
 
     # Build executive dashboard (all xy traces to avoid subplot type mismatch).
     fig = make_subplots(
@@ -435,9 +532,41 @@ export async function POST(req: NextRequest) {
             : [];
 
         const sessionFiles = explicitSelectedFiles.length > 0 ? explicitSelectedFiles : session.files;
+        const profiledSessionFiles = sessionFiles.map((file) => ({
+            ...file,
+            metadata: ensureDatasetMetadataProfile((file.metadata || {}) as any, file.filename),
+        }));
         const hasFiles = sessionFiles.length > 0;
         // Treat messages with pasted tabular/financial data as having effective data even without uploaded files
         const hasPastedData = !hasFiles && containsInlineTabularData(content);
+
+        if (shouldWarnOnFinancialDatasetMismatch(content, profiledSessionFiles, hasPastedData)) {
+            const warningContent = buildFinancialDatasetMismatchMessage(profiledSessionFiles);
+            const [assistantMsg] = await db.insert(messages).values({
+                sessionId,
+                role: 'assistant',
+                content: warningContent,
+                result: {
+                    responseEnvelope: undefined,
+                    responseEnvelopeMeta: {
+                        usedFallback: false,
+                        contractRepairAttempted: false,
+                        contractRepaired: true,
+                        initialViolations: [],
+                    },
+                    followUpPrompts: [],
+                },
+            }).returning();
+
+            if (session.messages.length === 0) {
+                await db.update(sessions)
+                    .set({ title: content.slice(0, 50), updatedAt: new Date() })
+                    .where(eq(sessions.id, sessionId));
+            }
+
+            return NextResponse.json(assistantMsg);
+        }
+
         const effectiveHasFiles = hasFiles || hasPastedData;
         const pastedSampleRows = hasPastedData ? buildAutoChartRowsFromInlineTable(content) : [];
         const queryPlan = deriveQueryPlan(content, {
@@ -461,14 +590,14 @@ export async function POST(req: NextRequest) {
                 : [];
 
             const intelligenceFileContexts = hasFiles
-                ? sessionFiles.map((f) => ({
+                ? profiledSessionFiles.map((f) => ({
                     name: f.filename,
                     schema: JSON.stringify(f.metadata, null, 2),
                     sample: (f.metadata as any)?.sample || [],
                 }))
                 : pastedDataContext;
             const fileContexts = hasFiles
-                ? sessionFiles.map((f) => buildCompactFileContext({
+                ? profiledSessionFiles.map((f) => buildCompactFileContext({
                     name: f.filename,
                     metadata: (f.metadata || {}) as any,
                 }))
@@ -483,35 +612,65 @@ export async function POST(req: NextRequest) {
             const dataQualityWarnings = generateDataIntelligenceReport(intelligenceFileContexts);
             const dataQualityContext = formatWarningsForPrompt(dataQualityWarnings);
             const multiDatasetContext = hasFiles
-                ? buildMultiDatasetPromptBlock(sessionFiles.map((f) => ({
+                ? buildMultiDatasetPromptBlock(profiledSessionFiles.map((f) => ({
                     name: f.filename,
                     metadata: (f.metadata || {}) as any,
                 })))
                 : '';
 
             /* ---- Data Intelligence Pre-Scan ---- */
-            const intelligenceReports: DataIntelligenceReport[] = sessionFiles.map((f) => {
+            const intelligenceReports: DataIntelligenceReport[] = profiledSessionFiles.map((f) => {
                 const metadata = (f.metadata ?? {}) as Record<string, unknown>;
                 const sample = (Array.isArray((metadata as any)?.sample) ? (metadata as any).sample : []) as Record<string, unknown>[];
                 return analyseFile(metadata, sample);
             });
-            const dataIntelligenceContext = formatForPrompt(intelligenceReports);
+            const datasetMemoryContext = hasFiles
+                ? buildDatasetMemoryPromptBlock(profiledSessionFiles.map((f) => ({
+                    id: f.id,
+                    name: f.filename,
+                    metadata: (f.metadata || {}) as any,
+                })))
+                : '';
+            const dataIntelligenceContext = [formatForPrompt(intelligenceReports), datasetMemoryContext]
+                .filter(Boolean)
+                .join('\n\n');
 
-            let analysis = await llm.getAnalysisCode(
-                content,
-                fileContexts,
-                session.messages,
-                analysisMode,
-                linkedConnectorContext,
-                persona,
-                dataQualityContext,
-                dataIntelligenceContext,
-                multiDatasetContext,
-                queryPlanContext
-            );
+            let analysis;
+            try {
+                analysis = await llm.getAnalysisCode(
+                    content,
+                    fileContexts,
+                    session.messages,
+                    analysisMode,
+                    linkedConnectorContext,
+                    persona,
+                    dataQualityContext,
+                    dataIntelligenceContext,
+                    multiDatasetContext,
+                    queryPlanContext
+                );
+            } catch (analysisError) {
+                if (hasPastedData) {
+                    const fallbackCode = buildInlineFinancialFallbackCode(content);
+                    analysis = {
+                        explanation: 'Applied deterministic inline financial fallback because model-generated analysis was unavailable.',
+                        code: fallbackCode,
+                    };
+                } else {
+                    throw analysisError;
+                }
+            }
+
+            if (hasPastedData && /applied deterministic analysis fallback/i.test(String(analysis?.explanation || ''))) {
+                analysis = {
+                    ...analysis,
+                    explanation: 'Applied deterministic inline financial fallback because model-generated analysis was unavailable.',
+                    code: buildInlineFinancialFallbackCode(content),
+                };
+            }
 
             /* ---- Data recovery preamble for 0-row files ---- */
-            const zeroRowFiles = sessionFiles.filter(
+            const zeroRowFiles = profiledSessionFiles.filter(
                 (f) => (f.metadata as any)?.row_count === 0
             );
             if (zeroRowFiles.length > 0) {
@@ -634,6 +793,23 @@ export async function POST(req: NextRequest) {
                     }
                 } catch (inlineFallbackError) {
                     console.warn('Inline financial fallback failed:', inlineFallbackError);
+                }
+            }
+
+            if (hasPastedData && /data is empty after loading/i.test(String(executionResult?.result || ''))) {
+                try {
+                    const fallbackCode = buildInlineFinancialFallbackCode(content);
+                    const fallbackExecution = await kernelService.execute(sessionId, fallbackCode, executorFiles);
+                    if (!fallbackExecution?.error && !/data is empty after loading/i.test(String(fallbackExecution.result || ''))) {
+                        analysis = {
+                            ...analysis,
+                            explanation: 'Replaced empty-data inline analysis with deterministic financial fallback.',
+                            code: fallbackCode,
+                        };
+                        executionResult = fallbackExecution;
+                    }
+                } catch (inlineEmptyFallbackError) {
+                    console.warn('Inline financial empty-data fallback failed:', inlineEmptyFallbackError);
                 }
             }
 
@@ -818,24 +994,64 @@ export async function POST(req: NextRequest) {
 
             const hasChart = countVisualizationArtifacts(executionResult) > 0 || hasAutoChartableData(executionResult.updated_df_sample);
             const hasCode = Boolean(analysis.code?.trim());
-            const deterministicFinancialSummary = buildDeterministicFinancialSummary(content, hasChart);
-            const bypassEnvelope = Boolean(deterministicFinancialSummary);
-            if (deterministicFinancialSummary) {
-                finalSummary = deterministicFinancialSummary;
-            }
-
-            const envelopeResult = bypassEnvelope
-                ? { envelope: null, usedFallback: false }
-                : buildAnalysisResponseEnvelope(finalSummary, {
-                    hasChart,
-                    hasCode,
-                });
+            const envelopeResult = buildAnalysisResponseEnvelope(finalSummary, {
+                hasChart,
+                hasCode,
+            });
+            const provenance = hasFiles
+                ? buildAnalysisProvenance(
+                    profiledSessionFiles.map((f) => ({
+                        id: f.id,
+                        name: f.filename,
+                        metadata: (f.metadata || {}) as any,
+                    })),
+                    dataQualityWarnings.map((warning) => warning.message)
+                )
+                : undefined;
             const followUpPrompts = envelopeResult.envelope
-                ? buildFollowUpPrompts(envelopeResult.envelope)
+                ? buildFollowUpPrompts(envelopeResult.envelope, {
+                    provenance,
+                    datasets: profiledSessionFiles.map((file) => {
+                        const metadata = (file.metadata || {}) as any;
+                        return {
+                            name: file.filename,
+                            measures: metadata.datasetIntelligence?.measures || [],
+                            dimensions: metadata.datasetIntelligence?.dimensions || [],
+                            dateFields: metadata.datasetIntelligence?.dateFields || [],
+                            keyCandidates: metadata.datasetIntelligence?.keyCandidates || [],
+                            candidateKpis: metadata.datasetIntelligence?.candidateKpis || [],
+                            analysisMemory: metadata.analysisMemory ? {
+                                commonFilters: metadata.analysisMemory.commonFilters || [],
+                                previousCharts: metadata.analysisMemory.previousCharts || [],
+                            } : undefined,
+                        };
+                    }),
+                })
                 : [];
 
-            if (!bypassEnvelope && envelopeResult.usedFallback && envelopeResult.envelope) {
+            if (envelopeResult.usedFallback && envelopeResult.envelope) {
                 finalSummary = renderEnvelopeAsSummary(envelopeResult.envelope);
+            }
+
+            if (hasFiles && envelopeResult.envelope) {
+                await Promise.all(profiledSessionFiles.map(async (file) => {
+                    const metadata = (file.metadata || {}) as any;
+                    const nextAnalysisMemory = mergeDatasetAnalysisMemory({
+                        existing: metadata.analysisMemory,
+                        userQuery: content,
+                        envelope: envelopeResult.envelope,
+                        profile: metadata.datasetIntelligence,
+                    });
+
+                    await db.update(filesTable)
+                        .set({
+                            metadata: {
+                                ...metadata,
+                                analysisMemory: nextAnalysisMemory,
+                            } as any,
+                        })
+                        .where(eq(filesTable.id, file.id));
+                }));
             }
 
             await emitResponseQualityEvent({
@@ -859,6 +1075,7 @@ export async function POST(req: NextRequest) {
                     charts: executionResult.charts,
                     plotly_charts: executionResult.plotly_charts,
                     updated_df_sample: executionResult.updated_df_sample,
+                    provenance,
                     responseEnvelope: envelopeResult.envelope ?? undefined,
                     responseEnvelopeMeta: {
                         usedFallback: envelopeResult.usedFallback,
@@ -907,8 +1124,34 @@ export async function POST(req: NextRequest) {
             hasChart: false,
             hasCode: false,
         });
+        const chatProvenance = hasFiles
+            ? buildAnalysisProvenance(
+                profiledSessionFiles.map((f) => ({
+                    id: f.id,
+                    name: f.filename,
+                    metadata: (f.metadata || {}) as any,
+                }))
+            )
+            : undefined;
         const followUpPrompts = chatEnvelopeResult.envelope
-            ? buildFollowUpPrompts(chatEnvelopeResult.envelope)
+            ? buildFollowUpPrompts(chatEnvelopeResult.envelope, {
+                provenance: chatProvenance,
+                datasets: profiledSessionFiles.map((file) => {
+                    const metadata = (file.metadata || {}) as any;
+                    return {
+                        name: file.filename,
+                        measures: metadata.datasetIntelligence?.measures || [],
+                        dimensions: metadata.datasetIntelligence?.dimensions || [],
+                        dateFields: metadata.datasetIntelligence?.dateFields || [],
+                        keyCandidates: metadata.datasetIntelligence?.keyCandidates || [],
+                        candidateKpis: metadata.datasetIntelligence?.candidateKpis || [],
+                        analysisMemory: metadata.analysisMemory ? {
+                            commonFilters: metadata.analysisMemory.commonFilters || [],
+                            previousCharts: metadata.analysisMemory.previousCharts || [],
+                        } : undefined,
+                    };
+                }),
+            })
             : [];
         const persistedChatResponse = chatEnvelopeResult.envelope
             ? renderEnvelopeAsSummary(chatEnvelopeResult.envelope)
@@ -919,6 +1162,7 @@ export async function POST(req: NextRequest) {
             role: 'assistant',
             content: persistedChatResponse,
             result: {
+                provenance: chatProvenance,
                 responseEnvelope: chatEnvelopeResult.envelope,
                 responseEnvelopeMeta: {
                     usedFallback: chatEnvelopeResult.usedFallback,

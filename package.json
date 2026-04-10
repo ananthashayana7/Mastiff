@@ -11,6 +11,7 @@
     "test": "vitest",
     "lint": "next lint",
     "teams:manifest": "node scripts/renderTeamsManifest.mjs",
+    "ui:probe": "node scripts/runtime-ui-probe.mjs",
     "smoke:api": "node scripts/smoke_api_checks.mjs",
     "db:push": "drizzle-kit push --config=drizzle.config.ts",
     "db:studio": "drizzle-kit studio --config=drizzle.config.ts"
@@ -64,6 +65,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "drizzle-kit": "^0.24.0",
+    "playwright": "^1.52.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",

@@ -17,6 +17,7 @@ import {
     preferRicherTabularMetadata,
     sanitizeFileName,
 } from '@/lib/fileIngestion';
+import { ensureDatasetMetadataProfile } from '@/lib/datasetMemory';
 
 export const dynamic = 'force-dynamic';
 
@@ -289,6 +290,8 @@ export async function POST(req: NextRequest) {
             metadata = buildDocumentMetadata(text, storedFilename, ext);
             metadata.original_filename = file.name;
         }
+
+        metadata = ensureDatasetMetadataProfile(metadata, storedFilename);
 
         const [dbFile] = await db.insert(dbFiles).values({
             userId: effectiveUserId,

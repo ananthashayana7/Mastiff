@@ -142,6 +142,24 @@ export function buildDeterministicFinancialSummary(content: string, hasChart: bo
         : 0;
 
     const annualizedPat = ytdPat * 2;
+    const normalizedPatMonths = metrics.pat.monthly.filter((_, index) => index !== worstPatIndex);
+    const normalizedMonthlyPat = normalizedPatMonths.length > 0
+        ? normalizedPatMonths.reduce((sum, value) => sum + value, 0) / normalizedPatMonths.length
+        : ytdPat / Math.max(1, metrics.pat.monthly.length);
+    const recentThreePatAverage = metrics.pat.monthly.slice(-3).reduce((sum, value) => sum + value, 0) / Math.max(1, metrics.pat.monthly.slice(-3).length);
+    const stressCasePat = ytdPat + (worstPatValue * 6);
+    const recoveryCasePat = ytdPat + (normalizedMonthlyPat * 6);
+    const stabilizationCasePat = ytdPat + (recentThreePatAverage * 6);
+    const worstMonthMargin = metrics.totalIncome.monthly[worstPatIndex]
+        ? (worstPatValue / metrics.totalIncome.monthly[worstPatIndex]) * 100
+        : 0;
+    const priorMonthMargin = worstPatIndex > 0 && metrics.totalIncome.monthly[worstPatIndex - 1]
+        ? (priorPatValue / metrics.totalIncome.monthly[worstPatIndex - 1]) * 100
+        : 0;
+    const marginCompression = priorMonthMargin - worstMonthMargin;
+    const inventorySwingShare = priorPatValue !== worstPatValue
+        ? Math.abs(inventorySwing) / Math.abs(priorPatValue - worstPatValue)
+        : 0;
     const worstMonthLabel = buildMonthLabel(months[worstPatIndex], worstPatIndex);
     const priorMonthLabel = buildMonthLabel(months[Math.max(worstPatIndex - 1, 0)], Math.max(worstPatIndex - 1, 0));
     const otherIncomePeakLabel = otherIncomePeakIndex >= 0 ? buildMonthLabel(months[otherIncomePeakIndex], otherIncomePeakIndex) : 'the peak month';
@@ -149,23 +167,25 @@ export function buildDeterministicFinancialSummary(content: string, hasChart: bo
 
     const lines = [
         '**📊 Executive Summary**',
-        `YTD PAT stands at **${formatNumber(ytdPat)} T INR** on **${formatNumber(ytdIncome)} T INR** of total income, implying a **${formatPercent(patMargin)}** PAT margin through ${buildMonthLabel(months[months.length - 1], months.length - 1)}. Monthly profitability is volatile: PAT fell to **${formatNumber(worstPatValue)} T INR** in **${worstMonthLabel}**, down **${formatPercent(patDropPct)}** from **${priorMonthLabel}** before recovering in the following month.`,
+        `YTD PAT stands at **${formatNumber(ytdPat)} T INR** on **${formatNumber(ytdIncome)} T INR** of total income, implying a **${formatPercent(patMargin)}** PAT margin through ${buildMonthLabel(months[months.length - 1], months.length - 1)}. The real issue is conversion quality, not top-line collapse: PAT fell to **${formatNumber(worstPatValue)} T INR** in **${worstMonthLabel}**, down **${formatPercent(patDropPct)}** from **${priorMonthLabel}** even though revenue stayed broadly intact.`,
         '',
         '**🚨 Top Concerns & Actions**',
         `→ Action: Investigate the ${worstMonthLabel} profit drop. PAT fell from **${formatNumber(priorPatValue)}** to **${formatNumber(worstPatValue)} T INR**; the largest observed driver was inventory movement, which shifted from **${formatNumber(priorInventoryValue)}** to **${formatNumber(inventoryValue)} T INR** (${formatNumber(inventorySwing)} T INR swing).`,
-        '→ Action: Stabilize inventory accounting and forecasting. The inventory line is swinging sharply month to month, which is distorting reported profitability more than the revenue line itself.',
+        `→ Action: Stabilize inventory accounting and forecasting. The inventory line explains roughly **${formatPercent(inventorySwingShare * 100)}** of the visible PAT swing, which means management is currently seeing earnings noise amplified by working-capital accounting rather than pure demand weakness.`,
         otherIncomePeak > 0 && otherIncomeEndsAtZero
             ? `→ Action: Validate whether "Other income" is recurring. It contributed **${formatNumber(otherIncomePeak)} T INR** in **${otherIncomePeakLabel}** and then dropped to zero, so forward plans should not assume it repeats without evidence.`
             : '→ Action: Separate recurring operating earnings from one-off items before using the series for planning or target setting.',
         '',
-        '**📈 Forecast & Direction**',
-        `→ Action: Treat the annualized PAT as a low-confidence run-rate, not a committed forecast. A simple extrapolation implies roughly **${formatNumber(annualizedPat)} T INR** for the year, but the series only has six months and includes a severe outlier month.`,
-        metrics.revenue
-            ? `→ Action: Build decisions around the operating base, which is comparatively stable. Revenue from operations averages about **${formatNumber(averageRevenue)} T INR** per month, so margin control matters more than top-line rescue right now.`
-            : '→ Action: Use a fuller monthly revenue series before making directional statements about top-line momentum.',
+        '**📈 Forecast Options**',
+        `Base case: Keep the current first-half run-rate. That implies roughly **${formatNumber(annualizedPat)} T INR** for the year, but confidence is only moderate because the period contains one severe outlier month.`,
+        `Recovery case: If PAT normalizes back toward the average of the non-outlier months, the year could land closer to **${formatNumber(recoveryCasePat)} T INR**. That requires inventory volatility to unwind rather than recur.`,
+        `Stress case: If the business repeats the weakest-month PAT for the balance of the year, annual PAT falls toward **${formatNumber(stressCasePat)} T INR**. This is the downside management should use for cash discipline and covenant caution.`,
         '',
-        '**🔍 Gaps & Anomalies**',
-        `The profit shock is concentrated rather than broad-based, which points to operational or accounting volatility instead of a collapsing revenue base. Confirm whether the ${worstMonthLabel} inventory move reflects write-downs, valuation changes, returns, or timing effects.`,
+        '**🔍 Gaps, Drivers & What Management May Miss**',
+        `The profit shock is concentrated rather than broad-based, which points to operational or accounting volatility instead of a collapsing revenue base. Margin compressed by about **${formatPercent(marginCompression)}** between **${priorMonthLabel}** and **${worstMonthLabel}**, so the business is leaking conversion quality faster than it is losing sales volume.`,
+        metrics.revenue
+            ? `Revenue from operations still averaged about **${formatNumber(averageRevenue)} T INR** per month, and the recent three-month PAT average is roughly **${formatNumber(recentThreePatAverage)} T INR**. That gap between stable revenue and unstable earnings is the strongest evidence that cost recognition and inventory timing deserve more scrutiny than commercial demand.`
+            : 'A fuller monthly revenue series would make it easier to distinguish commercial weakness from cost or accounting volatility.',
         depreciationAnomalyIndex >= 0
             ? `Depreciation shows an unusual positive value of **${formatNumber(depreciationAnomalyValue)} T INR** in **${depreciationLabel}**. That should be verified before management treats the monthly cost trend as clean.`
             : 'No depreciation sign anomaly was detected in the extracted monthly series.',
@@ -173,7 +193,7 @@ export function buildDeterministicFinancialSummary(content: string, hasChart: bo
         '**💡 Quick Wins**',
         `Review the ${worstMonthLabel} inventory journals and reconciliation support immediately. This is the fastest way to explain the steepest earnings swing in the period.`,
         'Tag non-recurring income separately in management reporting so operating margins are not overstated by one-off items.',
-        'Use a bridge view from Total Income to PAT each month so major cost-line swings are visible before they hit YTD reporting.',
+        'Use a monthly bridge from Total Income to PAT with explicit inventory, other-income, and depreciation flags so major swings are visible before they hit YTD reporting.',
         '',
         '**⚡ Data Quality**',
         depreciationAnomalyIndex >= 0

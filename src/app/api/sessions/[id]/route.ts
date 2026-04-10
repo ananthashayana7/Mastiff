@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import fs from 'fs/promises';
 import { db } from "@/db";
 import { sessions, messages, files } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -31,10 +32,18 @@ export async function DELETE(
             return NextResponse.json({ error: 'Session not found' }, { status: 404 });
         }
 
+        const sessionFiles = await db.query.files.findMany({
+            where: and(eq(files.sessionId, id), eq(files.userId, user.id)),
+        });
+
         console.log(`Deleting session: ${id} for user ${user.id}`);
 
+        for (const file of sessionFiles) {
+            await fs.rm(file.filePath, { force: true });
+        }
+
         await db.transaction(async (tx) => {
-            // Delete associated messages and files records (metadata only, files stay on disk for now)
+            // Delete session data after uploaded file cleanup succeeds.
             await tx.delete(messages).where(eq(messages.sessionId, id));
             await tx.delete(files).where(eq(files.sessionId, id));
             await tx.delete(sessions).where(eq(sessions.id, id));

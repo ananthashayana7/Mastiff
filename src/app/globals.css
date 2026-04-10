@@ -3,21 +3,21 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 244, 234, 221;
-  --background-start-rgb: 29, 19, 16;
-  --background-end-rgb: 12, 8, 7;
-  --accent: #b45734;
-  --accent-strong: #7a3e2d;
-  --accent-soft: #e7c7a3;
-  --accent-warm: #d9a066;
-  --accent-glow: rgba(180, 87, 52, 0.18);
-  --surface: rgba(24, 15, 13, 0.92);
-  --surface-hover: rgba(35, 22, 19, 0.95);
-  --border: rgba(201, 167, 133, 0.16);
-  --border-hover: rgba(201, 167, 133, 0.28);
-  --text-primary: #f6eee4;
-  --text-secondary: #e2cdb4;
-  --text-muted: #a88f79;
+  --foreground-rgb: 32, 28, 24;
+  --background-start-rgb: 247, 245, 239;
+  --background-end-rgb: 240, 237, 231;
+  --accent: #1f6feb;
+  --accent-strong: #0f4fb8;
+  --accent-soft: #dbeafe;
+  --accent-warm: #8b7355;
+  --accent-glow: rgba(31, 111, 235, 0.12);
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-hover: rgba(255, 255, 255, 0.92);
+  --border: rgba(28, 25, 23, 0.08);
+  --border-hover: rgba(28, 25, 23, 0.16);
+  --text-primary: #1f1b16;
+  --text-secondary: #4f453d;
+  --text-muted: #85776a;
 }
 
 html,
@@ -30,17 +30,16 @@ body {
   color: rgb(var(--foreground-rgb));
   background-color: rgb(var(--background-end-rgb));
   background-image:
-    radial-gradient(circle at 10% 12%, rgba(180, 87, 52, 0.16), transparent 24%),
-    radial-gradient(circle at 86% 14%, rgba(217, 160, 102, 0.1), transparent 22%),
-    radial-gradient(circle at 68% 78%, rgba(122, 62, 45, 0.12), transparent 24%),
-    radial-gradient(circle at 44% 52%, rgba(231, 199, 163, 0.04), transparent 18%),
-    linear-gradient(160deg, #100b0a 0%, #1a110f 40%, #0c0807 100%);
-  font-family: "Aptos", "Segoe UI Variable Display", "Trebuchet MS", "Segoe UI", sans-serif;
+    radial-gradient(circle at 12% 10%, rgba(31, 111, 235, 0.08), transparent 22%),
+    radial-gradient(circle at 82% 18%, rgba(82, 82, 91, 0.05), transparent 24%),
+    radial-gradient(circle at 62% 78%, rgba(120, 113, 108, 0.06), transparent 24%),
+    linear-gradient(180deg, #f7f5ef 0%, #f0ede7 100%);
+  font-family: "Aptos", "Segoe UI Variable Text", "Segoe UI", "Inter", sans-serif;
   font-feature-settings: "ss01", "cv11";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   position: relative;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body::before {
@@ -49,11 +48,11 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(201, 167, 133, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(201, 167, 133, 0.05) 1px, transparent 1px);
-  background-size: 64px 64px;
-  mask-image: radial-gradient(circle at center, black 32%, transparent 90%);
-  opacity: 0.06;
+    linear-gradient(rgba(120, 113, 108, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 113, 108, 0.03) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(circle at center, black 28%, transparent 88%);
+  opacity: 0.45;
 }
 
 body::after {
@@ -62,7 +61,7 @@ body::after {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 50% -12%, rgba(255, 238, 220, 0.08), transparent 34%);
+    radial-gradient(circle at 50% -12%, rgba(255, 255, 255, 0.55), transparent 34%);
 }
 
 @layer utilities {
@@ -82,47 +81,47 @@ body::after {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.55);
+  background: rgba(120, 113, 108, 0.28);
   border-radius: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.72);
+  background: rgba(120, 113, 108, 0.42);
 }
 
 /* === Glassmorphism === */
 .glass {
   background:
-    linear-gradient(180deg, rgba(24, 15, 13, 0.94), rgba(14, 10, 9, 0.88)),
-    radial-gradient(circle at top left, rgba(180, 87, 52, 0.08), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(217, 160, 102, 0.06), transparent 28%);
-  backdrop-filter: blur(24px) saturate(135%);
-  -webkit-backdrop-filter: blur(24px) saturate(135%);
-  border: 1px solid rgba(201, 167, 133, 0.14);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(250, 248, 244, 0.88)),
+    radial-gradient(circle at top left, rgba(31, 111, 235, 0.035), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(120, 113, 108, 0.03), transparent 28%);
+  backdrop-filter: blur(24px) saturate(120%);
+  -webkit-backdrop-filter: blur(24px) saturate(120%);
+  border: 1px solid rgba(28, 25, 23, 0.08);
   box-shadow:
-    0 24px 70px rgba(2, 6, 23, 0.32),
-    inset 0 1px 0 rgba(255, 244, 232, 0.08);
+    0 24px 70px rgba(28, 25, 23, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .glass-hover:hover {
   background:
-    linear-gradient(180deg, rgba(31, 20, 17, 0.95), rgba(19, 13, 11, 0.9)),
-    radial-gradient(circle at top left, rgba(180, 87, 52, 0.09), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(217, 160, 102, 0.08), transparent 28%);
-  border-color: rgba(201, 167, 133, 0.24);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(250, 248, 244, 0.95)),
+    radial-gradient(circle at top left, rgba(31, 111, 235, 0.05), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(120, 113, 108, 0.04), transparent 28%);
+  border-color: rgba(28, 25, 23, 0.14);
 }
 
 /* === Glow Effects === */
 .glow-accent {
   box-shadow:
-    0 0 28px rgba(180, 87, 52, 0.16),
-    0 0 78px rgba(217, 160, 102, 0.06);
+    0 0 28px rgba(31, 111, 235, 0.1),
+    0 0 78px rgba(31, 111, 235, 0.04);
 }
 
 .glow-accent-strong {
   box-shadow:
-    0 0 34px rgba(180, 87, 52, 0.22),
-    0 0 90px rgba(217, 160, 102, 0.08);
+    0 0 34px rgba(31, 111, 235, 0.14),
+    0 0 90px rgba(31, 111, 235, 0.06);
 }
 
 /* === Animations === */

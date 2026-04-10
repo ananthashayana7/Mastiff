@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import json
 import os
+import re
 from datetime import date, datetime, time
 
 SUPPORTED_EXTENSIONS = {'.csv', '.xlsx', '.xls', '.json', '.parquet', '.tsv', '.txt'}
@@ -107,6 +108,52 @@ def read_json_flexible(file_path):
         return pd.read_json(file_path, lines=True)
 
 
+def score_excel_sheet(sheet_name, df):
+    """Prefer analysis-ready statement tabs over notes sheets for workbook uploads."""
+    cleaned = df.dropna(how='all').dropna(axis=1, how='all') if isinstance(df, pd.DataFrame) else pd.DataFrame()
+    base_score = float(len(cleaned) * max(1, len(cleaned.columns)))
+    if cleaned.empty:
+        return base_score
+
+    normalized_sheet_name = str(sheet_name or '').strip().lower()
+    if re.search(r'notes?\b', normalized_sheet_name):
+        base_score -= 5000
+    if re.search(r'p\s*&\s*l|pnl|profit|loss|income statement|statement of profit|statement of loss', normalized_sheet_name):
+        base_score += 7000
+    if re.fullmatch(r'bs|balance sheet', normalized_sheet_name):
+        base_score -= 1500
+
+    preview_parts = [normalized_sheet_name]
+    preview_parts.extend(str(col).strip().lower() for col in cleaned.columns[:18])
+    try:
+        for col in cleaned.columns[:3]:
+            series = cleaned[col]
+            if isinstance(series, pd.DataFrame):
+                series = series.iloc[:, 0]
+            preview_parts.extend(str(value).strip().lower() for value in series.head(30).tolist())
+    except Exception:
+        pass
+
+    preview_text = ' '.join(part for part in preview_parts if part and part != 'nan')
+    finance_hits = len(re.findall(
+        r'revenue from operations|total income|total expenses|profit before tax|profit for the year|\bpat\b|inventory|employee benefits|other income|depreciation',
+        preview_text,
+        flags=re.I,
+    ))
+    required_hits = sum(
+        1 for pattern in [r'total income', r'profit for the year', r'revenue from operations']
+        if re.search(pattern, preview_text, flags=re.I)
+    )
+    month_hits = len(re.findall(r'(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s\'-]*(\d{2,4})?', preview_text, flags=re.I))
+
+    if 'particulars' in preview_text:
+        base_score += 1200
+    base_score += finance_hits * 220
+    base_score += required_hits * 850
+    base_score += min(month_hits, 12) * 60
+    return base_score
+
+
 def analyze_file(file_path):
     ext = os.path.splitext(file_path)[1].lower()
     
@@ -123,7 +170,7 @@ def analyze_file(file_path):
                 temp_df = pd.read_excel(file_path, sheet_name=sheet_name)
                 # Cleaning to get honest count
                 temp_df = temp_df.dropna(how='all').dropna(axis=1, how='all')
-                score = len(temp_df) * len(temp_df.columns)
+                score = score_excel_sheet(sheet_name, temp_df)
                 sheet_scores.append((score, sheet_name, temp_df))
             
             # Sort by score descending and take the winner

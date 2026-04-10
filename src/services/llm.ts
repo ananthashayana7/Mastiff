@@ -1197,12 +1197,18 @@ FINANCIAL DATA DETECTION:
   1. TOP-LEFT: Revenue & Profit KPI cards displayed as go.Indicator with delta from previous period
   2. TOP-RIGHT: Revenue vs Profit trend line chart with dual-axis and dashed forecast extension
   3. MIDDLE-LEFT: Margin analysis (Gross/EBITDA/Net) as grouped bar chart showing trend
-  4. MIDDLE-RIGHT: YoY or MoM growth waterfall chart (green=growth, red=decline, gold=net)
-  5. BOTTOM-LEFT: Expense breakdown by category as treemap or stacked bar
-  6. BOTTOM-RIGHT: Forecast for primary KPI with 80% confidence interval band
+    4. MIDDLE-RIGHT: TRUE PAT bridge waterfall from the prior period to the weakest or current period. Use go.Waterfall and show the exact drivers: inventory, raw material, employee cost, other expenses, other income, tax/residual.
+    5. BOTTOM-LEFT: Explicit scenario comparison chart with at least 3 paths: stress/downside, base case, and recovery/upside. Show them as bars or lines in one chart, not prose only.
+    6. BOTTOM-RIGHT: Forecast for primary KPI with 80% confidence interval band
+    7. Add one supporting diagnostic visual that exposes the hidden risk behind the top-line numbers, such as PAT delta vs inventory movement, margin compression vs revenue stability, or a one-off income dependency view.
   - Use dark theme: paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(15,23,42,0.6)'
   - Color: profits/gains in #00D4AA, losses/expenses in #FF6B6B, forecast in #54A0FF with opacity
-  - Always print: YoY growth %, top margin change, top expense driver, forecast value with confidence range
+    - Always print: YoY growth %, top margin change, top expense driver, forecast value with confidence range
+    - ALWAYS surface one hidden-risk insight in the written findings. It must be something management may miss at first glance: margin compression despite stable revenue, inventory timing distortion, one-off income masking weakness, or cost recognition volatility.
+    - NEVER replace the PAT bridge or scenario comparison with generic grouped bars. Those two visuals are mandatory for financial statement analysis.
+        - Every finance chart MUST have a specific layout.title.text. Avoid generic titles like "Chart", "Analysis", or leaving the title blank.
+        - Every finance subplot MUST label its x and y axes unless the visual is self-evident like a KPI indicator card.
+        - Every multi-trace chart MUST set unique trace names and keep showlegend=True so leadership can identify each driver or scenario instantly.
 
 INLINE / PASTED DATA HANDLING:
 - If the user's message contains tabular data (markdown tables, pipe-delimited rows, or dense numbers),
@@ -1248,6 +1254,8 @@ VISUALIZATION RULES (MANDATORY — CHARTS ARE NON-NEGOTIABLE):
 - Every charted answer MUST still leave behind enough printed evidence for a written management summary. Do not return charts without textual findings.
 - If the user explicitly requests a chart, produce the most suitable one. If not explicitly requested but numerical data is present, still produce a chart automatically.
 - Generate MULTIPLE charts when the data warrants it (e.g., overview + detail, comparison + trend).
+- Every chart MUST have a meaningful title. Every axis-based chart MUST include x-axis and y-axis titles. Every multi-series chart MUST define explicit trace names and a visible legend.
+- Never leave Plotly placeholder labels such as "Click to enter X axis title" or unnamed traces in the final figure.
 - Chart selection guidance:
     - Use pie/donut for part-to-whole with <= 8 categories.
     - Use heatmap for correlation matrices, pivot intensity, or dense cross-tab comparisons.
@@ -1488,12 +1496,8 @@ ${traceback || ''}
                 hasChart: chartCount > 0,
             });
 
-        if (deterministicSignalSummary) {
-            return deterministicSignalSummary;
-        }
-
         const client = this.getClient();
-        if (!client) return fallback;
+        if (!client) return deterministicSignalSummary || fallback;
 
         const dataQualityBlock = dataQualityContext
             ? `\n${dataQualityContext}`
@@ -1515,18 +1519,20 @@ CRITICAL OUTPUT RULES:
 - START IMMEDIATELY. No greeting, no setup sentence, no filler.
 - USE THIS EXACT OUTPUT ORDER:
     1. One line starting with "Executive Signal:".
-    2. Exactly 3 numbered insights using "1)", "2)", "3)".
+    2. Exactly 5 numbered insights using "1)", "2)", "3)", "4)", "5)".
     3. Exactly 3 action lines, each starting with "→ Action:".
     4. One line starting with "Forecast:".
     5. One line starting with "Data Quality:".
 - Each insight must be a finding, not a recommendation label. Never start an insight with "Action:", "Recommendation:", "Impact:", or "Evidence:".
-- The 3 insights must be distinct. Do not restate the Executive Signal in insight 1, and do not repeat the same thesis across insights, actions, and forecast.
+- The 5 insights must be distinct. Do not restate the Executive Signal in insight 1, and do not repeat the same thesis across insights, actions, and forecast.
 - Each insight must carry a specific number, driver, anomaly, or business condition when evidence exists.
+- Make insight 4 or 5 the non-obvious mechanism, structural risk, or hidden lever when the evidence supports one. Avoid generic recap language.
+- For financial analyses, insight 1 should state the core earnings signal, insight 2 should explain the main bridge/scenario driver, insight 3 should quantify the operational or accounting consequence, and insight 4 or 5 should surface the hidden risk management may miss.
 - The 3 actions must be distinct: one immediate move, one structural improvement, one risk-control move.
-- The forecast line must describe what likely happens next. It must not repeat an action item.
+- The forecast line must describe what likely happens next. It must not repeat an action item. Anchor a base case first, and mention the condition that would create upside or downside when the evidence supports it.
 - NO FILLER TEXT: Remove "Let me analyze...", "Based on the data...", "It's worth noting..." — skip preamble entirely.
 - USE BULLET POINTS over paragraphs. Every bullet must be a standalone, actionable insight.
-- TOTAL RESPONSE LENGTH: Aim for 160-240 words maximum. Quality over quantity.
+- TOTAL RESPONSE LENGTH: Aim for 220-360 words maximum. Quality over quantity.
 - ABSOLUTELY NO TECHNICAL ARTIFACTS: do not include Python, SQL, JSON, code snippets, pseudo-code, stack traces, or fenced code blocks.
 - NEVER return markdown code fences like \`\`\`python, \`\`\`plotly, or \`\`\`json.
 - NEVER explain implementation steps like "import pandas", "create dataframe", or "run regression". Only business meaning and decisions.
@@ -1541,6 +1547,7 @@ RULES:
 - If evidence is insufficient, state it in one sentence and suggest what data would help.
 - If execution failed, explain the failure in 1-2 sentences and suggest a concrete fix.
 - If charts were generated, mention their key takeaway in one sentence — don't describe the chart structure.
+- If charts were generated, prioritize the key driver bridge, anomaly, or scenario takeaway over generic "trend is up/down" commentary.
 - If charts were generated, reference outcomes from visuals and explicitly state "See interactive visuals below." once.
 - A written summary is mandatory even when the visuals are strong. Never answer with chart references alone.
 - If execution output lists multiple datasets analyzed, include one short coverage note so the user knows whether the conclusion is cross-file or single-file.
@@ -1592,6 +1599,9 @@ Traceback:
 ${execution.traceback || ''}
 
 Chart count: ${chartCount}
+
+Deterministic execution signal summary:
+${deterministicSignalSummary || 'None available.'}
 `;
 
         try {
@@ -1605,10 +1615,10 @@ Chart count: ${chartCount}
                 },
             });
 
-            return this.normalizeResponseText(response) || fallback;
+            return this.normalizeResponseText(response) || deterministicSignalSummary || fallback;
         } catch (error) {
             console.error('LLM Execution Summary Error:', error);
-            return fallback;
+            return deterministicSignalSummary || fallback;
         }
     }
 
