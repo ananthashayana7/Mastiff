@@ -256,6 +256,21 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <div className="md:hidden rounded-xl border border-white/10 bg-white/[0.04] px-2 py-1.5">
+            <label className="sr-only" htmlFor={`auto-chart-metric-${title || resolvedTitle}`}>Metric</label>
+            <select
+              id={`auto-chart-metric-${title || resolvedTitle}`}
+              value={selectedMetric}
+              onChange={(event) => startTransition(() => setActiveMetric(event.target.value))}
+              className="bg-transparent text-[9px] font-bold uppercase tracking-[0.14em] text-slate-200 outline-none"
+            >
+              {metricKeys.map((metric) => (
+                <option key={metric} value={metric} className="bg-slate-900 text-slate-100">
+                  {metric}
+                </option>
+              ))}
+            </select>
+          </div>
           {/* Chart type switcher */}
           <div className="flex gap-0.5 rounded-xl border border-white/10 bg-white/[0.04] p-1">
             {CHART_OPTIONS.filter((option) => analysis.availableChartTypes.includes(option.type)).map(opt => (

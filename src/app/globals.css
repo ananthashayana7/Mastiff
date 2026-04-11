@@ -64,6 +64,22 @@ body::after {
     radial-gradient(circle at 50% -12%, rgba(255, 255, 255, 0.55), transparent 34%);
 }
 
+.adaptive-shell {
+  --app-shell-zoom: 1;
+  height: 100%;
+  width: 100%;
+  transform-origin: top left;
+}
+
+@supports (zoom: 1) {
+  .adaptive-shell {
+    zoom: var(--app-shell-zoom);
+    width: calc(100% / var(--app-shell-zoom));
+    height: calc(100% / var(--app-shell-zoom));
+    transition: width 180ms ease, height 180ms ease, zoom 180ms ease;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

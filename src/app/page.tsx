@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus, PaperPlaneTilt, FileArrowUp, Table, X, Database,
   Terminal, Paperclip, ArrowClockwise, SpeakerHigh, Cpu, Sparkle,
@@ -15,6 +15,7 @@ import { BrandLockup } from '../components/BrandMark';
 import { buildUploadAutoPrompt } from '../lib/analysisPrompts';
 import { buildSuggestedQuestions, buildSuggestionContext, detectOperationalDomain } from '../lib/dataExplorer';
 import { csrfFetch } from '../hooks/useCSRFToken';
+import { computeAdaptiveViewportProfile } from '../lib/adaptiveViewport';
 
 type ConnectorType = 'sheets' | 'sharepoint' | 'snowflake' | 'bigquery' | 'postgres' | 'api';
 
@@ -92,11 +93,23 @@ const App: React.FC = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isSearchEnabled, setIsSearchEnabled] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [adaptiveViewport, setAdaptiveViewport] = useState(() => (
+    typeof window !== 'undefined'
+      ? computeAdaptiveViewportProfile({
+        width: window.visualViewport?.width || window.innerWidth,
+        height: window.visualViewport?.height || window.innerHeight,
+        devicePixelRatio: window.devicePixelRatio || 1,
+      })
+      : { zoom: 1, density: 'balanced' as const }
+  ));
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sessionCreationPromiseRef = useRef<Promise<string | null> | null>(null);
   const chatAbortControllerRef = useRef<AbortController | null>(null);
+  const adaptiveShellStyle = useMemo(() => (
+    { '--app-shell-zoom': adaptiveViewport.zoom } as React.CSSProperties
+  ), [adaptiveViewport.zoom]);
 
   const buildAuthHeaders = useCallback((userId: string, includeContentType = false): Record<string, string> => {
     return {
@@ -1176,6 +1189,58 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyboard);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let animationFrame: number | null = null;
+    const visualViewport = window.visualViewport;
+
+    const applyViewportProfile = () => {
+      const nextProfile = computeAdaptiveViewportProfile({
+        width: visualViewport?.width || window.innerWidth,
+        height: visualViewport?.height || window.innerHeight,
+        devicePixelRatio: window.devicePixelRatio || 1,
+      });
+
+      setAdaptiveViewport((current) => (
+        current.zoom === nextProfile.zoom && current.density === nextProfile.density
+          ? current
+          : nextProfile
+      ));
+    };
+
+    const scheduleViewportProfile = () => {
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+      animationFrame = window.requestAnimationFrame(applyViewportProfile);
+    };
+
+    scheduleViewportProfile();
+
+    const intervalId = window.setInterval(() => {
+      if (!document.hidden) {
+        applyViewportProfile();
+      }
+    }, 1200);
+
+    window.addEventListener('resize', scheduleViewportProfile);
+    window.addEventListener('orientationchange', scheduleViewportProfile);
+    visualViewport?.addEventListener('resize', scheduleViewportProfile);
+    document.addEventListener('visibilitychange', applyViewportProfile);
+
+    return () => {
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+      window.clearInterval(intervalId);
+      window.removeEventListener('resize', scheduleViewportProfile);
+      window.removeEventListener('orientationchange', scheduleViewportProfile);
+      visualViewport?.removeEventListener('resize', scheduleViewportProfile);
+      document.removeEventListener('visibilitychange', applyViewportProfile);
+    };
+  }, []);
+
   // Show loading while checking auth
   if (isAuthChecking || !currentUser) {
     return (
@@ -1209,104 +1274,111 @@ const App: React.FC = () => {
   const currentSession = sessions.find(s => s.id === sessionId) || null;
 
   return (
-    <div
-      className={`relative flex h-[100dvh] min-h-[100dvh] overflow-hidden text-stone-900 drop-zone ${isDragging ? 'drop-active' : ''}`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-[-5%] top-[-2%] h-80 w-80 rounded-full bg-sky-200/50 blur-[140px]" />
-        <div className="absolute right-[-4%] top-[8%] h-80 w-80 rounded-full bg-stone-200/60 blur-[140px]" />
-        <div className="absolute bottom-[-8%] left-[38%] h-96 w-96 rounded-full bg-amber-100/60 blur-[160px]" />
+    <div className="h-[100dvh] min-h-[100dvh] w-full overflow-hidden">
+      <div
+        className="adaptive-shell h-full w-full"
+        data-viewport-density={adaptiveViewport.density}
+        style={adaptiveShellStyle}
+      >
+        <div
+          className={`relative flex h-[100dvh] min-h-[100dvh] overflow-hidden text-stone-900 drop-zone ${isDragging ? 'drop-active' : ''}`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute left-[-5%] top-[-2%] h-80 w-80 rounded-full bg-sky-200/50 blur-[140px]" />
+            <div className="absolute right-[-4%] top-[8%] h-80 w-80 rounded-full bg-stone-200/60 blur-[140px]" />
+            <div className="absolute bottom-[-8%] left-[38%] h-96 w-96 rounded-full bg-amber-100/60 blur-[160px]" />
+          </div>
+
+          <div className="relative m-3 flex flex-1 overflow-hidden rounded-[34px] border border-stone-200 bg-white/72 shadow-[0_20px_80px_rgba(28,25,23,0.08)] backdrop-blur-2xl">
+          <Sidebar
+            files={files}
+            pendingFiles={pendingFiles}
+            activeFileIds={activeFileIds}
+            connectors={connectors}
+            linkedConnectorIds={linkedConnectorIds}
+            isLoadingConnectors={isLoadingConnectors}
+            onRefreshConnectors={() => currentUser && loadConnectors(currentUser.id)}
+            onCreateConnector={createConnector}
+            onUpdateConnector={updateConnector}
+            onDeleteConnector={deleteConnectorById}
+            onTestConnector={testConnector}
+            onLoadConnectorSources={loadConnectorSources}
+            onImportConnectorSources={importConnectorSources}
+            onToggleLinkedConnector={toggleLinkedConnector}
+            isSidebarOpen={isSidebarOpen}
+            currentUser={currentUser}
+            onClose={() => setIsSidebarOpen(false)}
+            onClearMessages={createNewSession}
+            onFileUpload={handleFileUpload}
+            onToggleFile={(id) => setActiveFileIds(prev => prev.includes(id) ? prev.filter(fid => fid !== id) : [...prev, id])}
+            onInspectFile={(id) => {
+              setInspectorFocusTerm('');
+              setInspectingFileId(id);
+            }}
+            onDeleteFile={deleteFile}
+            onDeletePendingFile={rejectPendingFile}
+            fileInputRef={fileInputRef}
+            sessions={sessions}
+            currentSessionId={sessionId}
+            onSwitchSession={onSwitchSession}
+            onDeleteSession={deleteSession}
+            isUploading={isUploading}
+            uploadingFileNames={uploadingFileNames}
+            onLogout={handleLogout}
+          />
+
+          <ChatWindow
+            currentSession={currentSession}
+            messages={messages}
+            isAnalyzing={isAnalyzing}
+            isSearchEnabled={isSearchEnabled}
+            analysisMode={analysisMode}
+            activePersona={activePersona}
+            personas={PERSONAS}
+            inputText={inputText}
+            suggestions={suggestions}
+            isLoadingSuggestions={isLoadingSuggestions}
+            pendingFiles={pendingFiles}
+            files={[...pendingFiles, ...files]}
+            activeFiles={files.filter((file) => activeFileIds.includes(file.id))}
+            showCodeId={showCodeId}
+            showLogsId={showLogsId}
+            showPersonaMenu={showPersonaMenu}
+            copiedId={copiedId}
+            scrollRef={scrollRef}
+            fileInputRef={fileInputRef}
+            onToggleSidebar={() => setIsSidebarOpen(true)}
+            onSetAnalysisMode={handleSetAnalysisMode}
+            onTogglePersonaMenu={() => setShowPersonaMenu(!showPersonaMenu)}
+            onSelectPersona={(p) => { setActivePersona(p); setShowPersonaMenu(false); }}
+            onToggleSearch={() => setIsSearchEnabled(!isSearchEnabled)}
+            onInputChange={(text) => setInputText(text)}
+            onSend={handleSend}
+            onStopAnalysis={stopAnalysis}
+            onInspectInsight={inspectInsight}
+            onToggleCode={setShowCodeId}
+            onToggleLogs={setShowLogsId}
+            onCopy={copyToClipboard}
+          />
+          </div>
+
+          <DataInspector
+            inspectingFileId={inspectingFileId}
+            focusTerm={inspectorFocusTerm}
+            files={[...pendingFiles, ...files].filter((file) => file.id !== 'sample-sales')}
+            pendingFileIds={pendingFiles.map((file) => file.id)}
+            onConfirmPendingFile={confirmPendingFile}
+            onRejectPendingFile={rejectPendingFile}
+            onClose={() => {
+              setInspectingFileId(null);
+              setInspectorFocusTerm('');
+            }}
+          />
+        </div>
       </div>
-
-      <div className="relative m-3 flex flex-1 overflow-hidden rounded-[34px] border border-stone-200 bg-white/72 shadow-[0_20px_80px_rgba(28,25,23,0.08)] backdrop-blur-2xl">
-      <Sidebar
-        files={files}
-        pendingFiles={pendingFiles}
-        activeFileIds={activeFileIds}
-        connectors={connectors}
-        linkedConnectorIds={linkedConnectorIds}
-        isLoadingConnectors={isLoadingConnectors}
-        onRefreshConnectors={() => currentUser && loadConnectors(currentUser.id)}
-        onCreateConnector={createConnector}
-        onUpdateConnector={updateConnector}
-        onDeleteConnector={deleteConnectorById}
-        onTestConnector={testConnector}
-        onLoadConnectorSources={loadConnectorSources}
-        onImportConnectorSources={importConnectorSources}
-        onToggleLinkedConnector={toggleLinkedConnector}
-        isSidebarOpen={isSidebarOpen}
-        currentUser={currentUser}
-        onClose={() => setIsSidebarOpen(false)}
-        onClearMessages={createNewSession}
-        onFileUpload={handleFileUpload}
-        onToggleFile={(id) => setActiveFileIds(prev => prev.includes(id) ? prev.filter(fid => fid !== id) : [...prev, id])}
-        onInspectFile={(id) => {
-          setInspectorFocusTerm('');
-          setInspectingFileId(id);
-        }}
-        onDeleteFile={deleteFile}
-        onDeletePendingFile={rejectPendingFile}
-        fileInputRef={fileInputRef}
-        sessions={sessions}
-        currentSessionId={sessionId}
-        onSwitchSession={onSwitchSession}
-        onDeleteSession={deleteSession}
-        isUploading={isUploading}
-        uploadingFileNames={uploadingFileNames}
-        onLogout={handleLogout}
-      />
-
-      <ChatWindow
-        currentSession={currentSession}
-        messages={messages}
-        isAnalyzing={isAnalyzing}
-        isSearchEnabled={isSearchEnabled}
-        analysisMode={analysisMode}
-        activePersona={activePersona}
-        personas={PERSONAS}
-        inputText={inputText}
-        suggestions={suggestions}
-        isLoadingSuggestions={isLoadingSuggestions}
-        pendingFiles={pendingFiles}
-        files={[...pendingFiles, ...files]}
-        activeFiles={files.filter((file) => activeFileIds.includes(file.id))}
-        showCodeId={showCodeId}
-        showLogsId={showLogsId}
-        showPersonaMenu={showPersonaMenu}
-        copiedId={copiedId}
-        scrollRef={scrollRef}
-        fileInputRef={fileInputRef}
-        onToggleSidebar={() => setIsSidebarOpen(true)}
-        onSetAnalysisMode={handleSetAnalysisMode}
-        onTogglePersonaMenu={() => setShowPersonaMenu(!showPersonaMenu)}
-        onSelectPersona={(p) => { setActivePersona(p); setShowPersonaMenu(false); }}
-        onToggleSearch={() => setIsSearchEnabled(!isSearchEnabled)}
-        onInputChange={(text) => setInputText(text)}
-        onSend={handleSend}
-        onStopAnalysis={stopAnalysis}
-        onInspectInsight={inspectInsight}
-        onToggleCode={setShowCodeId}
-        onToggleLogs={setShowLogsId}
-        onCopy={copyToClipboard}
-      />
-      </div>
-
-      <DataInspector
-        inspectingFileId={inspectingFileId}
-        focusTerm={inspectorFocusTerm}
-        files={[...pendingFiles, ...files].filter((file) => file.id !== 'sample-sales')}
-        pendingFileIds={pendingFiles.map((file) => file.id)}
-        onConfirmPendingFile={confirmPendingFile}
-        onRejectPendingFile={rejectPendingFile}
-        onClose={() => {
-          setInspectingFileId(null);
-          setInspectorFocusTerm('');
-        }}
-      />
-
     </div>
   );
 };

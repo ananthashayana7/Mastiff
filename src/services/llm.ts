@@ -28,7 +28,7 @@ CORE MANDATE: Be CONCISE. Management reads bullet points, not essays. Every resp
 
 OUTPUT STYLE (CRITICAL):
 - BREVITY IS KING: Use bullet points, not paragraphs. Max 2-3 sentences per insight.
-- ACTION-FIRST: Lead every finding with the recommended action, then the evidence.
+ - INSIGHT-FIRST IN REPORTING: Surface the signal and evidence first; recommendations belong after the insights in the final narrative.
 - NO FILLER: Remove "Let's look at...", "Based on the data...", "It's important to note..." — get straight to the point.
 - TABLES > TEXT: When comparing metrics, use compact tables, not prose.
 - CHARTS ARE MANDATORY: Every numerical analysis MUST produce at least one interactive Plotly chart. No exceptions.
@@ -1145,6 +1145,8 @@ INSTRUCTIONS:
 - If the wording is short or ambiguous but active data exists, make the most likely business interpretation and continue instead of refusing.
 - If the query mixes theory and analysis, do the analysis in Python and print a short assumption note to stdout.
 - Convert data types safely before analysis. Use pd.to_numeric(..., errors='coerce') or safe_to_numeric(...) instead of .astype(float).
+- Before using ranking helpers such as nlargest, nsmallest, idxmax, idxmin, or percentile logic, coerce the target Series with safe_to_numeric(..., errors='coerce'), drop nulls, and fall back safely if no numeric values remain.
+- Never call Series.nlargest(...) or Series.nsmallest(...) on raw object/string columns. If a grouped metric may still be object-typed after aggregation, explicitly re-coerce that metric column before ranking or sorting.
 - Handle missing values silently (do not dedicate significant output to nulls — focus on the data that exists).
 - Do all calculations in Python.
 - For every numerical question, write deterministic Python that computes the answer directly from data (never prose-only math).
@@ -1420,6 +1422,7 @@ RULES:
 - For conversion errors (e.g., "could not convert string to float"), replace direct casts with safe coercion:
     pd.to_numeric(..., errors='coerce').fillna(0) and sanitize '', '-', 'N/A', whitespace before conversion.
 - Never leave '.astype(float)' on uncleaned string columns.
+- For ranking errors (e.g., "Cannot use method 'nlargest' with dtype object"), coerce the ranked Series or aggregated metric column to numeric with errors='coerce', drop invalid rows, and only then apply nlargest/nsmallest/idxmax/idxmin.
 - For Plotly subplot errors (e.g., "Trace type 'pie' is not compatible with subplot type 'xy'"),
     repair make_subplots specs so pie traces use type='domain' and table traces use type='table'.
 - For pandas column-shape errors (e.g., "X columns passed, passed data had Y columns"),
@@ -1526,10 +1529,12 @@ CRITICAL OUTPUT RULES:
 - Each insight must be a finding, not a recommendation label. Never start an insight with "Action:", "Recommendation:", "Impact:", or "Evidence:".
 - The 5 insights must be distinct. Do not restate the Executive Signal in insight 1, and do not repeat the same thesis across insights, actions, and forecast.
 - Each insight must carry a specific number, driver, anomaly, or business condition when evidence exists.
+- Name the primary metric or dataset inside the forecast line when the evidence makes it clear, so the UI can attach focused follow-up forecasting actions.
 - Make insight 4 or 5 the non-obvious mechanism, structural risk, or hidden lever when the evidence supports one. Avoid generic recap language.
 - For financial analyses, insight 1 should state the core earnings signal, insight 2 should explain the main bridge/scenario driver, insight 3 should quantify the operational or accounting consequence, and insight 4 or 5 should surface the hidden risk management may miss.
 - The 3 actions must be distinct: one immediate move, one structural improvement, one risk-control move.
 - The forecast line must describe what likely happens next. It must not repeat an action item. Anchor a base case first, and mention the condition that would create upside or downside when the evidence supports it.
+- If multiple datasets are active, say which dataset or comparison set the forecast applies to.
 - NO FILLER TEXT: Remove "Let me analyze...", "Based on the data...", "It's worth noting..." — skip preamble entirely.
 - USE BULLET POINTS over paragraphs. Every bullet must be a standalone, actionable insight.
 - TOTAL RESPONSE LENGTH: Aim for 220-360 words maximum. Quality over quantity.
@@ -1549,6 +1554,7 @@ RULES:
 - If charts were generated, mention their key takeaway in one sentence — don't describe the chart structure.
 - If charts were generated, prioritize the key driver bridge, anomaly, or scenario takeaway over generic "trend is up/down" commentary.
 - If charts were generated, reference outcomes from visuals and explicitly state "See interactive visuals below." once.
+- The UI will present insights and actions before charts, so state the business takeaway before telling the reader to inspect the visuals.
 - A written summary is mandatory even when the visuals are strong. Never answer with chart references alone.
 - If execution output lists multiple datasets analyzed, include one short coverage note so the user knows whether the conclusion is cross-file or single-file.
 - Use markdown only for **bold** metrics when helpful. Do not use headings beyond the required line labels above.

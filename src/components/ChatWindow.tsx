@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     List, Globe, Cpu, MagnifyingGlass, Paperclip, PaperPlaneTilt,
     Lightning, SpinnerGap, FileArrowUp, Terminal, SpeakerHigh, Copy, Check, ArrowSquareOut, Sparkle, DownloadSimple,
@@ -12,10 +12,11 @@ import { ChartRenderer } from './ChartRenderer';
 import { PlotlyRenderer } from './PlotlyRenderer';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { AutoChartSuggestion } from './AutoChartSuggestion';
-import { exportToPDF } from '../services/ReportExporter';
+import { exportExecutiveBriefToPDF } from '../services/ExecutiveBriefExporter';
 import { BrandLockup, BrandMark } from './BrandMark';
 import { hasAutoChartableData } from '../lib/autoChart';
 import { buildAnalysisBodyContent } from '../lib/chatResponseEnvelope';
+import { buildFocusedForecastPrompt, buildForecastTargetGroups } from '../lib/forecastTargets';
 
 interface ChatWindowProps {
     currentSession: Session | null;
@@ -61,6 +62,131 @@ interface ForecastScenarioPanelProps {
     options: ForecastOption[];
     onInspect: (option: ForecastOption) => void;
 }
+
+interface ForecastFocusPanelProps {
+    files: DataFile[];
+    onRunForecast: (prompt: string) => void;
+}
+
+const FORECAST_HORIZONS = [3, 6, 12];
+
+const ForecastFocusPanel: React.FC<ForecastFocusPanelProps> = ({ files, onRunForecast }) => {
+    const groups = useMemo(() => buildForecastTargetGroups(files), [files]);
+    const [selectedFileId, setSelectedFileId] = useState<string>(groups[0]?.fileId || '');
+    const [selectedMetric, setSelectedMetric] = useState<string>(groups[0]?.defaultMetric || '');
+    const [selectedHorizon, setSelectedHorizon] = useState<number>(groups[0]?.defaultHorizon || 6);
+
+    useEffect(() => {
+        if (groups.length === 0) {
+            setSelectedFileId('');
+            setSelectedMetric('');
+            setSelectedHorizon(6);
+            return;
+        }
+
+        setSelectedFileId((current) => groups.some((group) => group.fileId === current) ? current : groups[0].fileId);
+        setSelectedMetric((current) => {
+            const selectedGroup = groups.find((group) => group.fileId === selectedFileId) || groups[0];
+            return selectedGroup.metrics.includes(current) ? current : selectedGroup.defaultMetric;
+        });
+        setSelectedHorizon((current) => FORECAST_HORIZONS.includes(current) ? current : (groups[0]?.defaultHorizon || 6));
+    }, [groups, selectedFileId]);
+
+    const selectedGroup = groups.find((group) => group.fileId === selectedFileId) || groups[0];
+
+    useEffect(() => {
+        if (!selectedGroup) return;
+        setSelectedMetric((current) => selectedGroup.metrics.includes(current) ? current : selectedGroup.defaultMetric);
+    }, [selectedGroup]);
+
+    if (!selectedGroup) {
+        return null;
+    }
+
+    const selectedDateField = selectedGroup.dateFields[0];
+
+    return (
+        <section className="space-y-3 rounded-[28px] border border-stone-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,244,238,0.92))] p-4 shadow-[0_10px_28px_rgba(28,25,23,0.05)]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-stone-500">Forecast Focus</p>
+                    <p className="mt-1 text-xs leading-relaxed text-stone-600">Choose the dataset and metric to forecast instead of relying on one default outlook.</p>
+                </div>
+                <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-sky-800">
+                    {selectedDateField ? `Timeline: ${selectedDateField}` : 'Sequential forecast'}
+                </span>
+            </div>
+
+            {groups.length > 1 && (
+                <div className="flex flex-wrap gap-2">
+                    {groups.map((group) => (
+                        <button
+                            key={group.fileId}
+                            onClick={() => setSelectedFileId(group.fileId)}
+                            className={`rounded-2xl border px-3 py-2 text-[11px] font-extrabold uppercase tracking-[0.14em] transition-all ${selectedGroup.fileId === group.fileId
+                                ? 'border-stone-300 bg-white text-stone-900 shadow-sm'
+                                : 'border-stone-200 bg-stone-50 text-stone-600 hover:border-stone-300 hover:bg-white hover:text-stone-900'
+                                }`}
+                        >
+                            {group.fileName}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="rounded-2xl border border-stone-200 bg-white p-3">
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-stone-500">Metric</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        {selectedGroup.metrics.map((metric) => (
+                            <button
+                                key={`${selectedGroup.fileId}-${metric}`}
+                                onClick={() => setSelectedMetric(metric)}
+                                className={`rounded-2xl border px-3 py-2 text-[11px] font-bold transition-all ${selectedMetric === metric
+                                    ? 'border-sky-200 bg-sky-50 text-sky-800'
+                                    : 'border-stone-200 bg-stone-50 text-stone-600 hover:border-stone-300 hover:bg-white hover:text-stone-900'
+                                    }`}
+                            >
+                                {metric}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="rounded-2xl border border-stone-200 bg-white p-3 lg:min-w-[11rem]">
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-stone-500">Horizon</p>
+                    <div className="mt-3 flex gap-2">
+                        {FORECAST_HORIZONS.map((horizon) => (
+                            <button
+                                key={horizon}
+                                onClick={() => setSelectedHorizon(horizon)}
+                                className={`flex-1 rounded-2xl border px-3 py-2 text-[11px] font-bold transition-all ${selectedHorizon === horizon
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                    : 'border-stone-200 bg-stone-50 text-stone-600 hover:border-stone-300 hover:bg-white hover:text-stone-900'
+                                    }`}
+                            >
+                                {horizon}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-3">
+                <p className="text-sm leading-relaxed text-stone-600">
+                    Forecasting <span className="font-semibold text-stone-900">{selectedMetric}</span> for <span className="font-semibold text-stone-900">{selectedGroup.fileName}</span>{selectedDateField ? ` using ${selectedDateField} as the likely timeline.` : ' using the dataset order as the timeline if no explicit date field is reliable.'}
+                </p>
+                <button
+                    onClick={() => onRunForecast(buildFocusedForecastPrompt(selectedGroup, selectedMetric, selectedHorizon))}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 text-[11px] font-extrabold uppercase tracking-[0.16em] text-stone-800 transition-all hover:bg-stone-100"
+                >
+                    <TrendUp size={12} weight="bold" />
+                    Run targeted forecast
+                </button>
+            </div>
+        </section>
+    );
+};
 
 const ForecastScenarioPanel: React.FC<ForecastScenarioPanelProps> = ({ forecast, options, onInspect }) => {
     const resolvedOptions = options.length > 0
@@ -316,7 +442,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             if (isExporting) return;
                             setIsExporting(true);
                             try {
-                                await exportToPDF({
+                                await exportExecutiveBriefToPDF({
                                     sessionTitle: currentSession?.title || 'Analysis',
                                     messages,
                                     activeFiles,
@@ -493,64 +619,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     </div>
 
                                     <div className="space-y-5 px-5 py-5 sm:px-6">
-                                        {showChartsSection && (
-                                            <section id={`export-chart-${m.id}`} className="space-y-3">
-                                                <div className="flex flex-wrap items-center justify-between gap-3">
-                                                    <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-stone-500">Charts And Trends</p>
-                                                    {chartCount > 0 && (
-                                                        <span className="rounded-full border border-stone-200 bg-stone-100 px-3 py-1 text-[10px] font-bold text-stone-700">
-                                                            {chartCount} chart{chartCount === 1 ? '' : 's'}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {hasVisualOutput ? (
-                                                    <div className="space-y-4">
-                                                        {m.result?.plotly_charts?.map((pChart, idx) => (
-                                                            <div key={`${m.id}-plotly-${idx}`} className="w-full overflow-visible rounded-2xl border border-stone-200 bg-stone-50/80 p-3 sm:p-4">
-                                                                <PlotlyRenderer data={pChart} />
-                                                            </div>
-                                                        ))}
-                                                        {m.result?.charts?.map((chart, idx) => (
-                                                            <div
-                                                                key={`${m.id}-chart-${idx}`}
-                                                                className="w-full overflow-hidden rounded-2xl border border-stone-200 bg-stone-50/80 p-3 sm:p-4"
-                                                            >
-                                                                <img src={`data:image/png;base64,${chart}`} alt={`Analysis Chart ${idx + 1}`} className="h-auto w-full rounded-xl" />
-                                                            </div>
-                                                        ))}
-                                                        {plotlyChartCount === 0 && imageChartCount === 0 && hasVisualizationCard && (
-                                                            <div className="w-full overflow-hidden rounded-2xl border border-stone-200 bg-stone-50/80 p-3 sm:p-4">
-                                                                {typeof m.visualization === 'string' ? (
-                                                                    <img src={m.visualization} alt="Visual Analysis" className="h-auto w-full rounded-xl" />
-                                                                ) : m.visualization ? (
-                                                                    <ChartRenderer viz={m.visualization} onDrillDown={onSend} />
-                                                                ) : null}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ) : hasAutoChartData ? (
-                                                    <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-3 sm:p-4">
-                                                        <AutoChartSuggestion data={autoChartRows} title="Auto-Rendered Chart" />
-                                                    </div>
-                                                ) : (
-                                                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                                                        <p className="text-sm leading-relaxed text-stone-700">
-                                                            {isEmptyDataNotice
-                                                                ? 'This run did not leave behind chartable rows after processing, so the visual recovery pass could not auto-render a chart.'
-                                                                : 'This answer returned numeric findings but no renderable chart payload. Run the visual recovery pass to force a chart artifact.'}
-                                                        </p>
-                                                        <button
-                                                            onClick={() => onSend(visualRecoveryPrompt)}
-                                                            className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-stone-900 transition-all hover:bg-stone-50"
-                                                        >
-                                                            <ChartBar size={13} />
-                                                            Run visual recovery
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </section>
-                                        )}
-
                                         {executiveHeadline && (
                                             <section className="space-y-2">
                                                 <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-stone-500">Executive Signal</p>
@@ -581,6 +649,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                             </section>
                                         )}
 
+                                        {Boolean(m.result) && activeFiles.length > 0 && (
+                                            <ForecastFocusPanel
+                                                files={activeFiles}
+                                                onRunForecast={onSend}
+                                            />
+                                        )}
+
                                         {executiveForecast && (
                                             <ForecastScenarioPanel
                                                 forecast={executiveForecast}
@@ -603,6 +678,67 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                         </button>
                                                     ))}
                                                 </div>
+                                            </section>
+                                        )}
+
+                                        {showChartsSection && (
+                                            <section id={`export-chart-${m.id}`} className="space-y-4 rounded-[28px] border border-stone-200 bg-[linear-gradient(180deg,rgba(248,246,241,0.94),rgba(255,255,255,0.98))] p-4 shadow-[0_10px_28px_rgba(28,25,23,0.05)]">
+                                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                                    <div>
+                                                        <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-stone-500">Charts And Trends</p>
+                                                        <p className="mt-1 text-xs leading-relaxed text-stone-600">Inspect the visuals after the narrative to validate the signal, scenario shape, and driver movement.</p>
+                                                    </div>
+                                                    {chartCount > 0 && (
+                                                        <span className="rounded-full border border-stone-200 bg-white px-3 py-1 text-[10px] font-bold text-stone-700">
+                                                            {chartCount} chart{chartCount === 1 ? '' : 's'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {hasVisualOutput ? (
+                                                    <div className="space-y-4">
+                                                        {m.result?.plotly_charts?.map((pChart, idx) => (
+                                                            <div key={`${m.id}-plotly-${idx}`} className="w-full overflow-visible rounded-2xl border border-stone-200 bg-white p-3 sm:p-4">
+                                                                <PlotlyRenderer data={pChart} />
+                                                            </div>
+                                                        ))}
+                                                        {m.result?.charts?.map((chart, idx) => (
+                                                            <div
+                                                                key={`${m.id}-chart-${idx}`}
+                                                                className="w-full overflow-hidden rounded-2xl border border-stone-200 bg-white p-3 sm:p-4"
+                                                            >
+                                                                <img src={`data:image/png;base64,${chart}`} alt={`Analysis Chart ${idx + 1}`} className="h-auto w-full rounded-xl" />
+                                                            </div>
+                                                        ))}
+                                                        {plotlyChartCount === 0 && imageChartCount === 0 && hasVisualizationCard && (
+                                                            <div className="w-full overflow-hidden rounded-2xl border border-stone-200 bg-white p-3 sm:p-4">
+                                                                {typeof m.visualization === 'string' ? (
+                                                                    <img src={m.visualization} alt="Visual Analysis" className="h-auto w-full rounded-xl" />
+                                                                ) : m.visualization ? (
+                                                                    <ChartRenderer viz={m.visualization} onDrillDown={onSend} />
+                                                                ) : null}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : hasAutoChartData ? (
+                                                    <div className="rounded-2xl border border-stone-200 bg-white p-3 sm:p-4">
+                                                        <AutoChartSuggestion data={autoChartRows} title="Auto-Rendered Chart" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                                                        <p className="text-sm leading-relaxed text-stone-700">
+                                                            {isEmptyDataNotice
+                                                                ? 'This run did not leave behind chartable rows after processing, so the visual recovery pass could not auto-render a chart.'
+                                                                : 'This answer returned numeric findings but no renderable chart payload. Run the visual recovery pass to force a chart artifact.'}
+                                                        </p>
+                                                        <button
+                                                            onClick={() => onSend(visualRecoveryPrompt)}
+                                                            className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-stone-900 transition-all hover:bg-stone-50"
+                                                        >
+                                                            <ChartBar size={13} />
+                                                            Run visual recovery
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </section>
                                         )}
 
@@ -715,7 +851,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                 <button onClick={() => onSend(buildForecastPrompt(m.content))}
                                                     className="flex items-center gap-2 text-[11px] font-bold text-sky-700 hover:text-stone-900 uppercase tracking-[0.14em] transition-colors">
                                                     <TrendUp size={11} weight="bold" />
-                                                    Forecast
+                                                    Forecast All
                                                 </button>
                                             )}
                                             {hasLogs && (
