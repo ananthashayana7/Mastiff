@@ -1167,6 +1167,7 @@ FORECASTING (MANDATORY):
   1. ExponentialSmoothing (Holt-Winters) via statsmodels — best for seasonal/trended data (N >= 12).
   2. Linear regression via numpy polyfit or sklearn — good default for non-seasonal trends.
   3. Moving averages (rolling mean) — fallback for very short series (N < 8).
+- If you use sklearn regression or classification models, keep feature containers consistent between fit and predict. Fit and predict with the same DataFrame column names, or convert both sides to numpy arrays. Never fit on a DataFrame and then predict with an unnamed list or array like [[next_x]].
 - ALWAYS show ±1σ confidence bands as shaded regions on forecast charts (use fill='toself' with rgba opacity).
 - Show forecast visually on charts with a distinct dashed line and different color from observed data.
 - State the forecast period, method used, and assumptions clearly in print output.

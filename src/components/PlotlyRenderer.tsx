@@ -151,6 +151,71 @@ function shouldShowLegend(trace: any): boolean {
     return trace?.showlegend !== false;
 }
 
+function getPlotlyTraces(payload: any): any[] {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
+}
+
+function getPlotlyLayout(payload: any): any {
+    return Array.isArray(payload) ? {} : (payload?.layout || {});
+}
+
+function inferPlotHeight(payload: any): number {
+    const layout = getPlotlyLayout(payload);
+    const traces = getPlotlyTraces(payload);
+    const layoutKeys = Object.keys(layout || {});
+    const explicitHeight = Number(layout?.height || 0);
+    const gridRows = Number(layout?.grid?.rows || 0);
+    const xAxisCount = layoutKeys.filter((key) => /^xaxis\d*$/.test(key)).length;
+    const yAxisCount = layoutKeys.filter((key) => /^yaxis\d*$/.test(key)).length;
+    const subplotCount = Math.max(xAxisCount, yAxisCount, 0);
+    const indicatorCount = traces.filter((trace) => String(trace?.type || '').toLowerCase() === 'indicator').length;
+    const tableCount = traces.filter((trace) => String(trace?.type || '').toLowerCase() === 'table').length;
+    const legendableTraceCount = traces.filter((trace) => shouldShowLegend(trace)).length;
+    const annotationCount = Array.isArray(layout?.annotations) ? layout.annotations.length : 0;
+
+    let minimumHeight = 560;
+
+    if (gridRows > 0) {
+        minimumHeight = 220 + (gridRows * 320);
+    } else if (subplotCount > 1) {
+        minimumHeight = 280 + (subplotCount * 170);
+    } else if (legendableTraceCount > 6) {
+        minimumHeight = 720;
+    }
+
+    if (indicatorCount > 0) {
+        minimumHeight += indicatorCount >= 4 ? 180 : 120;
+    }
+
+    if (tableCount > 0) {
+        minimumHeight += 120;
+    }
+
+    if (annotationCount >= 6) {
+        minimumHeight += 60;
+    }
+
+    return Math.max(explicitHeight, minimumHeight, 400);
+}
+
+function getPlotExportDimensions(chartElement: HTMLDivElement, payload: any): { width: number; height: number } {
+    const fullLayout = (chartElement as any)?._fullLayout;
+    const inferredHeight = inferPlotHeight(payload);
+    const renderedWidth = Math.round(fullLayout?.width || chartElement.clientWidth || 0);
+    const renderedHeight = Math.round(fullLayout?.height || chartElement.clientHeight || 0);
+    const exportWidth = Math.max(1200, renderedWidth || 0);
+    const proportionalHeight = renderedWidth > 0
+        ? Math.round((Math.max(renderedHeight, inferredHeight) / renderedWidth) * exportWidth)
+        : 0;
+
+    return {
+        width: exportWidth,
+        height: Math.max(inferredHeight, proportionalHeight, 720),
+    };
+}
+
 function normalizeAxisLabel(value: any, index: number): string {
     if (value === null || value === undefined || value === '') {
         return `Item ${index + 1}`;
@@ -339,6 +404,8 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
     const fallbackVisualization = useMemo(() => {
         return buildPlotlyFallbackVisualization(parsedPayload);
     }, [parsedPayload]);
+
+    const preferredChartHeight = useMemo(() => inferPlotHeight(parsedPayload), [parsedPayload]);
 
     const hasTableTrace = useMemo(() => {
         return traceList.some((trace: any) => String(trace?.type || '').toLowerCase() === 'table');
@@ -955,12 +1022,14 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 ...trace,
                 name: inferTraceName(trace, index),
             }));
+            const indicatorTraceCount = indicatorTraces.filter((trace: any) => String(trace?.type || '').toLowerCase() === 'indicator').length;
             const legendableTraceCount = indicatorTraces.filter((trace: any) => shouldShowLegend(trace)).length;
             const preferBottomLegend = isMultiPanelChart || legendableTraceCount > 6 || hasTableTrace;
             const defaultTopMargin = preferBottomLegend ? 76 : 92;
             const defaultBottomMargin = preferBottomLegend ? 112 : 56;
             const chartTitle = resolveChartTitle(parsedData.layout, indicatorTraces);
             const normalizedAxisLayouts = normalizeAxisLayouts(parsedData.layout, indicatorTraces);
+            const minimumChartHeight = inferPlotHeight({ ...parsedData, data: indicatorTraces });
             if (normalizeSeries) {
                 normalizedAxisLayouts.yaxis = {
                     ...(normalizedAxisLayouts.yaxis || {}),
@@ -976,10 +1045,21 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
             };
 
             const sanitizedAnnotations = Array.isArray(parsedData.layout?.annotations)
-                ? parsedData.layout.annotations.map((annotation: any) => ({
-                    ...annotation,
-                    text: sanitizeAnnotationText(annotation?.text),
-                }))
+                ? parsedData.layout.annotations.map((annotation: any) => {
+                    const annotationFont = annotation?.font || {};
+                    const defaultAnnotationSize = isMultiPanelChart ? 12 : 13;
+
+                    return {
+                        ...annotation,
+                        text: sanitizeAnnotationText(annotation?.text),
+                        font: {
+                            ...annotationFont,
+                            family: annotationFont.family || 'IBM Plex Sans, system-ui, sans-serif',
+                            color: annotationFont.color || '#CBD5E1',
+                            size: Math.min(Number(annotationFont.size || defaultAnnotationSize), defaultAnnotationSize),
+                        },
+                    };
+                })
                 : parsedData.layout?.annotations;
 
             // Deep merge layout for Mastiff dark theme
@@ -998,6 +1078,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     l: parsedData.layout?.margin?.l ?? 56,
                     b: parsedData.layout?.margin?.b ?? defaultBottomMargin,
                 },
+                height: minimumChartHeight,
                 autosize: true,
                 dragmode: 'pan',
                 xaxis: {
@@ -1186,6 +1267,49 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     };
                 }
 
+                if (traceType === 'indicator') {
+                    const denseIndicatorLayout = indicatorTraceCount >= 3 || isMultiPanelChart;
+                    const defaultNumberSize = denseIndicatorLayout
+                        ? (indicatorTraceCount >= 4 ? 34 : 40)
+                        : 48;
+                    const resolvedNumberSize = Math.min(
+                        Number(trace?.number?.font?.size || defaultNumberSize),
+                        defaultNumberSize,
+                    );
+
+                    return {
+                        ...trace,
+                        showlegend: false,
+                        title: trace.title ? {
+                            ...trace.title,
+                            align: trace.title?.align || 'left',
+                            font: {
+                                ...(trace.title?.font || {}),
+                                family: trace?.title?.font?.family || 'IBM Plex Sans, system-ui, sans-serif',
+                                color: trace?.title?.font?.color || '#CBD5E1',
+                                size: Math.min(Number(trace?.title?.font?.size || 16), denseIndicatorLayout ? 15 : 16),
+                            },
+                        } : trace.title,
+                        number: {
+                            ...(trace.number || {}),
+                            font: {
+                                ...(trace.number?.font || {}),
+                                family: trace?.number?.font?.family || 'IBM Plex Sans, system-ui, sans-serif',
+                                color: trace?.number?.font?.color || '#F8FAFC',
+                                size: resolvedNumberSize,
+                            },
+                        },
+                        delta: trace.delta ? {
+                            ...trace.delta,
+                            font: {
+                                ...(trace.delta?.font || {}),
+                                family: trace?.delta?.font?.family || 'IBM Plex Sans, system-ui, sans-serif',
+                                size: Math.min(Number(trace?.delta?.font?.size || 12), 12),
+                            },
+                        } : trace.delta,
+                    };
+                }
+
                 if (keepIntrinsicColor) {
                     return {
                         ...trace,
@@ -1209,6 +1333,8 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 };
             });
 
+            const exportDimensions = getPlotExportDimensions(chartRef.current, { ...parsedData, layout, data: traces });
+
             try {
                 (window as any).Plotly.newPlot(chartRef.current, traces, layout, {
                     responsive: true,
@@ -1227,6 +1353,8 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     scrollZoom: true,
                     toImageButtonOptions: {
                         format: 'png',
+                        width: exportDimensions.width,
+                        height: exportDimensions.height,
                         filename: `mastiff-plotly-${Date.now()}`,
                         scale: 2
                     }
@@ -1292,10 +1420,11 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
 
     const handleExport = () => {
         if (!chartRef.current || !(window as any).Plotly) return;
+        const exportDimensions = getPlotExportDimensions(chartRef.current, parsedPayload);
         (window as any).Plotly.downloadImage(chartRef.current, {
             format: 'png',
-            width: 1200,
-            height: 800,
+            width: exportDimensions.width,
+            height: exportDimensions.height,
             filename: `mastiff-chart-${Date.now()}`,
             scale: 2
         });
@@ -1307,21 +1436,6 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
             'xaxis.autorange': true,
             'yaxis.autorange': true,
         });
-    };
-
-    const calculateChartHeight = (chartData: any): string => {
-        try {
-            const p = typeof chartData === 'string' ? JSON.parse(chartData) : chartData;
-            const layout = p?.layout || {};
-            const gridRows = Number(layout?.grid?.rows || 0);
-            const gridHeight = gridRows > 0 ? (gridRows * 260) + 140 : 0;
-            const hasExtraAxes = Object.keys(layout).some((key) => /^xaxis\d+$|^yaxis\d+$/.test(key));
-            const traceCount = Array.isArray(p?.data) ? p.data.length : 0;
-            const minimumHeight = gridHeight || (hasExtraAxes || traceCount > 6 ? 880 : 560);
-            return `${Math.max(Number(layout?.height || 0), minimumHeight, 400)}px`;
-        } catch {
-            return '560px';
-        }
     };
 
     const chipBase = 'h-6 px-2.5 rounded-md border text-[9px] font-semibold font-mono uppercase tracking-[0.12em] transition-all';
@@ -1339,7 +1453,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     aria-hidden="true"
                 />
             )}
-            <div className={`w-full overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(13,22,36,0.96),rgba(7,13,23,0.84))] shadow-[0_24px_80px_rgba(2,6,23,0.32)] animate-fade-in transition-all ${isExpanded ? 'relative h-full' : ''}`}>
+            <div className={`w-full overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(13,22,36,0.96),rgba(7,13,23,0.84))] shadow-[0_24px_80px_rgba(2,6,23,0.32)] animate-fade-in transition-all ${isExpanded ? 'relative h-full overflow-auto' : ''}`}>
             {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[linear-gradient(180deg,rgba(10,18,32,0.84),rgba(9,15,27,0.72))] px-4 py-2.5">
                 <div className="flex items-center gap-2">
@@ -1516,8 +1630,12 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
             </div>
 
             {/* Chart Area — height driven by chart's own layout.height, else 560px default */}
-            <div className={`w-full ${isExpanded ? 'h-[calc(100vh-155px)]' : ''}`}
-                style={!isExpanded ? { height: calculateChartHeight(data) } : {}}>
+            <div
+                className="w-full"
+                style={isExpanded
+                    ? { height: `${preferredChartHeight}px`, minHeight: 'calc(100vh - 155px)' }
+                    : { height: `${preferredChartHeight}px` }}
+            >
                 {!isLoaded && (
                     <div className="w-full h-full flex items-center justify-center">
                         <div className="flex items-center gap-3">

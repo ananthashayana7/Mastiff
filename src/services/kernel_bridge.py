@@ -16,6 +16,21 @@ from datetime import date, datetime, time
 from io import BytesIO, StringIO
 from contextlib import redirect_stdout, redirect_stderr
 
+BENIGN_STDERR_PATTERNS = [
+    re.compile(
+        r'(?ms)^.*sklearn[\\/].*UserWarning:\s*X does not have valid feature names, but .* was fitted with feature names\s*\n\s*warnings\.warn\(\s*\n?'
+    ),
+]
+
+
+def _filter_benign_stderr(stderr_text):
+    filtered = stderr_text or ''
+    for pattern in BENIGN_STDERR_PATTERNS:
+        filtered = pattern.sub('', filtered)
+
+    filtered_lines = [line.rstrip() for line in filtered.splitlines() if line.strip()]
+    return '\n'.join(filtered_lines).strip()
+
 # Preload common libraries for faster execution
 import pandas as pd
 import numpy as np
@@ -551,7 +566,7 @@ def execute_request(request: dict) -> dict:
             exec(code, namespace)
 
         captured_stdout = stdout_buffer.getvalue().strip()
-        captured_stderr = stderr_buffer.getvalue().strip()
+        captured_stderr = _filter_benign_stderr(stderr_buffer.getvalue())
 
         # Extract result
         result = namespace.get('result', None)
