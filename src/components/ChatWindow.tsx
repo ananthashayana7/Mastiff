@@ -52,6 +52,9 @@ interface ChatWindowProps {
     onCopy: (text: string, id: string) => void;
 }
 
+type MessageResultEnvelope = NonNullable<NonNullable<ChatMessage['result']>['responseEnvelope']>;
+type MessageResultProvenance = NonNullable<NonNullable<ChatMessage['result']>['provenance']>;
+
 // Unified analysis mode — Chat and Deep Analysis buttons removed per management directive.
 const MODE_CONFIG: Record<string, { label: string; desc: string; icon: string }> = {
     analysis: { label: 'ANALYSIS', desc: 'Agentic Data Science & Visualization', icon: '🧠' },
@@ -69,6 +72,7 @@ interface ForecastFocusPanelProps {
 }
 
 const FORECAST_HORIZONS = [3, 6, 12];
+const ACTION_LANE_LABELS = ['Immediate Move', 'Structural Move', 'Risk Control'];
 
 const ForecastFocusPanel: React.FC<ForecastFocusPanelProps> = ({ files, onRunForecast }) => {
     const groups = useMemo(() => buildForecastTargetGroups(files), [files]);
@@ -407,6 +411,36 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         });
     };
 
+    const getConfidenceTone = (label?: MessageResultEnvelope['confidence']['label']) => {
+        if (label === 'High') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+        if (label === 'Low') return 'border-amber-200 bg-amber-50 text-amber-700';
+        return 'border-sky-200 bg-sky-50 text-sky-700';
+    };
+
+    const getDecisionGradeTone = (grade?: MessageResultEnvelope['decisionGrade']) => {
+        if (grade === 'Decision-grade') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+        if (grade === 'Needs review') return 'border-amber-200 bg-amber-50 text-amber-700';
+        return 'border-sky-200 bg-sky-50 text-sky-700';
+    };
+
+    const buildCoverageFallback = (provenance?: MessageResultProvenance) => {
+        if (!provenance) return '';
+
+        const segments = [
+            provenance.sourceFiles?.length ? `${provenance.sourceFiles.length} source${provenance.sourceFiles.length === 1 ? '' : 's'}` : '',
+            provenance.rowsAnalyzed ? `${provenance.rowsAnalyzed.toLocaleString()} rows` : '',
+            provenance.columnsConsidered?.length ? `${provenance.columnsConsidered.length} active columns` : '',
+        ].filter(Boolean);
+
+        if (segments.length === 0) return '';
+
+        const dateSuffix = provenance.dateRange
+            ? ` across ${provenance.dateRange.field} from ${provenance.dateRange.min} to ${provenance.dateRange.max}`
+            : '';
+
+        return `Coverage spans ${segments.join(', ')}${dateSuffix}.`;
+    };
+
     return (
         <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent text-stone-900">
             {/* Header */}
@@ -601,6 +635,20 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     const dataQualityVerdict = m.result?.responseEnvelope?.dataQuality || '';
                                     const provenance = m.result?.provenance;
                                     const analysisBody = buildAnalysisBodyContent(m.content, m.result?.responseEnvelope);
+                                    const coverageSummary = m.result?.responseEnvelope?.coverage || buildCoverageFallback(provenance);
+                                    const confidenceLabel = m.result?.responseEnvelope?.confidence?.label || provenance?.reliability.label || 'Moderate';
+                                    const confidenceSummary = m.result?.responseEnvelope?.confidence?.summary
+                                        || dataQualityVerdict.replace(/^Data Quality:\s*/i, '')
+                                        || 'Confidence is directional until the next deeper validation pass.';
+                                    const decisionGrade = m.result?.responseEnvelope?.decisionGrade
+                                        || (confidenceLabel === 'High' && hasVisualOutput && Boolean(m.code) ? 'Decision-grade' : confidenceLabel === 'Low' ? 'Needs review' : 'Directional');
+                                    const decisionSummary = m.result?.responseEnvelope?.decisionSummary
+                                        || (actionItems[0]
+                                            ? `Working call: ${actionItems[0]}`
+                                            : 'Use this analysis to focus the next decision, then validate the biggest risk before scaling.');
+                                    const watchouts = m.result?.responseEnvelope?.watchouts?.filter(Boolean)?.length
+                                        ? (m.result?.responseEnvelope?.watchouts || [])
+                                        : (provenance?.reliability.notes?.slice(0, 3) || []);
                                     const visualRecoveryPrompt = activeFiles.length > 0
                                         ? `Use only these active datasets: ${activeFiles.map((file) => file.name).join(', ')}. Build an executive chart pack with an overview chart, a trend chart, and a driver breakdown.`
                                         : 'Build an executive chart pack from the current analysis context with an overview chart, a trend chart, and a driver breakdown.';
@@ -623,6 +671,71 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                             <section className="space-y-2">
                                                 <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-stone-500">Executive Signal</p>
                                                 <p className="font-serif text-[1.35rem] font-semibold leading-relaxed text-stone-900 xl:text-[1.5rem]">{renderInsightText(executiveHeadline)}</p>
+                                            </section>
+                                        )}
+
+                                        {(decisionSummary || confidenceSummary || coverageSummary || watchouts.length > 0) && (
+                                            <section className="space-y-4 rounded-[28px] border border-stone-200 bg-[linear-gradient(180deg,rgba(248,246,241,0.94),rgba(255,255,255,0.98))] p-4 shadow-[0_10px_28px_rgba(28,25,23,0.05)]">
+                                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                                    <div>
+                                                        <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-stone-500">Decision Brief</p>
+                                                        <p className="mt-1 text-xs leading-relaxed text-stone-600">Make the operating call, check the confidence, and pressure-test the parts most likely to break it.</p>
+                                                    </div>
+                                                    <span className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${getDecisionGradeTone(decisionGrade)}`}>
+                                                        {decisionGrade}
+                                                    </span>
+                                                </div>
+
+                                                <div className="grid gap-3 lg:grid-cols-3">
+                                                    <div className="rounded-2xl border border-stone-200 bg-white p-4">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-stone-500">Decision</p>
+                                                            <Lightning size={12} className="text-stone-500" />
+                                                        </div>
+                                                        <p className="mt-3 text-sm leading-relaxed text-stone-700 xl:text-[15px]">{renderInsightText(decisionSummary)}</p>
+                                                    </div>
+
+                                                    <div className="rounded-2xl border border-stone-200 bg-white p-4">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-stone-500">Confidence</p>
+                                                            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${getConfidenceTone(confidenceLabel)}`}>
+                                                                {confidenceLabel}
+                                                            </span>
+                                                        </div>
+                                                        <p className="mt-3 text-sm leading-relaxed text-stone-700 xl:text-[15px]">{renderInsightText(confidenceSummary)}</p>
+                                                    </div>
+
+                                                    <div className="rounded-2xl border border-stone-200 bg-white p-4">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-stone-500">Coverage</p>
+                                                            <ChartLine size={12} className="text-stone-500" />
+                                                        </div>
+                                                        <p className="mt-3 text-sm leading-relaxed text-stone-700 xl:text-[15px]">{renderInsightText(coverageSummary)}</p>
+                                                    </div>
+                                                </div>
+
+                                                {watchouts.length > 0 && (
+                                                    <div className="space-y-3">
+                                                        <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-stone-500">Watchouts To Pressure-Test</p>
+                                                        <div className="grid gap-3 lg:grid-cols-3">
+                                                            {watchouts.slice(0, 3).map((watchout, index) => (
+                                                                <button
+                                                                    key={`${m.id}-watchout-${index}`}
+                                                                    onClick={() => onSend(buildConcernPrompt(watchout))}
+                                                                    className="rounded-2xl border border-stone-200 bg-white p-4 text-left transition-all hover:border-stone-300 hover:bg-stone-50"
+                                                                >
+                                                                    <div className="flex items-center justify-between gap-3">
+                                                                        <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-stone-500">Watchout {index + 1}</span>
+                                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700">
+                                                                            <Scan size={12} /> Test
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="mt-3 text-sm leading-relaxed text-stone-700 xl:text-[15px]">{renderInsightText(watchout)}</p>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </section>
                                         )}
 
@@ -667,14 +780,24 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         {actionItems.length > 0 && (
                                             <section className="space-y-3">
                                                 <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-stone-500">Recommendations And Actions</p>
-                                                <div className="space-y-2.5">
-                                                    {actionItems.slice(0, 4).map((action) => (
+                                                <div className="grid gap-3 lg:grid-cols-3">
+                                                    {actionItems.slice(0, 4).map((action, index) => (
                                                         <button
-                                                            key={`${m.id}-${action}`}
+                                                            key={`${m.id}-${action}-${index}`}
                                                             onClick={() => onSend(buildActionPrompt(action))}
-                                                            className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 text-left text-sm font-semibold leading-relaxed text-stone-700 transition-all hover:bg-white xl:text-[15px]"
+                                                            className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-4 text-left transition-all hover:border-stone-300 hover:bg-white"
                                                         >
-                                                            {action}
+                                                            <div className="flex items-center justify-between gap-3">
+                                                                <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-stone-500">
+                                                                    {ACTION_LANE_LABELS[index] || `Action ${index + 1}`}
+                                                                </span>
+                                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700">
+                                                                    <ArrowRight size={12} /> Drill down
+                                                                </span>
+                                                            </div>
+                                                            <p className="mt-3 text-sm font-semibold leading-relaxed text-stone-700 xl:text-[15px]">
+                                                                {action}
+                                                            </p>
                                                         </button>
                                                     ))}
                                                 </div>

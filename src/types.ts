@@ -36,6 +36,51 @@ export interface GroundingSource {
   uri: string;
 }
 
+export interface AnalysisConfidence {
+  label: 'High' | 'Moderate' | 'Low';
+  summary: string;
+}
+
+export interface AnalysisProvenance {
+  sourceFiles: Array<{
+    id?: string;
+    name: string;
+    rowCount: number;
+    columnCount: number;
+    selectedColumns: string[];
+    ignoredColumns: string[];
+  }>;
+  rowsAnalyzed: number;
+  columnsConsidered: string[];
+  ignoredColumns: string[];
+  dateRange?: {
+    field: string;
+    min: string;
+    max: string;
+  };
+  reliability: {
+    label: 'High' | 'Moderate' | 'Low';
+    notes: string[];
+  };
+  warnings: string[];
+}
+
+export interface AnalysisResponseEnvelope {
+  headline: string;
+  insights: string[];
+  actions: string[];
+  forecast: string;
+  forecastOptions: ForecastOption[];
+  decisionGrade: 'Decision-grade' | 'Directional' | 'Needs review';
+  decisionSummary: string;
+  confidence: AnalysisConfidence;
+  coverage: string;
+  watchouts: string[];
+  dataQuality: string;
+  hasChart: boolean;
+  hasCode: boolean;
+}
+
 export interface DataFile {
   id: string;
   name: string;
@@ -123,39 +168,8 @@ export interface ChatMessage {
     plotly_charts?: any[];
     traceback?: string;
     updated_df_sample?: any[];
-    responseEnvelope?: {
-      headline: string;
-      insights: string[];
-      actions: string[];
-      forecast: string;
-      forecastOptions: ForecastOption[];
-      dataQuality: string;
-      hasChart: boolean;
-      hasCode: boolean;
-    };
-    provenance?: {
-      sourceFiles: Array<{
-        id?: string;
-        name: string;
-        rowCount: number;
-        columnCount: number;
-        selectedColumns: string[];
-        ignoredColumns: string[];
-      }>;
-      rowsAnalyzed: number;
-      columnsConsidered: string[];
-      ignoredColumns: string[];
-      dateRange?: {
-        field: string;
-        min: string;
-        max: string;
-      };
-      reliability: {
-        label: 'High' | 'Moderate' | 'Low';
-        notes: string[];
-      };
-      warnings: string[];
-    };
+    responseEnvelope?: AnalysisResponseEnvelope;
+    provenance?: AnalysisProvenance;
     responseEnvelopeMeta?: {
       usedFallback: boolean;
       contractRepairAttempted: boolean;

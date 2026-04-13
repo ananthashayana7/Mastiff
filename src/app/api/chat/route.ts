@@ -994,10 +994,6 @@ export async function POST(req: NextRequest) {
 
             const hasChart = countVisualizationArtifacts(executionResult) > 0 || hasAutoChartableData(executionResult.updated_df_sample);
             const hasCode = Boolean(analysis.code?.trim());
-            const envelopeResult = buildAnalysisResponseEnvelope(finalSummary, {
-                hasChart,
-                hasCode,
-            });
             const provenance = hasFiles
                 ? buildAnalysisProvenance(
                     profiledSessionFiles.map((f) => ({
@@ -1008,6 +1004,11 @@ export async function POST(req: NextRequest) {
                     dataQualityWarnings.map((warning) => warning.message)
                 )
                 : undefined;
+            const envelopeResult = buildAnalysisResponseEnvelope(finalSummary, {
+                hasChart,
+                hasCode,
+                provenance,
+            });
             const followUpPrompts = envelopeResult.envelope
                 ? buildFollowUpPrompts(envelopeResult.envelope, {
                     provenance,
@@ -1120,10 +1121,6 @@ export async function POST(req: NextRequest) {
             chatResponse = buildContractFallbackSummary(content, false, false);
         }
 
-        const chatEnvelopeResult = buildAnalysisResponseEnvelope(chatResponse, {
-            hasChart: false,
-            hasCode: false,
-        });
         const chatProvenance = hasFiles
             ? buildAnalysisProvenance(
                 profiledSessionFiles.map((f) => ({
@@ -1133,6 +1130,11 @@ export async function POST(req: NextRequest) {
                 }))
             )
             : undefined;
+        const chatEnvelopeResult = buildAnalysisResponseEnvelope(chatResponse, {
+            hasChart: false,
+            hasCode: false,
+            provenance: chatProvenance,
+        });
         const followUpPrompts = chatEnvelopeResult.envelope
             ? buildFollowUpPrompts(chatEnvelopeResult.envelope, {
                 provenance: chatProvenance,

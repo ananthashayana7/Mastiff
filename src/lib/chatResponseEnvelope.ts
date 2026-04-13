@@ -7,26 +7,43 @@ const forecastOptionSchema = z.object({
   confidence: z.enum(['Low', 'Medium', 'High']),
 });
 
+const analysisConfidenceSchema = z.object({
+  label: z.enum(['High', 'Moderate', 'Low']),
+  summary: z.string().min(10),
+});
+
 export const analysisResponseEnvelopeSchema = z.object({
   headline: z.string().min(10),
   insights: z.array(z.string().min(1)).min(3).max(6),
   actions: z.array(z.string().min(1)).min(3).max(3),
   forecast: z.string().min(10),
   forecastOptions: z.array(forecastOptionSchema).min(2).max(3),
+  decisionGrade: z.enum(['Decision-grade', 'Directional', 'Needs review']),
+  decisionSummary: z.string().min(10),
+  confidence: analysisConfidenceSchema,
+  coverage: z.string().min(10),
+  watchouts: z.array(z.string().min(1)).min(2).max(4),
   dataQuality: z.string().min(8),
   hasChart: z.boolean(),
   hasCode: z.boolean(),
 });
 
 export type AnalysisResponseEnvelope = z.infer<typeof analysisResponseEnvelopeSchema>;
-
-interface EnvelopeContext {
-  hasChart: boolean;
-  hasCode: boolean;
-}
-
-type EnvelopeLike = Partial<Pick<AnalysisResponseEnvelope, 'headline' | 'insights' | 'actions' | 'forecast' | 'forecastOptions' | 'dataQuality'>>;
 type ForecastOption = z.infer<typeof forecastOptionSchema>;
+type AnalysisConfidence = z.infer<typeof analysisConfidenceSchema>;
+type EnvelopeProvenanceContext = {
+  sourceFiles?: Array<{ name: string; rowCount?: number; columnCount?: number }>;
+  rowsAnalyzed?: number;
+  columnsConsidered?: string[];
+  ignoredColumns?: string[];
+  dateRange?: {
+    field?: string;
+    min?: string;
+    max?: string;
+  };
+  reliability?: { label?: 'High' | 'Moderate' | 'Low'; notes?: string[] };
+  warnings?: string[];
+};
 type FollowUpDatasetContext = {
   name: string;
   measures?: string[];
@@ -41,12 +58,17 @@ type FollowUpDatasetContext = {
 };
 
 type FollowUpPromptContext = {
-  provenance?: {
-    sourceFiles?: Array<{ name: string }>;
-    reliability?: { label?: string; notes?: string[] };
-  };
+  provenance?: EnvelopeProvenanceContext;
   datasets?: FollowUpDatasetContext[];
 };
+
+interface EnvelopeContext {
+  hasChart: boolean;
+  hasCode: boolean;
+  provenance?: EnvelopeProvenanceContext;
+}
+
+type EnvelopeLike = Partial<Pick<AnalysisResponseEnvelope, 'headline' | 'insights' | 'actions' | 'forecast' | 'forecastOptions' | 'dataQuality'>>;
 
 const ACTION_PREFIX_RE = /^(?:action|recommendation|next step|owner|checkpoint|follow-up question)\s*:/i;
 const FORECAST_PREFIX_RE = /^(?:forecast|projection|projected|outlook)\s*:/i;
@@ -79,6 +101,10 @@ function normalizeWhitespace(value: string): string {
 
 function ensureSentence(value: string): string {
   return /[.!?]$/.test(value) ? value : `${value}.`;
+}
+
+function stripSentencePunctuation(value: string): string {
+  return normalizeWhitespace(value).replace(/[.!?]+$/, '').trim();
 }
 
 function stripListPrefix(value: string): string {
@@ -296,6 +322,202 @@ function buildForecastOptions(
   ];
 }
 
+function cleanLabeledLine(value: string, pattern: RegExp): string {
+  return normalizeWhitespace(stripDecorators(value).replace(pattern, ''));
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function deriveConfidenceLabel(
+  context: EnvelopeContext,
+  forecast: string,
+  forecastOptions: ForecastOption[],
+  dataQuality: string
+): AnalysisConfidence['label'] {
+  const reliabilityLabel = context.provenance?.reliability?.label;
+  const reliabilityScoreMap: Record<NonNullable<typeof reliabilityLabel>, number> = {
+    High: 2,
+    Moderate: 1,
+    Low: 0,
+  };
+  const qualitySignal = cleanLabeledLine(dataQuality, DATA_QUALITY_PREFIX_RE);
+  const forecastSignal = stripSentencePunctuation(forecast).toLowerCase();
+  const baseConfidence = forecastOptions[0]?.confidence;
+  const weakSignal = /\b(low confidence|preliminary|directional|uncertain|volatile|thin|limited|sparse|caution|fragile)\b/i.test(`${qualitySignal} ${forecastSignal}`);
+
+  let score = reliabilityLabel ? reliabilityScoreMap[reliabilityLabel] : 0;
+  score += context.hasChart ? 1 : 0;
+  score += context.hasCode ? 1 : 0;
+  score -= weakSignal ? 1 : 0;
+  score -= baseConfidence === 'Low' ? 1 : 0;
+  score += baseConfidence === 'High' ? 1 : 0;
+
+  let adjusted = clamp(score, 0, 2);
+  if (reliabilityLabel === 'Moderate') {
+    adjusted = Math.min(adjusted, 1);
+  } else if (reliabilityLabel === 'Low') {
+    adjusted = 0;
+  }
+  return adjusted >= 2 ? 'High' : adjusted === 1 ? 'Moderate' : 'Low';
+}
+
+function buildCoverageSummary(context: EnvelopeContext): string {
+  const provenance = context.provenance;
+  const sourceCount = provenance?.sourceFiles?.length || 0;
+  const rowsAnalyzed = provenance?.rowsAnalyzed || 0;
+  const activeColumnCount = provenance?.columnsConsidered?.length || 0;
+  const dateRange = provenance?.dateRange;
+
+  if (sourceCount > 0 || rowsAnalyzed > 0 || activeColumnCount > 0) {
+    const segments: string[] = [];
+    if (sourceCount > 0) {
+      segments.push(`${sourceCount} source file${sourceCount === 1 ? '' : 's'}`);
+    }
+    if (rowsAnalyzed > 0) {
+      segments.push(`${rowsAnalyzed.toLocaleString()} analyzed row${rowsAnalyzed === 1 ? '' : 's'}`);
+    }
+    if (activeColumnCount > 0) {
+      segments.push(`${activeColumnCount} active column${activeColumnCount === 1 ? '' : 's'}`);
+    }
+
+    const dateClause = dateRange?.field && dateRange.min && dateRange.max
+      ? ` across ${dateRange.field} from ${dateRange.min} to ${dateRange.max}`
+      : '';
+
+    return ensureSentence(`Coverage spans ${segments.join(', ')}${dateClause}`);
+  }
+
+  if (context.hasChart && context.hasCode) {
+    return 'Coverage reflects the active analysis context with chart-backed, reproducible evidence attached.';
+  }
+
+  if (context.hasChart || context.hasCode) {
+    return 'Coverage reflects the current analysis context, but lineage detail is still limited.';
+  }
+
+  return 'Coverage is limited to the current conversational context and should be tightened before acting.';
+}
+
+function buildConfidenceSummary(
+  label: AnalysisConfidence['label'],
+  context: EnvelopeContext,
+  dataQuality: string
+): string {
+  const sourceCount = context.provenance?.sourceFiles?.length || 0;
+  const reliabilityNote = context.provenance?.reliability?.notes?.[0];
+  const qualitySignal = cleanLabeledLine(dataQuality, DATA_QUALITY_PREFIX_RE);
+
+  if (label === 'High') {
+    if (reliabilityNote) {
+      return ensureSentence(`High confidence: the signal is chart-backed and reproducible, with the main caveat being ${toSentenceFragment(reliabilityNote)}`);
+    }
+
+    return sourceCount > 1
+      ? ensureSentence(`High confidence: multiple sources support the same operating read and the evidence trail is reproducible`)
+      : 'High confidence: the signal is chart-backed, reproducible, and strong enough for an operating decision.';
+  }
+
+  if (label === 'Moderate') {
+    if (reliabilityNote) {
+      return ensureSentence(`Moderate confidence: the direction is actionable, but ${toSentenceFragment(reliabilityNote)}`);
+    }
+
+    if (qualitySignal) {
+      return ensureSentence(`Moderate confidence: the signal is useful, but ${toSentenceFragment(qualitySignal)}`);
+    }
+
+    return 'Moderate confidence: the direction is useful, but it still needs one more validation pass before scaling the decision.';
+  }
+
+  if (reliabilityNote) {
+    return ensureSentence(`Low confidence: treat this as a directional read until ${toSentenceFragment(reliabilityNote)}`);
+  }
+
+  if (qualitySignal) {
+    return ensureSentence(`Low confidence: treat this as a directional read until ${toSentenceFragment(qualitySignal)}`);
+  }
+
+  return 'Low confidence: use this as a triage signal only until the main data-quality or scope caveat is resolved.';
+}
+
+function buildWatchouts(
+  context: EnvelopeContext,
+  insights: string[],
+  forecast: string,
+  dataQuality: string
+): string[] {
+  const reliabilityNotes = context.provenance?.reliability?.notes || [];
+  const warningMessages = context.provenance?.warnings || [];
+  const ignoredColumnCount = context.provenance?.ignoredColumns?.length || 0;
+  const riskInsights = insights.filter((line) => /\b(risk|volatile|fragile|drop|decline|gap|anomal|outlier|pressure|leak|uncertain|thin|limited)\b/i.test(line));
+  const cleanedDataQuality = cleanLabeledLine(dataQuality, DATA_QUALITY_PREFIX_RE);
+  const cleanedForecast = cleanLabeledLine(forecast, FORECAST_PREFIX_RE);
+  const watchouts = dedupeLines([
+    ...reliabilityNotes.map((note) => ensureSentence(note)),
+    ...warningMessages.map((warning) => ensureSentence(warning)),
+    ...riskInsights.map((insight) => ensureSentence(insight)),
+    cleanedDataQuality ? ensureSentence(cleanedDataQuality) : '',
+    /\b(low confidence|downside|volatile|fragile|uncertain|risk|pressure)\b/i.test(cleanedForecast)
+      ? ensureSentence(`Forecast sensitivity: ${toSentenceFragment(cleanedForecast)}`)
+      : '',
+    ignoredColumnCount > 0
+      ? ensureSentence(`Some possible drivers sit outside the selected analysis scope because ${ignoredColumnCount} column${ignoredColumnCount === 1 ? '' : 's'} were ignored`)
+      : '',
+  ]).slice(0, 4);
+
+  if (watchouts.length >= 2) {
+    return watchouts;
+  }
+
+  const defaults = [
+    context.hasCode
+      ? 'The signal is reproducible, but the strongest driver still deserves a focused validation pass.'
+      : 'The strongest driver still needs a reproducible follow-up before leadership treats it as decision-grade.',
+    context.hasChart
+      ? 'Pressure-test the main signal against its weakest segment or latest period before scaling the action.'
+      : 'Generate a chart-backed rerun before scaling the action to other segments or periods.',
+    'Watch for downside conditions that could break the base case before operationalizing the recommendation.',
+  ];
+
+  return dedupeLines([...watchouts, ...defaults]).slice(0, 4);
+}
+
+function deriveDecisionGrade(
+  label: AnalysisConfidence['label'],
+  context: EnvelopeContext
+): AnalysisResponseEnvelope['decisionGrade'] {
+  if (label === 'High' && context.hasChart && context.hasCode) {
+    return 'Decision-grade';
+  }
+
+  if (label === 'Low' || !context.hasCode) {
+    return 'Needs review';
+  }
+
+  return 'Directional';
+}
+
+function buildDecisionSummary(
+  decisionGrade: AnalysisResponseEnvelope['decisionGrade'],
+  actions: string[],
+  watchouts: string[]
+): string {
+  const leadAction = actions[0] || 'prioritize the highest-impact corrective move';
+  const leadWatchout = watchouts[0] || 'the current confidence caveat is resolved';
+
+  if (decisionGrade === 'Decision-grade') {
+    return ensureSentence(`Move on ${toSentenceFragment(leadAction)} now while monitoring whether ${toSentenceFragment(leadWatchout)}`);
+  }
+
+  if (decisionGrade === 'Directional') {
+    return ensureSentence(`Use ${toSentenceFragment(leadAction)} as the working call, but validate whether ${toSentenceFragment(leadWatchout)} before scaling`);
+  }
+
+  return ensureSentence(`Treat ${toSentenceFragment(leadAction)} as a hypothesis until ${toSentenceFragment(leadWatchout)}`);
+}
+
 function selectInsightCandidates(summary: string): string[] {
   const bulletCandidates = dedupeLines(
     extractBulletLines(summary)
@@ -496,6 +718,15 @@ export function buildAnalysisResponseEnvelope(
   const forecast = selectForecastLine(summary) || '';
   const dataQuality = extractDataQualityLine(summary) || '';
   const forecastOptions = buildForecastOptions(summary, context, forecast, insights, actions, dataQuality);
+  const confidenceLabel = deriveConfidenceLabel(context, forecast, forecastOptions, dataQuality);
+  const watchouts = buildWatchouts(context, insights, forecast, dataQuality);
+  const decisionGrade = deriveDecisionGrade(confidenceLabel, context);
+  const confidence = {
+    label: confidenceLabel,
+    summary: buildConfidenceSummary(confidenceLabel, context, dataQuality),
+  } satisfies AnalysisConfidence;
+  const coverage = buildCoverageSummary(context);
+  const decisionSummary = buildDecisionSummary(decisionGrade, actions, watchouts);
 
   const directCandidate = {
     headline,
@@ -503,6 +734,11 @@ export function buildAnalysisResponseEnvelope(
     actions,
     forecast,
     forecastOptions,
+    decisionGrade,
+    decisionSummary,
+    confidence,
+    coverage,
+    watchouts,
     dataQuality,
     hasChart: context.hasChart,
     hasCode: context.hasCode,
@@ -526,6 +762,11 @@ export function buildAnalysisResponseEnvelope(
       fallbackActions(summary, context),
       fallbackDataQuality(summary, context)
     ),
+    decisionGrade,
+    decisionSummary: buildDecisionSummary(decisionGrade, fallbackActions(summary, context), watchouts),
+    confidence,
+    coverage,
+    watchouts,
     dataQuality: fallbackDataQuality(summary, context),
     hasChart: context.hasChart,
     hasCode: context.hasCode,
@@ -605,14 +846,14 @@ export function buildFollowUpPrompts(
     primaryMetric && primaryDate
       ? `Compare ${primaryMetric} before and after the key shift in ${primaryDate}, then explain what changed.`
       : '',
+    sourceFileCount > 1 && primaryMetric
+      ? `Compare the active source files on ${primaryMetric} and surface contradictions, join candidates, or coverage gaps before acting.`
+      : '',
     primaryMetric && primaryDate
       ? `Build a forecast for ${primaryMetric} over ${primaryDate} with a confidence band and downside case.`
       : '',
     primaryMetric
       ? `Find anomalies and thin-data pockets affecting ${primaryMetric}, then show whether the signal still holds without them.`
-      : '',
-    sourceFileCount > 1 && primaryMetric
-      ? `Compare the active source files on ${primaryMetric} and surface contradictions, join candidates, or coverage gaps before acting.`
       : '',
     sourceFileCount > 1 && primaryKey
       ? `Test whether the active files should be joined on ${primaryKey}, and show what changes if they are compared instead of stacked.`
@@ -628,6 +869,12 @@ export function buildFollowUpPrompts(
     `Show the rows, segments, and metric drivers behind this signal: ${envelope.insights[0]}`,
     `Pressure-test this recommendation with exact upside, downside, and implementation risk: ${envelope.actions[0]}`,
     `What could break this forecast, and which early warning KPIs should leadership monitor next? ${primaryForecast}`,
+    envelope.watchouts?.[0]
+      ? `Pressure-test this watchout with exact rows, KPIs, and scenarios: ${envelope.watchouts[0]}`
+      : '',
+    envelope.confidence?.label !== 'High'
+      ? `What would raise confidence from ${envelope.confidence.label.toLowerCase()} to high for this decision?`
+      : '',
     `Validate this conclusion against data quality, outliers, and alternative slices before acting: ${envelope.dataQuality}`,
     'Turn these actions into a 30-60-90 day execution plan with owners, KPIs, and checkpoints.',
   ];

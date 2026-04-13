@@ -30,6 +30,10 @@ describe('chat response envelope', () => {
     expect(result.envelope.forecast).toContain('continued mid-single-digit growth');
     expect(result.envelope.forecastOptions).toHaveLength(3);
     expect(result.envelope.forecastOptions[0].label).toBe('Base Case');
+    expect(result.envelope.decisionGrade).toBe('Directional');
+    expect(result.envelope.confidence.label).toBe('Moderate');
+    expect(result.envelope.coverage.length).toBeGreaterThan(20);
+    expect(result.envelope.watchouts.length).toBeGreaterThanOrEqual(2);
     expect(result.envelope.dataQuality).toContain('Data Quality');
   });
 
@@ -42,6 +46,9 @@ describe('chat response envelope', () => {
     expect(result.envelope.actions).toHaveLength(3);
     expect(result.envelope.forecast.length).toBeGreaterThan(10);
     expect(result.envelope.forecastOptions).toHaveLength(3);
+    expect(result.envelope.decisionGrade).toBe('Needs review');
+    expect(result.envelope.confidence.label).toBe('Low');
+    expect(result.envelope.watchouts.length).toBeGreaterThanOrEqual(2);
   });
 
   it('renders envelope into compact summary format', () => {
@@ -134,6 +141,53 @@ describe('chat response envelope', () => {
     expect(prompts.some((prompt) => prompt.includes('Break reject_qty down by shift'))).toBe(true);
     expect(prompts.some((prompt) => prompt.includes('before and after the key shift in posting_date'))).toBe(true);
     expect(prompts.some((prompt) => prompt.includes('Compare the active source files'))).toBe(true);
+  });
+
+  it('uses provenance to shape decision grade, coverage, and watchouts', () => {
+    const summary = [
+      'Executive Signal: Revenue is recovering, but one region still carries the downside case.',
+      '1) Revenue increased 11.4% in the latest month.',
+      '2) South region still explains most of the profit gap.',
+      '3) Forecast improves only if freight leakage stays contained.',
+      '4) The recovery is real, but the weakest lane remains fragile.',
+      '5) Management can move now if the weakest slice is monitored weekly.',
+      'Action: Tighten pricing and freight recovery in the south region this week.',
+      'Action: Lock in the stronger regional playbook as the operating baseline.',
+      'Action: Add a weekly downside trigger review before scaling the plan.',
+      'Forecast: Base case remains constructive, but low-confidence downside risk still sits in the south region.',
+      'Data Quality: Directional only until cross-file overlap is validated.',
+    ].join('\n');
+
+    const result = buildAnalysisResponseEnvelope(summary, {
+      hasChart: true,
+      hasCode: true,
+      provenance: {
+        sourceFiles: [
+          { name: 'regional_actuals.csv', rowCount: 1200, columnCount: 18 },
+          { name: 'regional_budget.csv', rowCount: 1200, columnCount: 16 },
+        ],
+        rowsAnalyzed: 2400,
+        columnsConsidered: ['region', 'revenue', 'profit', 'freight_cost'],
+        dateRange: {
+          field: 'month',
+          min: '2025-01-01',
+          max: '2025-06-01',
+        },
+        reliability: {
+          label: 'Moderate',
+          notes: ['Partial schema overlap across files.'],
+        },
+        warnings: ['Small share of rows required fallback coercion.'],
+      },
+    });
+
+    expect(result.usedFallback).toBe(false);
+    expect(result.envelope.decisionGrade).toBe('Directional');
+    expect(result.envelope.confidence.label).toBe('Moderate');
+    expect(result.envelope.coverage).toContain('2 source files');
+    expect(result.envelope.coverage).toContain('2,400 analyzed rows');
+    expect(result.envelope.watchouts.some((watchout) => /schema overlap/i.test(watchout))).toBe(true);
+    expect(result.envelope.watchouts.some((watchout) => /fallback coercion/i.test(watchout))).toBe(true);
   });
 
   it('cleans noisy action and impact labels out of key insights', () => {
