@@ -144,14 +144,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const connectorCredentialGuides: Record<ConnectorType, { fields: { name: string; description: string }[]; steps: string[] }> = {
         sheets: {
             fields: [
-                { name: 'refreshToken', description: 'A long-lived token that lets Mastiff access your Google Sheets without re-authenticating. It is obtained through the Google OAuth 2.0 consent flow.' },
-                { name: 'spreadsheetId', description: 'The unique ID of your Google Sheets spreadsheet. You can find it in the spreadsheet URL: https://docs.google.com/spreadsheets/d/{spreadsheetId}/edit. It is the long string of characters between /d/ and /edit. This field is optional — if omitted, Mastiff will list all accessible spreadsheets.' },
+                { name: 'refreshToken', description: 'A long-lived token that lets SPARTA access your Google Sheets without re-authenticating. It is obtained through the Google OAuth 2.0 consent flow.' },
+                { name: 'spreadsheetId', description: 'The unique ID of your Google Sheets spreadsheet. You can find it in the spreadsheet URL: https://docs.google.com/spreadsheets/d/{spreadsheetId}/edit. It is the long string of characters between /d/ and /edit. This field is optional — if omitted, SPARTA will list all accessible spreadsheets.' },
             ],
             steps: [
                 'Go to the Google Cloud Console (console.cloud.google.com) and create or select a project.',
                 'Enable the Google Sheets API and Google Drive API for your project.',
                 'Go to "APIs & Services → Credentials" and create an OAuth 2.0 Client ID (Web application type).',
-                'Set the redirect URI to your Mastiff instance URL (e.g. http://localhost:3000/api/auth/callback/google).',
+                'Set the redirect URI to your SPARTA instance URL (e.g. http://localhost:3000/api/auth/callback/google).',
                 'Use the generated Client ID and Client Secret to complete the OAuth consent flow.',
                 'After authorizing, you will receive a refresh token — paste it into the "refreshToken" field above.',
                 'To find your Spreadsheet ID, open the Google Sheet and copy the ID from the URL between /d/ and /edit.',
@@ -163,8 +163,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 { name: 'clientId', description: 'Application (client) ID from your Azure App Registration used for Graph API access.' },
                 { name: 'clientSecret', description: 'Client secret generated for your Azure App Registration.' },
                 { name: 'refreshToken', description: 'OAuth refresh token for delegated Graph access to SharePoint resources.' },
-                { name: 'siteUrl', description: 'Preferred input. Paste the SharePoint site URL or tenant root, for example https://prettlcloud.sharepoint.com/sites/finance or https://prettlcloud.sharepoint.com/. Mastiff will resolve the Graph site automatically.' },
-                { name: 'siteId', description: 'Optional override if you already know the Microsoft Graph Site ID. If siteUrl is present, Mastiff can populate siteId automatically after a successful test.' },
+                { name: 'siteUrl', description: 'Preferred input. Paste the SharePoint site URL or tenant root, for example https://prettlcloud.sharepoint.com/sites/finance or https://prettlcloud.sharepoint.com/. SPARTA will resolve the Graph site automatically.' },
+                { name: 'siteId', description: 'Optional override if you already know the Microsoft Graph Site ID. If siteUrl is present, SPARTA can populate siteId automatically after a successful test.' },
                 { name: 'driveId', description: 'Optional specific document library drive ID. If omitted, all site drives are listed.' },
             ],
             steps: [
@@ -172,8 +172,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 'Create a client secret and copy tenantId, clientId, and clientSecret from the app registration overview.',
                 'Run OAuth consent flow to obtain a refresh token for the SharePoint user context.',
                 'Paste your SharePoint URL, for example https://prettlcloud.sharepoint.com/sites/finance. You do not need Graph Explorer for the normal setup path.',
-                'Test the connector once; Mastiff will resolve and store the Microsoft Graph siteId automatically.',
-                'Optionally provide driveId to lock Mastiff to one document library; otherwise all available libraries are listed.',
+                'Test the connector once; SPARTA will resolve and store the Microsoft Graph siteId automatically.',
+                'Optionally provide driveId to lock SPARTA to one document library; otherwise all available libraries are listed.',
             ],
         },
         snowflake: {
@@ -217,7 +217,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             steps: [
                 'Get the connection details from your database provider or administrator.',
                 'For cloud databases (e.g. AWS RDS, Supabase, Neon), find connection details in the provider dashboard.',
-                'Ensure the database allows connections from your Mastiff server IP address.',
+                'Ensure the database allows connections from your SPARTA server IP address.',
             ],
         },
         api: {
@@ -268,7 +268,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             if (event.origin !== window.location.origin) return;
 
             const payload = event.data;
-            if (!payload || payload.type !== 'mastiff:sharepoint-oauth-callback') return;
+            if (
+                !payload
+                || !['sparta:sharepoint-oauth-callback', 'mastiff:sharepoint-oauth-callback'].includes(payload.type)
+            ) return;
 
             if (payload.error) {
                 setConnectorFeedback({ kind: 'error', text: `SharePoint OAuth failed: ${payload.error}` });

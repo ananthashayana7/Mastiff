@@ -55,7 +55,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.download = `mastiff-${type}-${Date.now()}.csv`;
+    link.download = `sparta-${type}-${Date.now()}.csv`;
     link.href = url;
     link.click();
     URL.revokeObjectURL(url);
@@ -86,7 +86,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ viz, onDrillDown }
       }
 
       const link = document.createElement('a');
-      link.download = `mastiff-${type}-${Date.now()}.png`;
+      link.download = `sparta-${type}-${Date.now()}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (err) {

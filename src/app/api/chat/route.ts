@@ -13,7 +13,6 @@ import { buildRecoverySnippet } from './recoverySnippets';
 import { buildContractFallbackSummary, containsTechnicalArtifacts, validateSummaryContract } from '../../../lib/chatResponseContract';
 import { buildAnalysisResponseEnvelope, buildFollowUpPrompts, renderEnvelopeAsSummary } from '../../../lib/chatResponseEnvelope';
 import { buildAutoChartRowsFromFiles, buildAutoChartRowsFromInlineTable, hasAutoChartableData } from '../../../lib/autoChart';
-import { buildFinancialDatasetMismatchMessage, shouldWarnOnFinancialDatasetMismatch } from '../../../lib/domainMismatchGuard';
 import { buildCompactFileContext, buildMultiDatasetPromptBlock } from '../../../lib/multiDatasetIntelligence';
 import {
     buildAnalysisProvenance,
@@ -98,7 +97,7 @@ from plotly.subplots import make_subplots
 
 raw = base64.b64decode("${b64}").decode("utf-8", errors="ignore")
 lines = [ln for ln in raw.splitlines() if ln.strip()]
-SIGNAL_MARKER = "__MASTIFF_SIGNAL__="
+SIGNAL_MARKER = "__SPARTA_SIGNAL__="
 
 months = ["Jan'25", "Feb'25", "Mar'25", "Apr'25", "May'25", "Jun'25"]
 
@@ -163,7 +162,7 @@ for ln in lines:
     records.append((label, monthly_vals, ytd_vals))
 
 if not records:
-    result = "Unable to parse pasted financial table. Please keep the P&L table in tabular format with monthly and YTD values."
+    result = "Pasted data was accepted, but no finance-style monthly rows were detected for the deterministic finance fallback. Run the generic analyzer on the visible columns and prioritize the strongest numeric or categorical signals."
 else:
     monthly_map = {label: vals for label, vals, _ in records}
     ytd_map = {label: vals for label, _, vals in records}
@@ -539,33 +538,6 @@ export async function POST(req: NextRequest) {
         const hasFiles = sessionFiles.length > 0;
         // Treat messages with pasted tabular/financial data as having effective data even without uploaded files
         const hasPastedData = !hasFiles && containsInlineTabularData(content);
-
-        if (shouldWarnOnFinancialDatasetMismatch(content, profiledSessionFiles, hasPastedData)) {
-            const warningContent = buildFinancialDatasetMismatchMessage(profiledSessionFiles);
-            const [assistantMsg] = await db.insert(messages).values({
-                sessionId,
-                role: 'assistant',
-                content: warningContent,
-                result: {
-                    responseEnvelope: undefined,
-                    responseEnvelopeMeta: {
-                        usedFallback: false,
-                        contractRepairAttempted: false,
-                        contractRepaired: true,
-                        initialViolations: [],
-                    },
-                    followUpPrompts: [],
-                },
-            }).returning();
-
-            if (session.messages.length === 0) {
-                await db.update(sessions)
-                    .set({ title: content.slice(0, 50), updatedAt: new Date() })
-                    .where(eq(sessions.id, sessionId));
-            }
-
-            return NextResponse.json(assistantMsg);
-        }
 
         const effectiveHasFiles = hasFiles || hasPastedData;
         const pastedSampleRows = hasPastedData ? buildAutoChartRowsFromInlineTable(content) : [];

@@ -88,7 +88,7 @@ function drawPageHeader(pdf: jsPDF, title: string, subtitle?: string) {
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(255, 255, 255);
     pdf.setFontSize(12);
-    pdf.text('Mastiff Executive Report', PAGE.marginX, 11.5);
+    pdf.text('SPARTA Executive Report', PAGE.marginX, 11.5);
 
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(17, 24, 39);
@@ -306,7 +306,7 @@ export const exportToPDF = async ({ sessionTitle, messages, activeFiles = [] }: 
             pdf.text(`Page ${page} of ${pageCount}`, PAGE.width - PAGE.marginX, PAGE.height - 7.2, { align: 'right' });
         }
 
-        pdf.save(`Mastiff_Executive_Report_${sanitizeFilename(title)}.pdf`);
+        pdf.save(`SPARTA_Executive_Report_${sanitizeFilename(title)}.pdf`);
         return true;
     } catch (error) {
         console.error('PDF export failed:', error);

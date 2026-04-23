@@ -1,5 +1,5 @@
 /**
- * Mastiff AI — Data Intelligence Service
+ * SPARTA — Data Intelligence Service
  *
  * Pre-analysis intelligence layer that examines file metadata and sample data
  * to detect potential data quality issues, statistical anomalies, and contextual

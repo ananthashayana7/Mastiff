@@ -91,7 +91,7 @@ export function buildNotebookTitle(sessionTitle?: string | null, fallbackPrompt?
 export function createStarterNotebook(sessionId?: string | null): NotebookDraft {
   return {
     title: DEFAULT_NOTEBOOK_TITLE,
-    description: 'Reusable analysis workspace tied to a Mastiff session.',
+    description: 'Reusable analysis workspace tied to a SPARTA session.',
     sessionId,
     cells: normalizeNotebookCells([
       {
@@ -157,7 +157,7 @@ export function buildNotebookFromAnalysis({
 
   return {
     title,
-    description: 'Notebook created from a Mastiff analysis response for reproducible follow-up work.',
+    description: 'Notebook created from a SPARTA analysis response for reproducible follow-up work.',
     sessionId,
     cells: normalizeNotebookCells([
       {

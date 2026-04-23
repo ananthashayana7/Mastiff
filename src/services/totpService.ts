@@ -51,7 +51,7 @@ function base32encode(buffer: Buffer): string {
 /**
  * Generate TOTP provisioning URI (for QR code)
  */
-export function generateTOTPUri(secret: string, email: string, issuer: string = 'Mastiff'): string {
+export function generateTOTPUri(secret: string, email: string, issuer: string = 'SPARTA'): string {
   const encodedEmail = encodeURIComponent(email);
   const encodedIssuer = encodeURIComponent(issuer);
 

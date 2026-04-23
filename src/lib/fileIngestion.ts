@@ -64,14 +64,14 @@ export function preferRicherTabularMetadata(
 export function formatMetadataExtractionWarning(error: unknown): string {
   const message = String(error instanceof Error ? error.message : error || '').trim();
   if (!message) {
-    return 'Python metadata extractor was unavailable, so Mastiff used the built-in fallback parser.';
+    return 'Python metadata extractor was unavailable, so SPARTA used the built-in fallback parser.';
   }
 
   if (/no python interpreter found|python metadata extraction returned no output|spawn .*enoent|code -4058|system cannot find the file specified/i.test(message)) {
-    return 'Python metadata extractor was unavailable on this machine, so Mastiff used the built-in fallback parser.';
+    return 'Python metadata extractor was unavailable on this machine, so SPARTA used the built-in fallback parser.';
   }
 
-  return `Python metadata extractor failed, so Mastiff used the built-in fallback parser. ${message}`;
+  return `Python metadata extractor failed, so SPARTA used the built-in fallback parser. ${message}`;
 }
 
 export function sanitizeFileName(name: string): string {
@@ -409,7 +409,7 @@ function buildSpreadsheetMetadata(grid: unknown[][], originalName: string, extra
       headerRowIndex: 0,
       schemaReviewNotes: [
         ...(extras.schemaReviewNotes || []),
-        'Single-row sheet detected, so Mastiff treated the row as data instead of assuming it was a header.',
+        'Single-row sheet detected, so SPARTA treated the row as data instead of assuming it was a header.',
       ],
     });
   }
@@ -429,7 +429,7 @@ function buildSpreadsheetMetadata(grid: unknown[][], originalName: string, extra
       headerRowIndex,
       schemaReviewNotes: [
         ...(extras.schemaReviewNotes || []),
-        'No rows remained below the inferred header, so Mastiff treated the visible grid as data to avoid a false empty upload.',
+        'No rows remained below the inferred header, so SPARTA treated the visible grid as data to avoid a false empty upload.',
       ],
     });
   }
@@ -464,7 +464,7 @@ function buildDelimitedMetadata(lines: string[], delimiter: string, originalName
     });
     return finalizeTabularMetadata(originalName, headers, rows, {
       headerRowIndex: 0,
-      schemaReviewNotes: ['Single populated row detected, so Mastiff treated the line as data rather than as a header.'],
+      schemaReviewNotes: ['Single populated row detected, so SPARTA treated the line as data rather than as a header.'],
     });
   }
 

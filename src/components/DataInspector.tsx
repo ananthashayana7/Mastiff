@@ -177,10 +177,10 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                     <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                         <p className="text-[8px] font-black uppercase tracking-[0.28em] text-amber-700">Pending Activation</p>
                         <p className="text-[12px] leading-relaxed text-stone-700">
-                            Review the normalized sample before Mastiff uses this file in chat. The detected schema is inferred from the upload parser.
+                            Review the normalized sample before SPARTA uses this file in chat. The detected schema is inferred from the upload parser.
                         </p>
                         <p className="text-[11px] leading-relaxed text-stone-500">
-                            Data types, inferred header row, and sheet selection are already applied. Confirm the useful columns and Mastiff will activate the file immediately.
+                            Data types, inferred header row, and sheet selection are already applied. Confirm the useful columns and SPARTA will activate the file immediately.
                         </p>
                     </div>
                 )}
@@ -195,7 +195,7 @@ export const DataInspector: React.FC<DataInspectorProps> = ({
                         )}
                         {likelyMergedCellIssue && (
                             <p className="text-[12px] leading-relaxed text-stone-700">
-                                This spreadsheet looks like it may contain merged headers or formatting rows. Mastiff detected placeholder headers or very sparse columns after flattening. Review the sample carefully before activation.
+                                This spreadsheet looks like it may contain merged headers or formatting rows. SPARTA detected placeholder headers or very sparse columns after flattening. Review the sample carefully before activation.
                             </p>
                         )}
                         {suspiciousHeaderColumns.length > 0 && (

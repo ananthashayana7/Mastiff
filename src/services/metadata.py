@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mastiff AI - Metadata Extraction Script
+SPARTA - Metadata Extraction Script
 Extracts schema, statistics, and sample data from uploaded files.
 Supports: CSV, Excel, JSON, Parquet, TSV, and plain text files.
 """

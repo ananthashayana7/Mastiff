@@ -29,12 +29,12 @@ describe('inline financial fallback code generation', () => {
   it('emits a finance signal that upgrades the deterministic fallback summary', () => {
     const code = buildInlineFinancialFallbackCode('Particulars\tNotes\tJan\'25\tFeb\'25');
 
-    expect(code).toContain('SIGNAL_MARKER = "__MASTIFF_SIGNAL__="');
+    expect(code).toContain('SIGNAL_MARKER = "__SPARTA_SIGNAL__="');
     expect(code).toContain("'kind': 'financial_statement'");
     expect(code).toContain('print(SIGNAL_MARKER + json.dumps(signal');
 
     const summary = buildDeterministicSignalSummaryFromExecution(
-      '__MASTIFF_SIGNAL__=' + JSON.stringify({
+      '__SPARTA_SIGNAL__=' + JSON.stringify({
         kind: 'financial_statement',
         ytdPat: 25727,
         ytdTotalIncome: 615000,

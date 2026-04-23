@@ -481,7 +481,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!currentUser) return;
 
-    console.log("Mastiff AI v4.0 — Initializing...");
+    console.log("SPARTA v4.0 — Initializing...");
     const initSession = async () => {
       let availableSessions: Session[] = [];
 
@@ -901,7 +901,7 @@ const App: React.FC = () => {
         role: 'assistant',
         timestamp: Date.now(),
         persona: 'System Notice',
-        content: `${filteredFile.name} is active. Mastiff is generating an initial analysis with charts, forecast signals, and recommended actions now.`,
+        content: `${filteredFile.name} is active. SPARTA is generating an initial analysis with charts, forecast signals, and recommended actions now.`,
       }
     ]));
 

@@ -29,7 +29,7 @@ export const BrandMark: React.FC<BrandMarkProps> = ({
             aria-label={title}
         >
             <img
-                src="/branding/mastiff-mark.svg"
+                src="/branding/sparta-mark.svg"
                 alt=""
                 aria-hidden="true"
                 className="relative z-10 h-[96%] w-[96%] object-contain"

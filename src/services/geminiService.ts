@@ -134,7 +134,7 @@ export class GeminiService {
     }
 
     const systemInstruction = `
-      You are Mastiff, an expert AI Data Scientist and Research Assistant.
+      You are SPARTA, an expert AI Data Scientist and Research Assistant.
       PERSONA CONTEXT: ${personaInstruction || 'Focus on clarity and business impact.'}
       
       BEHAVIOR:

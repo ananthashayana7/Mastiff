@@ -23,7 +23,7 @@ export interface TOTPVerifyResult {
  * 2FA/TOTP Service
  */
 export class TwoFactorAuthService {
-    private appName = 'Mastiff AI'; // App name shown in authenticator
+    private appName = 'SPARTA'; // App name shown in authenticator
     private codeLength = 6; // Standard 6-digit codes
     private window = 1; // Allow 1 time window before/after (30 second windows)
     private backupCodeLength = 10;

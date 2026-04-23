@@ -50,7 +50,7 @@ describe('deterministic analysis fallback', () => {
   it('includes resilient finance-aware fallback code for live analysis use', () => {
     const code = buildResilientDeterministicAnalysisFallbackCode(true);
 
-    expect(code).toContain('__MASTIFF_SIGNAL__=');
+    expect(code).toContain('__SPARTA_SIGNAL__=');
     expect(code).toContain('financial_statement');
     expect(code).toContain('Deterministic fallback dashboard');
     expect(code).toContain('_collect_usable_dfs');

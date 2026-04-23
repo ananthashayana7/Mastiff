@@ -24,7 +24,7 @@ describe('domainMismatchGuard', () => {
     ])).toBe('assembly_line');
   });
 
-  it('warns when a finance prompt targets a non-financial dataset', () => {
+  it('does not block a finance prompt against a non-financial-looking dataset', () => {
     const files = [
       {
         filename: 'S4_LineRejection.xlsx',
@@ -39,7 +39,7 @@ describe('domainMismatchGuard', () => {
       },
     ];
 
-    expect(shouldWarnOnFinancialDatasetMismatch('Analyze PAT and margin trends.', files, false)).toBe(true);
+    expect(shouldWarnOnFinancialDatasetMismatch('Analyze PAT and margin trends.', files, false)).toBe(false);
     expect(buildFinancialDatasetMismatchMessage(files)).toContain('S4_LineRejection.xlsx');
     expect(buildFinancialDatasetMismatchMessage(files)).toContain('TotalCount');
   });

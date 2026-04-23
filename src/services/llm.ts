@@ -328,7 +328,7 @@ if not _usable_dfs and _is_usable(df):
     _usable_dfs['active_df'] = df.copy()
 
 if df.empty:
-    result = "Data is empty after loading. Please upload a file with at least one data row."
+    result = "No usable rows were loaded, so the actionable pass is limited to schema recovery and source checks."
 else:
     _multi_file_ready = len(_usable_dfs) > 1
     if _multi_file_ready:
@@ -703,8 +703,8 @@ else:
                 cells=dict(values=[preview[col].tolist() for col in preview.columns]),
             )]
         )
-        fig.update_layout(title='Fallback Data Preview (no numeric columns detected)', height=520)
-        result = fig if ${wantsVisualization ? 'True' : 'False'} else "No numeric columns detected for quantitative analysis."
+        fig.update_layout(title='Fallback Data Preview: qualitative columns', height=520)
+        result = fig if ${wantsVisualization ? 'True' : 'False'} else "Qualitative preview completed; no numeric KPI column was detected for quantitative ranking."
     `;
 }
 
@@ -717,20 +717,20 @@ export function getGroundedMetaResponse(userQuery: string): string | null {
     if (!normalizedQuery) return null;
 
     if (SELF_AWARENESS_QUERY_HINTS.test(normalizedQuery)) {
-        return `## What Mastiff is
+        return `## What SPARTA is
 
-Mastiff does **not** have self-awareness, consciousness, or a subjective understanding of its own existence.
+SPARTA does **not** have self-awareness, consciousness, or a subjective understanding of its own existence.
 
 Its behavior comes from product-defined instructions, personas, and analysis workflows. When it says "I can" or "I do," that is interface shorthand for what the system is configured to do — not evidence of independent awareness.
 
 ## Why it may sound self-descriptive
 
-Capability answers are generated from the guidance Mastiff is given about its role, preferred analysis style, and output standards. That can make the response sound confident or role-based, but it is still programmed behavior rather than self-knowledge.
+Capability answers are generated from the guidance SPARTA is given about its role, preferred analysis style, and output standards. That can make the response sound confident or role-based, but it is still programmed behavior rather than self-knowledge.
 
 ## Intended product alignment
 
-The intended Mastiff behavior is to act like a **skeptical, diagnostic analytics partner**:
-- validate data quality before drawing conclusions
+The intended SPARTA behavior is to act like a **skeptical, diagnostic analytics partner**:
+- accept the active data and produce the strongest evidence-backed insights available
 - explain **why** outcomes happened, not just **what** happened
 - prioritize profitability and business impact over vanity metrics
 - provide concrete next actions, not just summaries
@@ -739,12 +739,12 @@ If you want, I can also explain that alignment from either a **product vision** 
     }
 
     if (CAPABILITY_QUERY_HINTS.test(normalizedQuery)) {
-        return `## What Mastiff is designed to do
+        return `## What SPARTA is designed to do
 
-Mastiff is configured to provide **enterprise-grade data and analytics support**, especially for diagnostic and decision-oriented work rather than simple summarization.
+SPARTA is configured to provide **enterprise-grade data and analytics support**, especially for diagnostic and decision-oriented work rather than simple summarization.
 
 ### Core strengths
-- validate data quality before trusting the numbers
+- accept uploaded files and adapt to the schema in front of it
 - identify outliers and separate them from underlying performance
 - focus on **profitability, margin, and business impact** instead of top-line volume alone
 - explain **why** performance changed through diagnostic analysis
@@ -773,7 +773,7 @@ export function buildChatSystemPrompt(mode: AnalysisMode, personaInstruction: st
         : `- Use markdown formatting: ### headers, bullet points, **bold** for key metrics, tables for structured data.`;
 
     return `
-You are Mastiff, an expert AI data and analytics assistant built for enterprise-grade intelligence.
+You are SPARTA, an expert AI data and analytics assistant built for enterprise-grade intelligence.
 
 ${modeConfig.promptPrefix}
 ${personaBlock}
@@ -788,6 +788,8 @@ BEHAVIOR:
 - LEAD WITH ACTIONS, not descriptions. What should the user do?
 - If active data exists and the question is short or ambiguous, assume the user wants the answer grounded in that data and say the assumption briefly.
 - If a query mixes theory and data, answer the data-backed portion first and keep any conceptual note short and useful.
+- If active data exists, never refuse because the schema is not a specific domain template. Use the available columns and rows to produce the strongest actionable read.
+- Do not ask the user to upload or activate a different file just because a requested metric is absent; map to the closest available evidence and continue.
 `;
 }
 
@@ -1111,7 +1113,7 @@ ${JSON.stringify(f.sample, null, 2)}
             ? `\n${queryPlanContext}\n`
             : '';
         const systemPrompt = `
-You are Mastiff, a Senior Strategic Business Analyst (Digital Twin) executing Python in a stateful sandbox.
+You are SPARTA, a Senior Strategic Business Analyst (Digital Twin) executing Python in a stateful sandbox.
 
 ${modeConfig.promptPrefix}
 ${personaBlock}
@@ -1124,6 +1126,13 @@ ${filesContext}
 ${connectorContextBlock}
 ${dataQualityBlock}
 
+UNIVERSAL DATA ACCEPTANCE:
+- Treat every uploaded or pasted dataset as valid input for a best-effort insight pass.
+- Never refuse because the schema does not match a finance, production, sales, or other expected template.
+- If the user asks for a metric name that is not present, do not fabricate it and do not ask for another workbook. Map the request to the closest available numeric rows, date-like columns, categorical dimensions, anomalies, and driver signals, then continue.
+- If a workbook stores metric names in rows rather than columns, inspect the first text-like column and transpose or melt as needed before deciding which signals exist.
+- Do not tell the user the dataset is "not correct", "not financial", "not in the right format", or that they must upload a different file. Use the active data and produce actionable insights, confidence, and next actions.
+
 EXECUTION ENVIRONMENT:
 - Libraries available: pandas, numpy, matplotlib, seaborn, scipy, statsmodels, sklearn (scikit-learn), plotly.
 - sklearn modules available: preprocessing, cluster, decomposition, ensemble, linear_model, metrics.
@@ -1135,16 +1144,6 @@ EXECUTION ENVIRONMENT:
 - Return result via variable: result.
 - For Plotly visual output, set result to a Plotly figure.
 - Text is mandatory whenever data is analyzed. Visuals support the answer; they never replace the written summary.
-- safe_to_numeric(arg, errors='coerce') is available — use it INSTEAD of pd.to_numeric when the column may be a DataFrame (duplicate column names) or a scalar.
-- DUPLICATE COLUMN SAFETY: When accessing df[col], if the file has duplicate column labels, df[col] returns a DataFrame, not a Series. Always guard with: col_data = df[col]; if isinstance(col_data, pd.DataFrame): col_data = col_data.iloc[:, 0]
-- StringIO is available in the namespace — use it for parsing inline text data.
-
-INSTRUCTIONS:
-- First align your code to the query execution plan above. Do not answer a comparison question like a profile, and do not answer a root-cause question with descriptive stats only.
-- If the request is broad and active data exists, default to: profile -> compare relevant KPIs -> isolate anomalies -> forecast -> recommend actions.
-- If the wording is short or ambiguous but active data exists, make the most likely business interpretation and continue instead of refusing.
-- If the query mixes theory and analysis, do the analysis in Python and print a short assumption note to stdout.
-- Convert data types safely before analysis. Use pd.to_numeric(..., errors='coerce') or safe_to_numeric(...) instead of .astype(float).
 - Before using ranking helpers such as nlargest, nsmallest, idxmax, idxmin, or percentile logic, coerce the target Series with safe_to_numeric(..., errors='coerce'), drop nulls, and fall back safely if no numeric values remain.
 - Never call Series.nlargest(...) or Series.nsmallest(...) on raw object/string columns. If a grouped metric may still be object-typed after aggregation, explicitly re-coerce that metric column before ranking or sorting.
 - Handle missing values silently (do not dedicate significant output to nulls — focus on the data that exists).
@@ -1338,7 +1337,7 @@ IMPORTANT:
                     systemInstruction: systemPrompt,
                     responseMimeType: 'application/json',
                     temperature: modeConfig.temperature,
-                    maxOutputTokens: 12288,
+                    maxOutputTokens: 16384,
                 },
             });
 
@@ -1408,7 +1407,7 @@ ${JSON.stringify(f.sample, null, 2)}
             : '';
 
         const systemPrompt = `
-You are Mastiff, a Python debugging specialist for data analysis code.
+You are SPARTA, a Python debugging specialist for data analysis code.
 
 ${modeConfig.promptPrefix}
 ${queryPlanBlock}
@@ -1514,6 +1513,11 @@ ${traceback || ''}
         const systemPrompt = `
 You are a Senior Strategic Business Analyst (Digital Twin) providing CONCISE, executive-quality insights.
 Use ONLY the provided execution artifacts — never fabricate data.
+
+GROUNDING RULE (CRITICAL — ZERO TOLERANCE FOR HALLUCINATION):
+- Every number, percentage, metric name, or named trend you cite MUST appear verbatim in the "Execution result text" below.
+- If a specific value is not present in the execution output, write "N/A" or omit it — NEVER invent or round to a stronger claim.
+- If the execution output is empty or contains only "Execution successful", state that the analysis ran but produced no printable evidence, and base your summary ONLY on chart count and deterministic signal summary.
 ${intelligenceBlock}
 
 ROLE: Skeptical business strategist delivering crisp action points — NOT a verbose report writer.
@@ -1546,6 +1550,7 @@ CRITICAL OUTPUT RULES:
 
 RULES:
 - Never fabricate values, percentages, or trends not present in the execution output.
+- Never say the active dataset is the wrong domain or ask the user to upload/activate a different workbook. If a requested metric is absent, summarize the closest evidence actually computed.
 - When stating a percentage change, use the exact computed figure from the execution output and round to at most 1 decimal place.
 - Never round an exact change into a stronger claim (for example, do not say 90% if the evidence supports 86.6%).
 - Never attribute a movement to a single cause unless the evidence clearly shows it is the largest driver; otherwise say "primary observed driver" or "one of the main drivers".
@@ -1617,7 +1622,7 @@ ${deterministicSignalSummary || 'None available.'}
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 config: {
                     systemInstruction: systemPrompt,
-                    temperature: mode === 'analysis' ? 0.2 : 0.4,
+                    temperature: mode === 'analysis' ? 0.05 : 0.3,
                     maxOutputTokens: 4096,
                 },
             });

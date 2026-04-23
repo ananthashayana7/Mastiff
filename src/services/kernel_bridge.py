@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mastiff AI - Kernel Bridge
+SPARTA - Kernel Bridge
 Persistent Python execution environment for data analysis.
 Receives JSON requests via stdin, executes code, returns results via stdout.
 Supports: pandas, numpy, matplotlib, seaborn, plotly, scipy, sklearn.
@@ -57,24 +57,47 @@ try:
         '#FACC15', '#06B6D4', '#0B6E99', '#0F766E',
     ]
 
-    pio.templates['mastiff'] = go.layout.Template(
+    pio.templates['sparta'] = go.layout.Template(
         layout=go.Layout(
             colorway=DEFAULT_COLORWAY,
             font=dict(family='system-ui, IBM Plex Sans, DejaVu Sans, Arial', size=12, color='#e2e8f0'),
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(15,23,42,0.6)',
-            xaxis=dict(gridcolor='rgba(148,163,184,0.12)', zerolinecolor='rgba(148,163,184,0.2)'),
-            yaxis=dict(gridcolor='rgba(148,163,184,0.12)', zerolinecolor='rgba(148,163,184,0.2)'),
-            margin=dict(l=50, r=30, t=60, b=40),
+            xaxis=dict(
+                gridcolor='rgba(148,163,184,0.12)',
+                zerolinecolor='rgba(148,163,184,0.2)',
+                title_font=dict(size=13, color='#94a3b8'),
+                tickfont=dict(size=11, color='#cbd5e1'),
+                showgrid=True,
+            ),
+            yaxis=dict(
+                gridcolor='rgba(148,163,184,0.12)',
+                zerolinecolor='rgba(148,163,184,0.2)',
+                title_font=dict(size=13, color='#94a3b8'),
+                tickfont=dict(size=11, color='#cbd5e1'),
+                showgrid=True,
+            ),
+            legend=dict(
+                font=dict(size=12, color='#cbd5e1'),
+                bgcolor='rgba(15,23,42,0.75)',
+                bordercolor='rgba(148,163,184,0.25)',
+                borderwidth=1,
+                orientation='h',
+                yanchor='bottom',
+                y=1.02,
+                xanchor='right',
+                x=1,
+            ),
+            margin=dict(l=60, r=40, t=80, b=60),
             hoverlabel=dict(bgcolor='#1e293b', font_size=12, font_color='#e2e8f0'),
         )
     )
-    pio.templates['mastiff'].layout.colorscale = dict(
+    pio.templates['sparta'].layout.colorscale = dict(
         sequential=px.colors.sequential.Viridis,
         diverging=px.colors.diverging.RdBu,
         sequentialminus=px.colors.sequential.Blues
     )
-    pio.templates.default = 'mastiff'
+    pio.templates.default = 'sparta'
     HAS_PLOTLY = True
 except ImportError:
     HAS_PLOTLY = False
@@ -511,6 +534,48 @@ def execute_request(request: dict) -> dict:
     # Patch pd.to_numeric in the execution namespace
     pd.to_numeric = _safe_to_numeric
 
+    # --- Smart forecast helper: ExponentialSmoothing → polyfit → moving average ---
+    def _smart_forecast(series, n_periods=6, confidence=0.8):
+        """Return (forecast, upper_band, lower_band) lists of length n_periods."""
+        arr = np.array(series, dtype=float)
+        arr = arr[~np.isnan(arr)]
+        n = len(arr)
+        if n < 2:
+            flat = float(arr[-1]) if n == 1 else 0.0
+            return ([flat] * n_periods, [flat] * n_periods, [flat] * n_periods)
+        forecast = None
+        residuals = None
+        # Try Holt-Winters when N >= 8
+        if HAS_STATSMODELS and n >= 8:
+            try:
+                from statsmodels.tsa.holtwinters import ExponentialSmoothing as _ES
+                seasonal = 'add' if n >= 24 else None
+                sp = 12 if (seasonal and n >= 24) else None
+                hw = _ES(arr, trend='add', seasonal=seasonal, seasonal_periods=sp,
+                         initialization_method='estimated').fit(optimized=True)
+                forecast = hw.forecast(n_periods).tolist()
+                residuals = arr - hw.fittedvalues
+            except Exception:
+                forecast = None
+        # Linear polyfit fallback
+        if forecast is None:
+            x = np.arange(n, dtype=float)
+            slope, intercept = np.polyfit(x, arr, 1)
+            x_f = np.arange(n, n + n_periods, dtype=float)
+            forecast = (intercept + slope * x_f).tolist()
+            residuals = arr - (intercept + slope * x)
+        # Confidence band (widens with horizon)
+        sigma = float(np.std(residuals, ddof=1)) if residuals is not None and len(residuals) >= 2 else (float(np.std(arr, ddof=1)) if n >= 2 else 0.0)
+        z = 1.28  # default 80%
+        if HAS_SCIPY:
+            try:
+                z = float(scipy_stats.norm.ppf(0.5 + confidence / 2))
+            except Exception:
+                pass
+        upper = [float(f) + z * sigma * np.sqrt(1 + (i + 1) / max(n, 1)) for i, f in enumerate(forecast)]
+        lower = [float(f) - z * sigma * np.sqrt(1 + (i + 1) / max(n, 1)) for i, f in enumerate(forecast)]
+        return (forecast, upper, lower)
+
     # Build execution namespace with all available tools
     namespace = {
         'pd': pd,
@@ -527,6 +592,7 @@ def execute_request(request: dict) -> dict:
         'BytesIO': BytesIO,
         'StringIO': StringIO,
         'safe_to_numeric': _safe_to_numeric,
+        'smart_forecast': _smart_forecast,
     }
 
     # Add optional libraries
@@ -685,6 +751,56 @@ def execute_request(request: dict) -> dict:
         if len(plotly_charts) > 0 and not captured_stdout and result_str.strip() == 'Execution successful':
             result_str = 'Interactive chart generated'
 
+        # ── Post-execution axis label & legend quality patch ─────────────────
+        if HAS_PLOTLY and plotly_charts:
+            _AX_RE = re.compile(r'^[xy]axis\d*$')
+
+            def _infer_ax_label(traces, letter):
+                for tr in traces:
+                    sample = list((tr.get('x') if letter == 'x' else tr.get('y')) or [])[:8]
+                    if not sample:
+                        continue
+                    if any(isinstance(v, str) and not str(v).replace('.', '', 1).lstrip('-').isdigit() for v in sample):
+                        return 'Category' if letter == 'x' else 'Value'
+                    return 'Period' if letter == 'x' else 'Value'
+                return ''
+
+            _patched = []
+            for _ch in plotly_charts:
+                try:
+                    _lo = dict(_ch.get('layout', {}))
+                    _tr = _ch.get('data', [])
+                    # Legend: enforce for multi-series charts
+                    _vis = [t for t in _tr if str(t.get('type', 'scatter')).lower() not in ('table', 'indicator')]
+                    if len(_vis) >= 2 and not _lo.get('showlegend', True):
+                        _lo['showlegend'] = True
+                    _lg = dict(_lo.get('legend', {}))
+                    _lg.setdefault('font', {}).update({'size': 12})
+                    _lg.setdefault('bgcolor', 'rgba(15,23,42,0.75)')
+                    _lg.setdefault('bordercolor', 'rgba(148,163,184,0.25)')
+                    _lg.setdefault('borderwidth', 1)
+                    _lo['legend'] = _lg
+                    # Axis titles: fill blanks
+                    _aks = [k for k in _lo if _AX_RE.match(k)]
+                    for _fb in ('xaxis', 'yaxis'):
+                        if _fb not in _aks:
+                            _aks.append(_fb)
+                    for _ak in _aks:
+                        _ax = dict(_lo.get(_ak, {}))
+                        _at = _ax.get('title', {})
+                        _txt = (_at if isinstance(_at, str) else _at.get('text', '')).strip()
+                        if not _txt or 'click to enter' in _txt.lower():
+                            _ltr = 'x' if _ak.startswith('x') else 'y'
+                            _inf = _infer_ax_label(_tr, _ltr)
+                            if _inf:
+                                _ax['title'] = {'text': _inf, 'font': {'size': 13, 'color': '#94a3b8'}}
+                        _ax.setdefault('tickfont', {'size': 11, 'color': '#cbd5e1'})
+                        _lo[_ak] = _ax
+                    _patched.append({**_ch, 'layout': _lo})
+                except Exception:
+                    _patched.append(_ch)
+            plotly_charts = _patched
+
         updated_df_sample = None
 
         def _select_sample_frame():
@@ -718,8 +834,8 @@ def execute_request(request: dict) -> dict:
                      'scipy_stats', 'preprocessing', 'cluster', 'decomposition',
                      'ensemble', 'linear_model', 'metrics', 'sklearn',
                      'make_subplots', 'file_sources', '__builtins__',
-                     'safe_to_numeric', 'sm', 'ExponentialSmoothing', 'seasonal_decompose',
-                     'dataset_catalog'}
+                     'safe_to_numeric', 'smart_forecast', 'sm', 'ExponentialSmoothing',
+                     'seasonal_decompose', 'dataset_catalog'}
         for k, v in namespace.items():
             if k not in skip_keys and not k.startswith('__'):
                 try:

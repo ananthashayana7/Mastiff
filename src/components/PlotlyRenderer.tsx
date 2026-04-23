@@ -376,7 +376,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
     const [showRSI, setShowRSI] = useState(false);
     const [priceView, setPriceView] = useState<'candles' | 'line'>('candles');
 
-    const MASTIFF_COLORWAY = [
+    const SPARTA_COLORWAY = [
         '#B45734', '#D9A066', '#7A3E2D', '#E7C7A3', '#9C5C43',
         '#C07B4A', '#6A3124', '#F1DEC4', '#8C6B52', '#D28E5B'
     ];
@@ -517,7 +517,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
             loadTimeout = window.setTimeout(() => {
                 if (!(window as any).Plotly) {
                     setIsLoaded(true);
-                    setRenderError('Plotly runtime timed out, so Mastiff is switching to a local chart fallback.');
+                    setRenderError('Plotly runtime timed out, so SPARTA is switching to a local chart fallback.');
                 }
             }, 1800);
             script.onload = () => {
@@ -1062,7 +1062,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 })
                 : parsedData.layout?.annotations;
 
-            // Deep merge layout for Mastiff dark theme
+            // Deep merge layout for SPARTA dark theme
             const layout: any = {
                 ...(parsedData.layout || {}),
                 paper_bgcolor: 'rgba(5, 10, 20, 0)',
@@ -1136,7 +1136,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     tracegroupgap: 8,
                     title: legendableTraceCount > 1 ? { text: 'Series' } : undefined,
                 },
-                colorway: MASTIFF_COLORWAY,
+                colorway: SPARTA_COLORWAY,
                 hovermode: isMultiPanelChart ? 'closest' : (hasXAxisSeries ? 'x unified' : 'closest'),
                 annotations: sanitizedAnnotations,
                 newshape: {
@@ -1324,11 +1324,11 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                     showlegend: shouldShowLegend(trace) && legendableTraceCount > 1,
                     marker: {
                         ...(trace.marker || {}),
-                        color: trace.marker?.color || MASTIFF_COLORWAY[i % MASTIFF_COLORWAY.length],
+                        color: trace.marker?.color || SPARTA_COLORWAY[i % SPARTA_COLORWAY.length],
                     },
                     line: {
                         ...(trace.line || {}),
-                        color: trace.line?.color || MASTIFF_COLORWAY[i % MASTIFF_COLORWAY.length],
+                        color: trace.line?.color || SPARTA_COLORWAY[i % SPARTA_COLORWAY.length],
                     }
                 };
             });
@@ -1355,7 +1355,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                         format: 'png',
                         width: exportDimensions.width,
                         height: exportDimensions.height,
-                        filename: `mastiff-plotly-${Date.now()}`,
+                        filename: `sparta-plotly-${Date.now()}`,
                         scale: 2
                     }
                 });
@@ -1425,7 +1425,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
             format: 'png',
             width: exportDimensions.width,
             height: exportDimensions.height,
-            filename: `mastiff-chart-${Date.now()}`,
+            filename: `sparta-chart-${Date.now()}`,
             scale: 2
         });
     };
@@ -1647,7 +1647,7 @@ export const PlotlyRenderer: React.FC<PlotlyRendererProps> = ({ data }) => {
                 {renderError && fallbackVisualization && (
                     <div className="w-full h-full overflow-auto p-3 custom-scrollbar">
                         <div className="mb-3 rounded-xl border border-amber-500/25 bg-amber-500/[0.08] px-3 py-2 text-[10px] font-semibold text-amber-100">
-                            Plotly interactive runtime was unavailable, so Mastiff switched to a local fallback chart.
+                            Plotly interactive runtime was unavailable, so SPARTA switched to a local fallback chart.
                         </div>
                         <ChartRenderer viz={fallbackVisualization} />
                     </div>

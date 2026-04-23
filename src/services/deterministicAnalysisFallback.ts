@@ -7,7 +7,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-SIGNAL_MARKER = "__MASTIFF_SIGNAL__="
+SIGNAL_MARKER = "__SPARTA_SIGNAL__="
 result = None
 
 
@@ -1169,7 +1169,7 @@ def _pick_primary_metric(frame, numeric_cols):
 
 
 if df.empty:
-    result = "Data is empty after loading. Please upload a file with at least one data row."
+    result = "No usable rows were loaded, so the actionable pass is limited to schema recovery and source checks."
 else:
     _multi_file_ready = len(_usable_dfs) > 1
 
@@ -1536,7 +1536,7 @@ else:
                 )]
             )
             fig.update_layout(title='Deterministic fallback dashboard: data preview', height=520)
-            result = fig if __WANTS_VISUALIZATION__ else "No numeric columns detected for quantitative analysis."
+            result = fig if __WANTS_VISUALIZATION__ else "Qualitative preview completed; no numeric KPI column was detected for quantitative ranking."
 `;
 
 export function buildDeterministicAnalysisFallbackPython(wantsVisualization: boolean): string {

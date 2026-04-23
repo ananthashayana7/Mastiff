@@ -12,7 +12,7 @@ export default function SharePointOauthCallbackPage() {
     if (window.opener && !window.opener.closed) {
       window.opener.postMessage(
         {
-          type: 'mastiff:sharepoint-oauth-callback',
+          type: 'sparta:sharepoint-oauth-callback',
           code,
           state,
           error,

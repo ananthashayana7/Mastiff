@@ -1,4 +1,4 @@
-const SIGNAL_MARKER = '__MASTIFF_SIGNAL__=';
+const SIGNAL_MARKERS = ['__SPARTA_SIGNAL__=', '__MASTIFF_SIGNAL__='];
 
 type FinancialStatementSignal = {
   kind: 'financial_statement';
@@ -111,8 +111,13 @@ function extractSignalLine(executionResultText: string): string | null {
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const signalLine = [...lines].reverse().find((line) => line.startsWith(SIGNAL_MARKER));
-  return signalLine ? signalLine.slice(SIGNAL_MARKER.length) : null;
+  for (const line of [...lines].reverse()) {
+    const marker = SIGNAL_MARKERS.find((candidate) => line.startsWith(candidate));
+    if (marker) {
+      return line.slice(marker.length);
+    }
+  }
+  return null;
 }
 
 function parseSignal(raw: string): DeterministicExecutionSignal | null {

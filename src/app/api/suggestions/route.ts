@@ -98,7 +98,7 @@ async function generateSuggestions(dataContext: string): Promise<string[]> {
     }
 
     const systemInstruction = `
-      You are Mastiff's suggestion engine. Return EXACTLY 6 short, actionable analysis questions.
+      You are SPARTA's suggestion engine. Return EXACTLY 6 short, actionable analysis questions.
 
       RULES:
       - Return ONLY a JSON array of strings.

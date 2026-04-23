@@ -6,7 +6,7 @@ import {
 } from '../src/lib/deterministicSignalSummary';
 import { validateSummaryContract } from '../src/lib/chatResponseContract';
 
-const FINANCE_SIGNAL_LINE = '__MASTIFF_SIGNAL__=' + JSON.stringify({
+const FINANCE_SIGNAL_LINE = '__SPARTA_SIGNAL__=' + JSON.stringify({
   kind: 'financial_statement',
   coverageNote: 'Single workbook financial statement parsed across 6 monthly periods with YTD totals where available.',
   ytdPat: 33917,
@@ -82,7 +82,7 @@ describe('deterministic signal summary', () => {
   });
 
   it('builds a time-aware operating summary from a non-financial single-dataset signal', () => {
-    const summary = buildDeterministicSignalSummaryFromExecution('__MASTIFF_SIGNAL__=' + JSON.stringify({
+    const summary = buildDeterministicSignalSummaryFromExecution('__SPARTA_SIGNAL__=' + JSON.stringify({
       kind: 'single_dataset_numeric',
       rows: 312,
       columns: 28,

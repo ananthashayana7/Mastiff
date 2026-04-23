@@ -34,9 +34,12 @@ export function shouldWarnOnFinancialDatasetMismatch(
   files: GuardFileShape[],
   hasPastedData: boolean,
 ): boolean {
-  if (hasPastedData || files.length === 0) return false;
-  if (!FINANCIAL_QUERY_HINT.test(content)) return false;
-  return detectDatasetDomain(files) !== 'financial';
+  // Domain hints are useful for choosing analysis templates, but they should
+  // never block the user from getting best-effort insights on the active data.
+  void content;
+  void files;
+  void hasPastedData;
+  return false;
 }
 
 export function buildFinancialDatasetMismatchMessage(files: GuardFileShape[]): string {
@@ -49,9 +52,8 @@ export function buildFinancialDatasetMismatchMessage(files: GuardFileShape[]): s
   const columnHint = columns.length > 0 ? `Visible fields: ${columns.join(', ')}.` : '';
 
   return [
-    `The active dataset is not financial data. I only have ${datasetLabel} in the current chat context.`,
+    `Using ${datasetLabel} as the active dataset for best-effort analysis.`,
     columnHint,
-    'A PAT, revenue, margin, or P&L analysis on this dataset would be fabricated.',
-    'Upload or activate the finance workbook first, or ask for an analysis that matches the active dataset.',
+    'I will map the request to the strongest available rows, columns, numeric signals, anomalies, and actions without requiring a special workbook format.',
   ].filter(Boolean).join(' ');
 }

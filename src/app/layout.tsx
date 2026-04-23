@@ -15,8 +15,8 @@ export const metadata: Metadata = {
     title: "SPARTA - Analytics Platform",
     description: "SPARTA analytics workspace with interactive charts, decision-ready drill-downs, and AI-guided actions.",
     icons: {
-        icon: '/branding/mastiff-mark.svg',
-        shortcut: '/branding/mastiff-mark.svg',
+        icon: '/branding/sparta-mark.svg',
+        shortcut: '/branding/sparta-mark.svg',
     },
 };
 
