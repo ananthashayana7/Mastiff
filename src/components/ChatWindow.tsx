@@ -7,7 +7,7 @@ import {
     ChartBar, Code, UploadSimple, ArrowRight, Table, PlayCircle, Scroll,
     Square, Scan, TrendUp, ChartLine, ArrowClockwise
 } from '@phosphor-icons/react';
-import { ChatMessage, AnalysisMode, AnalystPersona, DataFile, ForecastOption, Session } from '../types';
+import { ChatMessage, AnalysisMode, AnalystPersona, DataFile, ExecutionMode, ForecastOption, Session } from '../types';
 import { ChartRenderer } from './ChartRenderer';
 import { PlotlyRenderer } from './PlotlyRenderer';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -24,6 +24,7 @@ interface ChatWindowProps {
     isAnalyzing: boolean;
     isSearchEnabled: boolean;
     analysisMode: AnalysisMode;
+    executionMode: ExecutionMode;
     activePersona: AnalystPersona;
     personas: AnalystPersona[];
     inputText: string;
@@ -43,6 +44,7 @@ interface ChatWindowProps {
     onTogglePersonaMenu: () => void;
     onSelectPersona: (p: AnalystPersona) => void;
     onToggleSearch: () => void;
+    onSetExecutionMode: (mode: ExecutionMode) => void;
     onInputChange: (text: string) => void;
     onSend: (overridePrompt?: string) => void;
     onStopAnalysis: () => void;
@@ -73,6 +75,25 @@ interface ForecastFocusPanelProps {
 
 const FORECAST_HORIZONS = [3, 6, 12];
 const ACTION_LANE_LABELS = ['Immediate Move', 'Structural Move', 'Risk Control'];
+const EXECUTION_MODE_OPTIONS: Array<{
+    mode: ExecutionMode;
+    label: string;
+    helper: string;
+    icon: React.ReactNode;
+}> = [
+    {
+        mode: 'preview',
+        label: 'Insights Only',
+        helper: 'Skip Python. Faster, cheaper, and much less brittle.',
+        icon: <Sparkle size={12} weight="bold" />,
+    },
+    {
+        mode: 'sandbox',
+        label: 'Python Sandbox',
+        helper: 'Run full code, chart generation, and computed forecasts.',
+        icon: <Terminal size={12} weight="bold" />,
+    },
+];
 
 const ForecastFocusPanel: React.FC<ForecastFocusPanelProps> = ({ files, onRunForecast }) => {
     const groups = useMemo(() => buildForecastTargetGroups(files), [files]);
@@ -258,6 +279,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     isAnalyzing,
     isSearchEnabled,
     analysisMode,
+    executionMode,
     activePersona,
     personas,
     inputText,
@@ -277,6 +299,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     onTogglePersonaMenu,
     onSelectPersona,
     onToggleSearch,
+    onSetExecutionMode,
     onInputChange,
     onSend,
     onStopAnalysis,
@@ -1118,6 +1141,38 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         </div>
                     )}
                     <div className={`rounded-[28px] border bg-white transition-all duration-300 ${inputText ? 'border-sky-200 shadow-[0_10px_30px_rgba(31,111,235,0.08)]' : 'border-stone-200 shadow-[0_8px_24px_rgba(28,25,23,0.04)]'}`}>
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 px-3.5 py-3">
+                            <div>
+                                <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-stone-500">Execution Mode</p>
+                                <p className="mt-1 text-[11px] leading-relaxed text-stone-500">
+                                    {executionMode === 'sandbox'
+                                        ? 'SPARTA will use the Python sandbox for computed analysis and heavier charts.'
+                                        : 'SPARTA will answer in preview mode without writing or running Python.'}
+                                </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {EXECUTION_MODE_OPTIONS.map((option) => (
+                                    <button
+                                        key={option.mode}
+                                        onClick={() => onSetExecutionMode(option.mode)}
+                                        className={`rounded-2xl border px-3 py-2 text-left transition-all ${executionMode === option.mode
+                                            ? option.mode === 'sandbox'
+                                                ? 'border-sky-200 bg-sky-50 text-sky-900 shadow-sm'
+                                                : 'border-emerald-200 bg-emerald-50 text-emerald-900 shadow-sm'
+                                            : 'border-stone-200 bg-stone-50 text-stone-600 hover:border-stone-300 hover:bg-white hover:text-stone-900'
+                                            }`}
+                                    >
+                                        <span className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em]">
+                                            {option.icon}
+                                            {option.label}
+                                        </span>
+                                        <span className="mt-1 block max-w-[15rem] text-[10px] font-medium leading-relaxed text-current/80">
+                                            {option.helper}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                         <div className="flex items-end gap-2 rounded-[27px] bg-white p-2.5 backdrop-blur-xl">
                             <button
                                 onClick={() => fileInputRef.current?.click()}
@@ -1129,7 +1184,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 value={inputText}
                                 onChange={e => onInputChange(e.target.value)}
                                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } }}
-                                placeholder={isSearchEnabled ? "Search the web and your data..." : "Ask SPARTA anything — analyze data, generate charts, get insights..."}
+                                placeholder={isSearchEnabled
+                                    ? "Search the web and your data..."
+                                    : executionMode === 'sandbox'
+                                        ? "Ask SPARTA to analyze with Python, compute metrics, or build charts..."
+                                        : "Ask SPARTA for quick insights, schema-backed analysis, or a no-code preview..."}
                                 className="custom-scrollbar max-h-28 flex-1 resize-none border-none bg-transparent py-2 text-sm font-medium text-stone-900 placeholder:text-stone-400 focus:ring-0"
                                 rows={1}
                             />
@@ -1148,7 +1207,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         </div>
                     </div>
                     <p className="mt-1.5 px-1 text-[8px] font-medium text-stone-500">
-                        SPARTA can make mistakes. Verify important analyses, and open View Code on any answer to inspect the generated Python.
+                        {executionMode === 'sandbox'
+                            ? 'SPARTA can make mistakes. Verify important analyses, and open View Code on any answer to inspect the generated Python.'
+                            : 'Preview mode skips Python entirely. Switch to Python Sandbox when you want computed metrics, heavier charts, or deeper forecast math.'}
                     </p>
                 </div>
             </div>

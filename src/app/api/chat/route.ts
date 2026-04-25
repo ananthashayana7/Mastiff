@@ -6,7 +6,7 @@ import { eq, asc, and, inArray } from 'drizzle-orm';
 import { buildResilientDeterministicAnalysisFallbackCode, classifyLlmError, llm } from '@/services/llm';
 import { kernelService } from '@/services/kernel';
 import { generateDataIntelligenceReport, formatWarningsForPrompt, analyseFile, formatForPrompt, DataIntelligenceReport } from '@/services/dataIntelligenceService';
-import { AnalysisMode } from '@/src/types';
+import { AnalysisMode, ExecutionMode } from '@/src/types';
 import { authenticateRequest } from '@/lib/auth';
 import { validateCSRFRequest } from '@/lib/csrf';
 import { buildRecoverySnippet } from './recoverySnippets';
@@ -361,6 +361,87 @@ function buildPreviewSampleFallback(sessionFiles: Array<{ filename: string; meta
     return buildAutoChartRowsFromFiles(sessionFiles) as Record<string, unknown>[];
 }
 
+function formatPreviewSampleRows(sampleRows: Record<string, unknown>[], limit = 6): string {
+    if (!Array.isArray(sampleRows) || sampleRows.length === 0) {
+        return 'No sample rows available.';
+    }
+
+    return sampleRows
+        .slice(0, limit)
+        .map((row, index) => `${index + 1}. ${JSON.stringify(row)}`)
+        .join('\n');
+}
+
+function joinPreviewList(values: unknown, emptyLabel = 'N/A', limit = 8): string {
+    if (!Array.isArray(values)) {
+        return emptyLabel;
+    }
+
+    const cleaned = values
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .slice(0, limit);
+
+    return cleaned.length > 0 ? cleaned.join(', ') : emptyLabel;
+}
+
+function buildPreviewEvidenceFromFiles(
+    sessionFiles: Array<{ filename: string; metadata?: unknown }>,
+    warnings: string[],
+): string {
+    const warningBlock = warnings.length > 0
+        ? `Profile warnings:\n- ${warnings.join('\n- ')}`
+        : 'Profile warnings:\n- None recorded during preview analysis.';
+
+    const datasetBlocks = sessionFiles.map((file) => {
+        const metadata = (file.metadata || {}) as Record<string, any>;
+        const intelligence = metadata.datasetIntelligence || {};
+        const selectedColumns = Array.isArray(metadata.selectedColumns) && metadata.selectedColumns.length > 0
+            ? metadata.selectedColumns
+            : Object.keys(metadata.columns || {});
+        const sampleRows = Array.isArray(metadata.sample) ? metadata.sample : [];
+
+        return [
+            `Dataset: ${file.filename}`,
+            `Rows: ${Number(metadata.row_count || sampleRows.length || 0)}`,
+            `Columns: ${Number(metadata.column_count || selectedColumns.length || 0)}`,
+            `Selected columns: ${joinPreviewList(selectedColumns, 'N/A', 14)}`,
+            `Measures: ${joinPreviewList(intelligence.measures)}`,
+            `Dimensions: ${joinPreviewList(intelligence.dimensions)}`,
+            `Date fields: ${joinPreviewList(intelligence.dateFields)}`,
+            `Candidate KPIs: ${joinPreviewList(intelligence.candidateKpis)}`,
+            `Business terms: ${joinPreviewList(intelligence.businessTerms)}`,
+            `Profile anomalies: ${joinPreviewList(intelligence.anomalies, 'None flagged', 6)}`,
+            'Sample rows:',
+            formatPreviewSampleRows(sampleRows as Record<string, unknown>[]),
+        ].join('\n');
+    });
+
+    return [
+        'Execution mode: preview_only',
+        'Python sandbox: disabled by user for this request.',
+        'Preview basis: schema profile, reliability scan, and representative sample rows only.',
+        'Forecast support: any forecast in this mode is directional until full sandbox execution is enabled.',
+        warningBlock,
+        ...datasetBlocks,
+    ].join('\n\n');
+}
+
+function buildPreviewEvidenceFromInlineRows(content: string, sampleRows: Record<string, unknown>[]): string {
+    const detectedColumns = sampleRows[0] ? Object.keys(sampleRows[0]) : [];
+
+    return [
+        'Execution mode: preview_only',
+        'Python sandbox: disabled by user for this request.',
+        'Preview basis: inline tabular content parsed into representative rows only.',
+        'Forecast support: any forecast in this mode is directional until full sandbox execution is enabled.',
+        `Inline prompt length: ${content.length} characters`,
+        `Detected columns: ${detectedColumns.length > 0 ? detectedColumns.join(', ') : 'None detected'}`,
+        `Sample row count: ${sampleRows.length}`,
+        'Sample rows:',
+        formatPreviewSampleRows(sampleRows),
+    ].join('\n\n');
+}
+
 function sanitizeExecutiveSummary(summary: string): string {
     if (!summary) return '';
 
@@ -442,6 +523,7 @@ export async function POST(req: NextRequest) {
             sessionId,
             content,
             mode = 'analysis',
+            executionMode = 'preview',
             silent = false,
             activeFileIds,
             linkedConnectorIds = [],
@@ -459,6 +541,7 @@ export async function POST(req: NextRequest) {
 
         const validModes: AnalysisMode[] = ['chat', 'analysis'];
         const analysisMode: AnalysisMode = validModes.includes(mode) ? mode : 'analysis';
+        const normalizedExecutionMode: ExecutionMode = executionMode === 'sandbox' ? 'sandbox' : 'preview';
 
         const session = await db.query.sessions.findFirst({
             where: and(eq(sessions.id, sessionId), eq(sessions.userId, user.id)),
@@ -547,6 +630,175 @@ export async function POST(req: NextRequest) {
         });
         const queryPlanContext = buildQueryPlanPromptBlock(queryPlan);
         const runDataAnalysis = shouldRunDataAnalysisFromPlan(queryPlan, effectiveHasFiles);
+
+        if (runDataAnalysis && normalizedExecutionMode !== 'sandbox') {
+            const previewFallback = hasFiles
+                ? buildPreviewSampleFallback(sessionFiles)
+                : pastedSampleRows;
+            const previewHasChart = hasAutoChartableData(previewFallback);
+            const intelligenceFileContexts = hasFiles
+                ? profiledSessionFiles.map((f) => ({
+                    name: f.filename,
+                    schema: JSON.stringify(f.metadata, null, 2),
+                    sample: (f.metadata as any)?.sample || [],
+                }))
+                : [{
+                    name: 'pasted_data.txt',
+                    schema: JSON.stringify({
+                        columns: pastedSampleRows[0] ? Object.keys(pastedSampleRows[0]) : [],
+                        row_count: pastedSampleRows.length,
+                    }),
+                    sample: pastedSampleRows,
+                }];
+            const dataQualityWarnings = generateDataIntelligenceReport(intelligenceFileContexts);
+            const dataQualityContext = formatWarningsForPrompt(dataQualityWarnings);
+            const intelligenceReports: DataIntelligenceReport[] = profiledSessionFiles.map((f) => {
+                const metadata = (f.metadata ?? {}) as Record<string, unknown>;
+                const sample = (Array.isArray((metadata as any)?.sample) ? (metadata as any).sample : []) as Record<string, unknown>[];
+                return analyseFile(metadata, sample);
+            });
+            const datasetMemoryContext = hasFiles
+                ? buildDatasetMemoryPromptBlock(profiledSessionFiles.map((f) => ({
+                    id: f.id,
+                    name: f.filename,
+                    metadata: (f.metadata || {}) as any,
+                })))
+                : '';
+            const dataIntelligenceContext = [formatForPrompt(intelligenceReports), datasetMemoryContext]
+                .filter(Boolean)
+                .join('\n\n');
+            const previewEvidence = hasFiles
+                ? buildPreviewEvidenceFromFiles(
+                    profiledSessionFiles.map((file) => ({
+                        filename: file.filename,
+                        metadata: file.metadata,
+                    })),
+                    dataQualityWarnings.map((warning) => warning.message),
+                )
+                : buildPreviewEvidenceFromInlineRows(content, pastedSampleRows);
+
+            let previewSummary = await llm.summarizeExecution(
+                content,
+                '',
+                {
+                    success: true,
+                    result: previewEvidence,
+                    charts: [],
+                    plotly_charts: [],
+                },
+                analysisMode,
+                dataQualityContext,
+                dataIntelligenceContext
+            );
+
+            const previewValidation = validateSummaryContract(
+                content,
+                previewSummary,
+                shouldRequireVisualizationFromPlan(queryPlan, effectiveHasFiles),
+                false
+            );
+
+            previewSummary = sanitizeExecutiveSummary(previewSummary);
+            if (!previewSummary || !previewValidation.valid || containsTechnicalArtifacts(previewSummary)) {
+                previewSummary = buildContractFallbackSummary(content, previewHasChart, false);
+            }
+
+            const provenance = hasFiles
+                ? buildAnalysisProvenance(
+                    profiledSessionFiles.map((f) => ({
+                        id: f.id,
+                        name: f.filename,
+                        metadata: (f.metadata || {}) as any,
+                    })),
+                    dataQualityWarnings.map((warning) => warning.message)
+                )
+                : undefined;
+            const envelopeResult = buildAnalysisResponseEnvelope(previewSummary, {
+                hasChart: previewHasChart,
+                hasCode: false,
+                provenance,
+            });
+            const followUpPrompts = envelopeResult.envelope
+                ? buildFollowUpPrompts(envelopeResult.envelope, {
+                    provenance,
+                    datasets: profiledSessionFiles.map((file) => {
+                        const metadata = (file.metadata || {}) as any;
+                        return {
+                            name: file.filename,
+                            measures: metadata.datasetIntelligence?.measures || [],
+                            dimensions: metadata.datasetIntelligence?.dimensions || [],
+                            dateFields: metadata.datasetIntelligence?.dateFields || [],
+                            keyCandidates: metadata.datasetIntelligence?.keyCandidates || [],
+                            candidateKpis: metadata.datasetIntelligence?.candidateKpis || [],
+                            analysisMemory: metadata.analysisMemory ? {
+                                commonFilters: metadata.analysisMemory.commonFilters || [],
+                                previousCharts: metadata.analysisMemory.previousCharts || [],
+                            } : undefined,
+                        };
+                    }),
+                })
+                : [];
+
+            if (envelopeResult.usedFallback && envelopeResult.envelope) {
+                previewSummary = renderEnvelopeAsSummary(envelopeResult.envelope);
+            }
+
+            if (hasFiles && envelopeResult.envelope) {
+                await Promise.all(profiledSessionFiles.map(async (file) => {
+                    const metadata = (file.metadata || {}) as any;
+                    const nextAnalysisMemory = mergeDatasetAnalysisMemory({
+                        existing: metadata.analysisMemory,
+                        userQuery: content,
+                        envelope: envelopeResult.envelope,
+                        profile: metadata.datasetIntelligence,
+                    });
+
+                    await db.update(filesTable)
+                        .set({
+                            metadata: {
+                                ...metadata,
+                                analysisMemory: nextAnalysisMemory,
+                            } as any,
+                        })
+                        .where(eq(filesTable.id, file.id));
+                }));
+            }
+
+            await emitResponseQualityEvent({
+                sessionId,
+                userId: session.userId ?? undefined,
+                usedEnvelopeFallback: envelopeResult.usedFallback,
+                contractRepairAttempted: false,
+                contractRepaired: previewValidation.valid,
+                initialViolations: previewValidation.violations,
+            });
+
+            const [assistantMsg] = await db.insert(messages).values({
+                sessionId,
+                role: 'assistant',
+                content: previewSummary,
+                result: {
+                    updated_df_sample: previewFallback,
+                    provenance,
+                    responseEnvelope: envelopeResult.envelope ?? undefined,
+                    responseEnvelopeMeta: {
+                        usedFallback: envelopeResult.usedFallback,
+                        contractRepairAttempted: false,
+                        contractRepaired: previewValidation.valid,
+                        initialViolations: previewValidation.violations,
+                    },
+                    followUpPrompts,
+                },
+            }).returning();
+
+            if (session.messages.length === 0) {
+                await db.update(sessions)
+                    .set({ title: content.slice(0, 50), updatedAt: new Date() })
+                    .where(eq(sessions.id, sessionId));
+            }
+
+            return NextResponse.json(assistantMsg);
+        }
 
         if (runDataAnalysis) {
             // Build a synthetic file context when the user pasted data inline
@@ -745,6 +997,36 @@ export async function POST(req: NextRequest) {
                                 };
                                 executionResult = shapeRepairedResult;
                             }
+                        }
+                    }
+                }
+            }
+
+            if (executionResult?.error) {
+                const missingColumnContext = `${executionResult.error || ''}\n${executionResult.traceback || ''}`;
+                const missingColumnMatch = missingColumnContext.match(/KeyError:\s*['"]([^'"]+)['"]|^['"]([^'"]+)['"]$/m);
+                const missingColumnName = (missingColumnMatch?.[1] || missingColumnMatch?.[2] || '').trim();
+
+                if (missingColumnName) {
+                    const missingColumnRepair = await llm.repairAnalysisCode(
+                        `${content}\n\nTARGETED FIX: the generated code referenced a missing column named "${missingColumnName}". Never assume derived helper columns like Month_Num already exist. Before any column access, verify membership in df.columns. If the missing field represents time or ordering, derive a safe sequential fallback with np.arange(len(df)) or use the closest date-like column that actually exists.`,
+                        analysis.code,
+                        executionResult.error,
+                        executionResult.traceback,
+                        fileContexts,
+                        analysisMode,
+                        queryPlanContext
+                    );
+
+                    if (missingColumnRepair?.code && missingColumnRepair.code.trim()) {
+                        const missingColumnRepairedResult = await kernelService.execute(sessionId, missingColumnRepair.code, executorFiles);
+                        if (!missingColumnRepairedResult?.error) {
+                            analysis = {
+                                ...analysis,
+                                explanation: missingColumnRepair.explanation,
+                                code: missingColumnRepair.code,
+                            };
+                            executionResult = missingColumnRepairedResult;
                         }
                     }
                 }

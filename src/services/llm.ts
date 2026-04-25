@@ -506,15 +506,15 @@ else:
         )
 
         fig.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(15,23,42,0.6)',
-            font=dict(family='system-ui,sans-serif', color='#e2e8f0'),
-            title=dict(text='Multi-Dataset Comparison Dashboard', font=dict(size=18, color='#f8fafc')),
+            paper_bgcolor='#F8FAFC',
+            plot_bgcolor='#EEF4F7',
+            font=dict(family='system-ui,sans-serif', color='#0F172A'),
+            title=dict(text='Multi-Dataset Comparison Dashboard', font=dict(size=18, color='#0F172A')),
             margin=dict(l=50, r=30, t=90, b=40),
             height=780,
-            legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1, font=dict(color='#cbd5e1')),
+            legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1, font=dict(color='#334155')),
             barmode='group',
-            hoverlabel=dict(bgcolor='#1e293b', font_size=12),
+            hoverlabel=dict(bgcolor='#E2E8F0', font_size=12, font_color='#0F172A'),
         )
         result = fig
 
@@ -684,15 +684,15 @@ else:
                 )
 
         fig.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(15,23,42,0.6)',
-            font=dict(family='system-ui,sans-serif', color='#e2e8f0'),
-            title=dict(text=f'Analysis Dashboard: {value_col}', font=dict(size=18, color='#f8fafc')),
+            paper_bgcolor='#F8FAFC',
+            plot_bgcolor='#EEF4F7',
+            font=dict(family='system-ui,sans-serif', color='#0F172A'),
+            title=dict(text=f'Analysis Dashboard: {value_col}', font=dict(size=18, color='#0F172A')),
             margin=dict(l=50, r=30, t=90, b=40),
             height=780,
-            legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1, font=dict(color='#cbd5e1')),
+            legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1, font=dict(color='#334155')),
             barmode='group',
-            hoverlabel=dict(bgcolor='#1e293b', font_size=12),
+            hoverlabel=dict(bgcolor='#E2E8F0', font_size=12, font_color='#0F172A'),
         )
         result = fig
     else:
@@ -1146,6 +1146,8 @@ EXECUTION ENVIRONMENT:
 - Text is mandatory whenever data is analyzed. Visuals support the answer; they never replace the written summary.
 - Before using ranking helpers such as nlargest, nsmallest, idxmax, idxmin, or percentile logic, coerce the target Series with safe_to_numeric(..., errors='coerce'), drop nulls, and fall back safely if no numeric values remain.
 - Never call Series.nlargest(...) or Series.nsmallest(...) on raw object/string columns. If a grouped metric may still be object-typed after aggregation, explicitly re-coerce that metric column before ranking or sorting.
+- Never assume derived helper columns already exist. Before referencing names like Month_Num, Month_Index, Period_Number, or similar synthetic fields, check df.columns first and derive them safely only when needed.
+- If no reliable time/order field exists, create a sequential fallback with np.arange(len(df)) and label the assumption in stdout instead of crashing on a missing column.
 - Handle missing values silently (do not dedicate significant output to nulls — focus on the data that exists).
 - Do all calculations in Python.
 - For every numerical question, write deterministic Python that computes the answer directly from data (never prose-only math).
@@ -1203,8 +1205,8 @@ FINANCIAL DATA DETECTION:
     5. BOTTOM-LEFT: Explicit scenario comparison chart with at least 3 paths: stress/downside, base case, and recovery/upside. Show them as bars or lines in one chart, not prose only.
     6. BOTTOM-RIGHT: Forecast for primary KPI with 80% confidence interval band
     7. Add one supporting diagnostic visual that exposes the hidden risk behind the top-line numbers, such as PAT delta vs inventory movement, margin compression vs revenue stability, or a one-off income dependency view.
-  - Use dark theme: paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(15,23,42,0.6)'
-  - Color: profits/gains in #00D4AA, losses/expenses in #FF6B6B, forecast in #54A0FF with opacity
+  - Use a clean executive canvas: paper_bgcolor='#F8FAFC', plot_bgcolor='#EEF4F7', font color '#0F172A'
+  - Color: profits/gains in #0F766E, losses/expenses in #DC2626, forecast in #0284C7 with softened opacity
     - Always print: YoY growth %, top margin change, top expense driver, forecast value with confidence range
     - ALWAYS surface one hidden-risk insight in the written findings. It must be something management may miss at first glance: margin compression despite stable revenue, inventory timing distortion, one-off income masking weakness, or cost recognition volatility.
     - NEVER replace the PAT bridge or scenario comparison with generic grouped bars. Those two visuals are mandatory for financial statement analysis.
@@ -1268,14 +1270,14 @@ VISUALIZATION RULES (MANDATORY — CHARTS ARE NON-NEGOTIABLE):
     - Use funnel for sequential stage analysis; histogram for distributions; box/violin for spread comparisons.
     - When in doubt, prefer bar or line charts — they are the most universally readable.
 - Styling guidance for Plotly (MAKE CHARTS COLORFUL AND INSIGHTFUL):
-    - Use vivid but executive-grade color palettes: ['#38BDF8','#14B8A6','#F59E0B','#818CF8','#22C55E','#F97316','#0EA5E9','#A3E635','#FACC15','#06B6D4'].
-    - FINANCE COLOR PALETTE (use for financial data): ['#00D4AA','#FF6B6B','#4ECDC4','#FFE66D','#A8EDEA','#C3F584','#FF9F43','#54A0FF','#5F27CD','#EE5A24']
-    - For profit/positive values: use greens (#00D4AA, #4ECDC4, #C3F584)
-    - For loss/negative values: use reds/oranges (#FF6B6B, #EE5A24, #FF9F43)
+    - Use vivid but executive-grade color palettes: ['#0EA5E9','#14B8A6','#F59E0B','#F97316','#22C55E','#2563EB','#FB7185','#84CC16','#06B6D4','#A16207'].
+    - FINANCE COLOR PALETTE (use for financial data): ['#0F766E','#DC2626','#0284C7','#F59E0B','#22C55E','#FB7185','#14B8A6','#2563EB','#84CC16','#B45309']
+    - For profit/positive values: use teals/greens (#0F766E, #14B8A6, #22C55E)
+    - For loss/negative values: use reds/oranges (#DC2626, #F97316, #F59E0B)
     - For forecasts/projections: use blues with 70% opacity and dashed lines
     - For confidence bands: use rgba fills with 15% opacity
-    - ALWAYS set paper_bgcolor='rgba(0,0,0,0)' and plot_bgcolor='rgba(15,23,42,0.6)' for dark theme consistency
-    - ALWAYS set font=dict(family='system-ui,sans-serif', color='#e2e8f0') for readability
+    - ALWAYS set paper_bgcolor='#F8FAFC' and plot_bgcolor='#EEF4F7' for a cleaner executive presentation
+    - ALWAYS set font=dict(family='system-ui,sans-serif', color='#0F172A') for readability
     - ALWAYS use hovertemplate with rich formatting for tooltips
     - For waterfall/bridge charts (finance): use green for positive bars, red for negative, gold for totals
     - For heatmaps, use perceptual continuous scales (Viridis, Plasma, Inferno).
@@ -1419,6 +1421,7 @@ RULES:
 - Preserve the original business intent and query plan while repairing the code.
 - Preserve visualization intent if requested.
 - Add robust guards for missing columns, bad types, empty data, and divide-by-zero.
+- If a referenced column is missing, do not guess blindly. Check df.columns, map to the closest real field, or derive a sequential fallback when the missing field is just an index/order helper such as Month_Num.
 - For conversion errors (e.g., "could not convert string to float"), replace direct casts with safe coercion:
     pd.to_numeric(..., errors='coerce').fillna(0) and sanitize '', '-', 'N/A', whitespace before conversion.
 - Never leave '.astype(float)' on uncleaned string columns.

@@ -7,7 +7,7 @@ import {
   Info, CaretDown, Lock, GearSix, TrendUp, Trash, List, Copy, Check, Lightning, SpinnerGap,
   FileText, FileXls, File, MagnifyingGlass, Globe, ArrowSquareOut, SignOut
 } from '@phosphor-icons/react';
-import { DataFile, ChatMessage, AnalysisMode, User as UserType, AnalystPersona, Session, ConnectorSummary } from '../types';
+import { DataFile, ChatMessage, AnalysisMode, ExecutionMode, User as UserType, AnalystPersona, Session, ConnectorSummary } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { ChatWindow } from '../components/ChatWindow';
 import { DataInspector } from '../components/DataInspector';
@@ -54,6 +54,8 @@ const PERSONAS: AnalystPersona[] = [
   { id: 'business', name: 'Strategist', icon: 'G', description: 'Business & growth strategy focus.', instruction: 'Frame all analysis through a business strategy lens. Focus on revenue impact, market positioning, competitive advantages, ROI, cost optimization, and growth levers. Provide boardroom-ready executive summaries. Prioritize actionable recommendations with projected business outcomes.' },
 ];
 
+const DEFAULT_EXECUTION_MODE: ExecutionMode = 'preview';
+
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -76,6 +78,14 @@ const App: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('analysis');
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>(() => {
+    if (typeof window === 'undefined') {
+      return DEFAULT_EXECUTION_MODE;
+    }
+
+    const storedMode = window.localStorage.getItem('mastiff_execution_mode');
+    return storedMode === 'sandbox' ? 'sandbox' : DEFAULT_EXECUTION_MODE;
+  });
   const lastUploadTime = useRef<number>(0);
 
   // Unified mode — always analysis. Handler kept for interface compatibility.
@@ -110,6 +120,14 @@ const App: React.FC = () => {
   const adaptiveShellStyle = useMemo(() => (
     { '--app-shell-zoom': adaptiveViewport.zoom } as React.CSSProperties
   ), [adaptiveViewport.zoom]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem('mastiff_execution_mode', executionMode);
+  }, [executionMode]);
 
   const buildAuthHeaders = useCallback((userId: string, includeContentType = false): Record<string, string> => {
     return {
@@ -331,6 +349,7 @@ const App: React.FC = () => {
           sessionId: activeSessionId,
           content: prompt,
           mode: analysisMode,
+          executionMode,
           silent: true,
           activeFileIds: options?.targetFileIds ?? activeFileIds,
           linkedConnectorIds,
@@ -351,6 +370,7 @@ const App: React.FC = () => {
         visualization: assistantMsg.visualizationUrl,
         result: assistantMsg.result,
         timestamp: Date.now(),
+        executionMode,
         persona: options?.personaLabel || 'System Analysis'
       }]);
     } catch (err) {
@@ -358,7 +378,7 @@ const App: React.FC = () => {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [activeFileIds, activePersona.instruction, analysisMode, buildAuthHeaders, currentUser, ensureActiveSession, linkedConnectorIds]);
+  }, [activeFileIds, activePersona.instruction, analysisMode, buildAuthHeaders, currentUser, ensureActiveSession, executionMode, linkedConnectorIds]);
 
   const importConnectorSources = useCallback(async (connectorId: string, sources: any[]) => {
     if (!currentUser) throw new Error('No authenticated user');
@@ -966,7 +986,13 @@ const App: React.FC = () => {
     const activeSessionId = await ensureActiveSession();
     if (!activeSessionId) return;
 
-    const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', content: promptToUse, timestamp: Date.now() };
+    const userMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: promptToUse,
+      timestamp: Date.now(),
+      executionMode,
+    };
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
     setIsAnalyzing(true);
@@ -981,7 +1007,8 @@ const App: React.FC = () => {
         body: JSON.stringify({
           sessionId: activeSessionId,
           content: promptToUse,
-          mode: analysisMode,  // ← NOW SENT TO BACKEND
+          mode: analysisMode,
+          executionMode,
           activeFileIds,
           linkedConnectorIds,
           persona: activePersona.instruction,
@@ -1032,6 +1059,7 @@ const App: React.FC = () => {
         result: assistantMsg.result,
         timestamp: Date.now(),
         mode: analysisMode,
+        executionMode,
         sources: assistantMsg.sources
       }]);
 
@@ -1336,6 +1364,7 @@ const App: React.FC = () => {
             isAnalyzing={isAnalyzing}
             isSearchEnabled={isSearchEnabled}
             analysisMode={analysisMode}
+            executionMode={executionMode}
             activePersona={activePersona}
             personas={PERSONAS}
             inputText={inputText}
@@ -1355,6 +1384,7 @@ const App: React.FC = () => {
             onTogglePersonaMenu={() => setShowPersonaMenu(!showPersonaMenu)}
             onSelectPersona={(p) => { setActivePersona(p); setShowPersonaMenu(false); }}
             onToggleSearch={() => setIsSearchEnabled(!isSearchEnabled)}
+            onSetExecutionMode={setExecutionMode}
             onInputChange={(text) => setInputText(text)}
             onSend={handleSend}
             onStopAnalysis={stopAnalysis}

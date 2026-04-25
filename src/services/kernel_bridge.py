@@ -52,35 +52,35 @@ try:
     from plotly.subplots import make_subplots as _make_subplots
 
     DEFAULT_COLORWAY = [
-        '#38BDF8', '#14B8A6', '#F59E0B', '#818CF8',
-        '#22C55E', '#F97316', '#0EA5E9', '#A3E635',
-        '#FACC15', '#06B6D4', '#0B6E99', '#0F766E',
+        '#0EA5E9', '#14B8A6', '#F59E0B', '#F97316',
+        '#22C55E', '#2563EB', '#FB7185', '#84CC16',
+        '#06B6D4', '#A16207', '#0F766E', '#DC2626',
     ]
 
     pio.templates['sparta'] = go.layout.Template(
         layout=go.Layout(
             colorway=DEFAULT_COLORWAY,
-            font=dict(family='system-ui, IBM Plex Sans, DejaVu Sans, Arial', size=12, color='#e2e8f0'),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(15,23,42,0.6)',
+            font=dict(family='system-ui, IBM Plex Sans, DejaVu Sans, Arial', size=12, color='#0f172a'),
+            paper_bgcolor='#f8fafc',
+            plot_bgcolor='#eef4f7',
             xaxis=dict(
-                gridcolor='rgba(148,163,184,0.12)',
-                zerolinecolor='rgba(148,163,184,0.2)',
-                title_font=dict(size=13, color='#94a3b8'),
-                tickfont=dict(size=11, color='#cbd5e1'),
+                gridcolor='rgba(148,163,184,0.22)',
+                zerolinecolor='rgba(148,163,184,0.28)',
+                title_font=dict(size=13, color='#475569'),
+                tickfont=dict(size=11, color='#334155'),
                 showgrid=True,
             ),
             yaxis=dict(
-                gridcolor='rgba(148,163,184,0.12)',
-                zerolinecolor='rgba(148,163,184,0.2)',
-                title_font=dict(size=13, color='#94a3b8'),
-                tickfont=dict(size=11, color='#cbd5e1'),
+                gridcolor='rgba(148,163,184,0.22)',
+                zerolinecolor='rgba(148,163,184,0.28)',
+                title_font=dict(size=13, color='#475569'),
+                tickfont=dict(size=11, color='#334155'),
                 showgrid=True,
             ),
             legend=dict(
-                font=dict(size=12, color='#cbd5e1'),
-                bgcolor='rgba(15,23,42,0.75)',
-                bordercolor='rgba(148,163,184,0.25)',
+                font=dict(size=12, color='#334155'),
+                bgcolor='rgba(248,250,252,0.92)',
+                bordercolor='rgba(148,163,184,0.35)',
                 borderwidth=1,
                 orientation='h',
                 yanchor='bottom',
@@ -89,7 +89,7 @@ try:
                 x=1,
             ),
             margin=dict(l=60, r=40, t=80, b=60),
-            hoverlabel=dict(bgcolor='#1e293b', font_size=12, font_color='#e2e8f0'),
+            hoverlabel=dict(bgcolor='#e2e8f0', font_size=12, font_color='#0f172a'),
         )
     )
     pio.templates['sparta'].layout.colorscale = dict(

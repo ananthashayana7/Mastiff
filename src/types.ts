@@ -180,6 +180,7 @@ export interface ChatMessage {
   };
   status?: 'thinking' | 'done' | 'error';
   mode?: AnalysisMode;
+  executionMode?: ExecutionMode;
   persona?: string;
   sources?: GroundingSource[];
 }
@@ -192,6 +193,7 @@ export interface ForecastOption {
 }
 
 export type AnalysisMode = 'chat' | 'analysis';
+export type ExecutionMode = 'preview' | 'sandbox';
 
 export interface VisualizationData {
   type: 'bar' | 'line' | 'pie' | 'scatter' | 'table' | 'cluster' | 'area' | 'radar' | 'heatmap' | 'composedbar' | 'treemap' | 'funnel';

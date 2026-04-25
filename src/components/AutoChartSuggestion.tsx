@@ -12,8 +12,8 @@ import { ChartBar, TrendUp, ChartPie, ChartLine, CaretDown, CaretUp, ChartLineUp
 import { analyzeAutoChartData, buildForecastBasisLabel, type AutoChartType, type ForecastModel } from '../lib/autoChartPresentation';
 
 const CHART_COLORS = [
-  '#6C8AE4', '#2FA7A0', '#D39A3A', '#43B66E', '#C76552',
-  '#8B6ED6', '#52C3E2', '#B68B57', '#5A9D84', '#D97A4A',
+  '#0EA5E9', '#14B8A6', '#F59E0B', '#F97316', '#22C55E',
+  '#2563EB', '#FB7185', '#84CC16', '#06B6D4', '#A16207',
 ];
 
 interface AutoChartSuggestionProps {
@@ -69,7 +69,7 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
 
   const { xAxis, metricKeys, pieData, resolvedTitle, financeLike, timeSeriesLike } = analysis;
   const selectedMetric = activeMetric || analysis.forecastMetric;
-  const tooltipStyle = { backgroundColor: '#08111f', borderRadius: '12px', border: '1px solid rgba(125,211,252,0.22)', color: '#fff', fontSize: '10px', fontWeight: '700', padding: '8px 12px', boxShadow: '0 10px 28px rgba(3,7,18,0.45)' };
+  const tooltipStyle = { backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid rgba(125,211,252,0.22)', color: '#fff', fontSize: '10px', fontWeight: '700', padding: '8px 12px', boxShadow: '0 10px 28px rgba(3,7,18,0.45)' };
   const axisProps = { axisLine: false, tickLine: false, tick: { fontSize: 9, fill: '#94a3b8', fontWeight: 700 } };
   const visibleMetricKeys = Array.from(new Set(
     chartType === 'forecast' || chartType === 'pie'
@@ -100,7 +100,7 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
                 </linearGradient>
               ))}
             </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1a1a1a" />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.16)" />
             <XAxis dataKey={xAxis} {...axisProps} />
             <YAxis {...axisProps} />
             <Tooltip contentStyle={tooltipStyle as any} cursor={{ fill: 'rgba(99, 110, 250, 0.06)' }} />
@@ -113,7 +113,7 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
       case 'line':
         return (
           <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1a1a1a" />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.16)" />
             <XAxis dataKey={xAxis} {...axisProps} />
             <YAxis {...axisProps} />
             <Tooltip contentStyle={tooltipStyle as any} />
@@ -144,7 +144,7 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
                 </linearGradient>
               ))}
             </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1a1a1a" />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.16)" />
             <XAxis dataKey={xAxis} {...axisProps} />
             <YAxis {...axisProps} />
             <Tooltip contentStyle={tooltipStyle as any} />
@@ -221,7 +221,7 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
                         <stop offset="100%" stopColor="#54A0FF" stopOpacity={0.02} />
                     </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1a1a1a" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.16)" />
                 <XAxis dataKey={xAxis} {...axisProps} />
                 <YAxis {...axisProps} />
                 <Tooltip contentStyle={tooltipStyle as any} />
@@ -244,7 +244,7 @@ export const AutoChartSuggestion: React.FC<AutoChartSuggestionProps> = ({ data, 
   };
 
   return (
-    <div className="w-full overflow-hidden rounded-[26px] border border-sky-300/15 bg-[linear-gradient(180deg,rgba(15,24,40,0.96),rgba(7,14,25,0.86))] shadow-[0_24px_72px_rgba(2,6,23,0.28)] animate-fade-in">
+    <div className="w-full overflow-hidden rounded-[26px] border border-sky-300/15 bg-[linear-gradient(180deg,rgba(12,23,35,0.98),rgba(15,23,42,0.92))] shadow-[0_24px_72px_rgba(2,6,23,0.28)] animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
         <div className="flex items-center gap-2.5">
