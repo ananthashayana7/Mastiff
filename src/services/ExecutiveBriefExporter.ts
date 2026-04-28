@@ -255,7 +255,6 @@ export const exportExecutiveBriefToPDF = async ({ sessionTitle, messages, active
         const executiveHeadline = envelope?.headline || markdownToPlainText(bundle.message.content).split('\n')[0] || 'Executive summary';
         const insights = envelope?.insights || [];
         const actions = envelope?.actions || [];
-        const forecast = envelope?.forecast || '';
         const dataQuality = envelope?.dataQuality || '';
         const analysisBody = markdownToPlainText(buildAnalysisBodyContent(bundle.message.content, envelope));
 
@@ -306,24 +305,6 @@ export const exportExecutiveBriefToPDF = async ({ sessionTitle, messages, active
         if (actions.length > 0) {
             cursorY = drawSectionTitle(pdf, cursorY, 'Recommended Actions');
             cursorY = drawNumberedList(pdf, cursorY, actions, [15, 118, 110]);
-        }
-
-        if (forecast) {
-            cursorY = drawSectionTitle(pdf, cursorY, 'Forecast');
-            cursorY = drawCalloutCard(
-                pdf,
-                cursorY,
-                'Expected path',
-                forecast,
-                {
-                    fill: [239, 246, 255],
-                    border: [147, 197, 253],
-                    title: [30, 64, 175],
-                    text: [31, 41, 55],
-                },
-                { bodyFontSize: 10.8, lineHeight: 5.1 }
-            );
-            cursorY += 2;
         }
 
         if (dataQuality) {

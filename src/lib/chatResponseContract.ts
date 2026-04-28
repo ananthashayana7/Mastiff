@@ -83,35 +83,33 @@ export function validateSummaryContract(
 export function buildContractFallbackSummary(inputPrompt: string, hasCharts: boolean, hasAnalysisCode: boolean): string {
   const requiresExactlyThreeBullets = /exactly\s*3\s*(?:crisp|concise|actionable|management-ready)?\s*bullet|exactly\s*3\s*bullets?/i.test(inputPrompt || '');
   const chartStatus = hasCharts
-    ? 'Interactive charts are available below and should be used to isolate the main driver, not just confirm direction.'
-    : 'Charts were not generated in this pass, so trend confidence is limited until the next rerun produces a visual read.';
+    ? 'Interactive visuals are available below, but they should support the written call rather than drive it.'
+    : 'No supporting visuals were generated in this pass, so the answer should stay focused on evidence and current drivers.';
 
   const reliabilityStatus = hasAnalysisCode
     ? 'Analysis backed by executable Python, which makes the evidence reproducible even if the narrative fallback is compressed.'
-    : 'Analysis code was incomplete, so treat the conclusion as directional until a narrower rerun produces deterministic evidence.';
+    : 'This pass stayed light on computation, so treat the conclusion as directional until a narrower rerun produces deterministic evidence.';
 
   if (requiresExactlyThreeBullets) {
     return [
-      `1) ${chartStatus}`,
-      `2) ${reliabilityStatus}`,
-      '3) Action: Focus the rerun on the single largest variance, weakest period, or highest-risk KPI so the next answer can produce a sharper driver bridge and action plan.',
+      `1) ${reliabilityStatus}`,
+      `2) ${chartStatus}`,
+      '3) Action: Focus the rerun on the single largest variance, weakest period, or highest-risk KPI so the next answer produces sharper insight instead of a broader recap.',
     ].join('\n');
   }
 
   return [
-    '**Executive Signal** The analysis response needed a deterministic fallback, so the signal is still useful but not yet sharp enough for a confident operating decision.',
-    `1) ${chartStatus}`,
-    `2) ${reliabilityStatus}`,
-    '3) The biggest risk in a fallback answer is false comfort: direction may be right while the true bridge, outlier, or scenario sensitivity remains underexplained.',
+    '**Executive Signal** The response needed a deterministic fallback, so the signal is still useful for triage but not yet sharp enough for a confident operating decision.',
+    `1) ${reliabilityStatus}`,
+    `2) ${chartStatus}`,
+    '3) The biggest risk in a fallback answer is false comfort: direction may be right while the true driver bridge, outlier rows, or KPI concentration remains underexplained.',
     '4) If the current answer still feels generic, narrow the rerun to one KPI, one business slice, or one time horizon and force a driver-level comparison.',
     '→ Action: Re-run the analysis around the single highest-impact metric, weakest period, or sharpest anomaly.',
     '→ Action: Ask for the exact bridge, outlier rows, and latest-period comparison instead of a broad recap.',
     hasAnalysisCode
       ? '→ Action: Open the Python code and verify assumptions before operationalizing the recommendation.'
       : '→ Action: Request executable analysis code so the next answer leaves a reproducible evidence trail.',
-    hasCharts
-      ? 'Forecast: A directional base case is visible in the charts below, but upside and downside conditions still need a scenario-level rerun before leadership commits.'
-      : 'Forecast: Reliable direction cannot be established until the next run produces a chart-backed trend readout.',
+    'Forecast: Forecasting is intentionally de-emphasized in this pass; focus on the current drivers unless a dedicated projection is explicitly requested.',
     `Data Quality: ${hasAnalysisCode ? 'Reproducible, but fallback-shaped and still short on driver detail.' : 'Fallback-shaped, directional only, and not decision-grade yet.'}`,
   ].join('\n');
 }

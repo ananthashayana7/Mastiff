@@ -814,7 +814,7 @@ const App: React.FC = () => {
             role: 'assistant',
             timestamp: Date.now(),
             persona: 'System Notice',
-            content: `Ready: ${newFile.name} is staged for schema review. Confirm the inferred columns to activate it and trigger immediate charts, insights, and action suggestions.`,
+            content: `Ready: ${newFile.name} is staged for schema review. Confirm the inferred columns to activate it and trigger immediate insights, risks, and action suggestions.`,
           }
         ]));
 
@@ -921,7 +921,7 @@ const App: React.FC = () => {
         role: 'assistant',
         timestamp: Date.now(),
         persona: 'System Notice',
-        content: `${filteredFile.name} is active. SPARTA is generating an initial analysis with charts, forecast signals, and recommended actions now.`,
+        content: `${filteredFile.name} is active. SPARTA is generating an initial insight brief with the strongest signals, risks, and recommended actions now.`,
       }
     ]));
 

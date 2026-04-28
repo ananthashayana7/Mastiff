@@ -120,7 +120,7 @@ export default function SignupPage() {
                     <div className="relative">
                         <BrandLockup size={64} title="SPARTA" />
                         <p className="mt-6 max-w-md text-[15px] leading-7 text-slate-200/80">
-                            Stand up a cleaner analytics workspace with forecast-first summaries, deeper drill-downs, and management-ready outputs from day one.
+                            Stand up a cleaner analytics workspace with insight-first summaries, deeper drill-downs, and management-ready outputs from day one.
                         </p>
 
                         <div className="mt-8 grid gap-3">

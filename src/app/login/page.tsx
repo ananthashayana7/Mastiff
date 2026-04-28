@@ -106,7 +106,7 @@ export default function LoginPage() {
                     <div className="relative">
                         <BrandLockup size={64} title="SPARTA" />
                         <p className="mt-6 max-w-md text-[15px] leading-7 text-slate-200/80">
-                            A sharper analysis workspace for teams that want forecast-first insights, live connectors, and interactive drill-down visuals without the clutter.
+                            A sharper analysis workspace for teams that want insight-first reporting, live connectors, and interactive drill-downs without the clutter.
                         </p>
 
                         <div className="mt-8 grid gap-3">

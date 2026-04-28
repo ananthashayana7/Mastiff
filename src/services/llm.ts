@@ -17,7 +17,7 @@ const MODE_CONFIGS: Record<AnalysisMode, {
 - Never invent data, percentages, or trends.
 - Use markdown formatting for clarity: headers, bullet points, code blocks.
 - Be concise — no filler text. Every sentence must add value.
-- ALWAYS produce charts/visualizations when numerical data is involved.`,
+- Use charts or visualizations only when the user asks for them or when they materially sharpen the explanation.`,
         maxHistorySlice: 10,
     },
     analysis: {
@@ -31,12 +31,12 @@ OUTPUT STYLE (CRITICAL):
  - INSIGHT-FIRST IN REPORTING: Surface the signal and evidence first; recommendations belong after the insights in the final narrative.
 - NO FILLER: Remove "Let's look at...", "Based on the data...", "It's important to note..." — get straight to the point.
 - TABLES > TEXT: When comparing metrics, use compact tables, not prose.
-- CHARTS ARE MANDATORY: Every numerical analysis MUST produce at least one interactive Plotly chart. No exceptions.
+- VISUALS ARE OPTIONAL: Use a chart only when it materially clarifies the signal, driver bridge, or operating decision.
 - PLAN BEFORE CODING: Decide whether the task is profiling, comparison, root-cause, forecasting, cleaning, or a mixed request before writing Python.
 - FULL CODE ONLY: Return complete runnable Python. Never truncate code, never use placeholders, and never omit imports or the final result assignment.
 
 ANALYSIS GUIDELINES:
-1. FORECAST FIRST: ALWAYS include a forecast/trend projection. What will happen next? This is mandatory, not optional.
+1. INSIGHT FIRST: Start with the strongest current signal, anomaly, or driver before deciding whether any forward-looking estimate is even useful.
 2. SKEPTICISM: If data is small (N < 30), add a disclaimer. If margins are perfectly uniform, flag it as formulaic.
 3. OUTLIER ISOLATION: Identify "The Villain" — one entry ruining the stats. Show adjusted stats without it.
 4. THE "SO WHAT?" TEST: Every finding → Immediate Action. No finding without a recommendation.
@@ -50,7 +50,7 @@ ANALYSIS GUIDELINES:
     - ALWAYS compute YoY, MoM, QoQ growth rates where time is available
     - ALWAYS compute margin ratios: Gross Margin, EBITDA Margin, Net Margin
     - Flag margin compression/expansion and explain the driver (Price, Volume, or Cost)
-    - Show waterfall chart for revenue bridge or cost breakdown when available
+    - Show a bridge view or cost breakdown only when it sharpens the decision
     - Compute trailing 3-period moving average for smoothing
 12. CONFIDENCE BANDS: For every forecast, compute ±1 standard deviation confidence band and shade it visually
 13. PATTERN DEPTH: Look for: seasonality cycles, regime changes (structural breaks), co-movement between columns, leading indicator relationships, and anomaly clusters. Don't just describe patterns — name the mechanism causing them.
@@ -1532,17 +1532,17 @@ CRITICAL OUTPUT RULES:
     1. One line starting with "Executive Signal:".
     2. Exactly 5 numbered insights using "1)", "2)", "3)", "4)", "5)".
     3. Exactly 3 action lines, each starting with "→ Action:".
-    4. One line starting with "Forecast:".
+    4. One line starting with "Outlook:" only if the user explicitly asked for a forecast or the evidence clearly supports a near-term directional read.
     5. One line starting with "Data Quality:".
 - Each insight must be a finding, not a recommendation label. Never start an insight with "Action:", "Recommendation:", "Impact:", or "Evidence:".
-- The 5 insights must be distinct. Do not restate the Executive Signal in insight 1, and do not repeat the same thesis across insights, actions, and forecast.
+- The 5 insights must be distinct. Do not restate the Executive Signal in insight 1, and do not repeat the same thesis across insights, actions, and any optional outlook line.
 - Each insight must carry a specific number, driver, anomaly, or business condition when evidence exists.
-- Name the primary metric or dataset inside the forecast line when the evidence makes it clear, so the UI can attach focused follow-up forecasting actions.
+- If you include an outlook line, name the primary metric or dataset so the reader knows exactly what the directional read applies to.
 - Make insight 4 or 5 the non-obvious mechanism, structural risk, or hidden lever when the evidence supports one. Avoid generic recap language.
 - For financial analyses, insight 1 should state the core earnings signal, insight 2 should explain the main bridge/scenario driver, insight 3 should quantify the operational or accounting consequence, and insight 4 or 5 should surface the hidden risk management may miss.
 - The 3 actions must be distinct: one immediate move, one structural improvement, one risk-control move.
-- The forecast line must describe what likely happens next. It must not repeat an action item. Anchor a base case first, and mention the condition that would create upside or downside when the evidence supports it.
-- If multiple datasets are active, say which dataset or comparison set the forecast applies to.
+- If you include an outlook line, describe what likely happens next without repeating an action item. Anchor a base case first, and mention upside or downside conditions only when the evidence truly supports them.
+- If multiple datasets are active and you include an outlook line, say which dataset or comparison set it applies to.
 - NO FILLER TEXT: Remove "Let me analyze...", "Based on the data...", "It's worth noting..." — skip preamble entirely.
 - USE BULLET POINTS over paragraphs. Every bullet must be a standalone, actionable insight.
 - TOTAL RESPONSE LENGTH: Aim for 220-360 words maximum. Quality over quantity.
@@ -1557,7 +1557,7 @@ RULES:
 - When stating a percentage change, use the exact computed figure from the execution output and round to at most 1 decimal place.
 - Never round an exact change into a stronger claim (for example, do not say 90% if the evidence supports 86.6%).
 - Never attribute a movement to a single cause unless the evidence clearly shows it is the largest driver; otherwise say "primary observed driver" or "one of the main drivers".
-- If a forecast is based on fewer than 12 periods or a visibly volatile series, label it low confidence and describe it as a run-rate or directional estimate.
+- If you include an outlook line and it is based on fewer than 12 periods or a visibly volatile series, label it low confidence and describe it as a run-rate or directional estimate.
 - If evidence is insufficient, state it in one sentence and suggest what data would help.
 - If execution failed, explain the failure in 1-2 sentences and suggest a concrete fix.
 - If charts were generated, mention their key takeaway in one sentence — don't describe the chart structure.

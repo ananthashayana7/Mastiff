@@ -691,8 +691,8 @@ function fallbackForecast(summary: string, context: EnvelopeContext): string {
   if (directionalLine) return ensureSentence(stripDecorators(directionalLine));
 
   return context.hasChart
-    ? 'Forecast direction is visible in the generated charts — review trend lines for planning decisions.'
-    : 'Forecast requires additional data points or a more specific time-series query for reliable projections.';
+    ? 'Outlook remains secondary to the current signal; review the generated visuals only if a forward-looking read is explicitly needed.'
+    : 'No forward outlook was generated in this pass; keep the focus on current drivers unless a dedicated projection is requested.';
 }
 
 function fallbackDataQuality(summary: string, context: EnvelopeContext): string {
@@ -828,7 +828,7 @@ export function buildFollowUpPrompts(
   envelope: AnalysisResponseEnvelope,
   context?: FollowUpPromptContext
 ): string[] {
-  const primaryForecast = envelope.forecastOptions?.[0]?.summary || envelope.forecast;
+  const primarySignal = envelope.insights?.[0] || envelope.headline;
   const datasets = context?.datasets || [];
   const primaryDataset = datasets[0];
   const primaryMetric = primaryDataset?.candidateKpis?.[0] || primaryDataset?.measures?.[0];
@@ -850,7 +850,7 @@ export function buildFollowUpPrompts(
       ? `Compare the active source files on ${primaryMetric} and surface contradictions, join candidates, or coverage gaps before acting.`
       : '',
     primaryMetric && primaryDate
-      ? `Build a forecast for ${primaryMetric} over ${primaryDate} with a confidence band and downside case.`
+      ? `Trace ${primaryMetric} across ${primaryDate}, isolate the strongest shift, and explain what actually changed.`
       : '',
     primaryMetric
       ? `Find anomalies and thin-data pockets affecting ${primaryMetric}, then show whether the signal still holds without them.`
@@ -868,7 +868,7 @@ export function buildFollowUpPrompts(
   const baseCandidates = [
     `Show the rows, segments, and metric drivers behind this signal: ${envelope.insights[0]}`,
     `Pressure-test this recommendation with exact upside, downside, and implementation risk: ${envelope.actions[0]}`,
-    `What could break this forecast, and which early warning KPIs should leadership monitor next? ${primaryForecast}`,
+    `What could break this signal, and which early warning KPIs should leadership monitor next? ${primarySignal}`,
     envelope.watchouts?.[0]
       ? `Pressure-test this watchout with exact rows, KPIs, and scenarios: ${envelope.watchouts[0]}`
       : '',

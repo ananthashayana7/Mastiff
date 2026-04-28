@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     List, Globe, Cpu, MagnifyingGlass, Paperclip, PaperPlaneTilt,
     Lightning, SpinnerGap, FileArrowUp, Terminal, SpeakerHigh, Copy, Check, ArrowSquareOut, Sparkle, DownloadSimple,
     ChartBar, Code, UploadSimple, ArrowRight, Table, PlayCircle, Scroll,
-    Square, Scan, TrendUp, ChartLine, ArrowClockwise
+    Square, Scan, ChartLine, ArrowClockwise
 } from '@phosphor-icons/react';
-import { ChatMessage, AnalysisMode, AnalystPersona, DataFile, ExecutionMode, ForecastOption, Session } from '../types';
+import { ChatMessage, AnalysisMode, AnalystPersona, DataFile, ExecutionMode, Session } from '../types';
 import { ChartRenderer } from './ChartRenderer';
 import { PlotlyRenderer } from './PlotlyRenderer';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -16,7 +16,6 @@ import { exportExecutiveBriefToPDF } from '../services/ExecutiveBriefExporter';
 import { BrandLockup, BrandMark } from './BrandMark';
 import { hasAutoChartableData } from '../lib/autoChart';
 import { buildAnalysisBodyContent } from '../lib/chatResponseEnvelope';
-import { buildFocusedForecastPrompt, buildForecastTargetGroups } from '../lib/forecastTargets';
 
 interface ChatWindowProps {
     currentSession: Session | null;
@@ -62,18 +61,6 @@ const MODE_CONFIG: Record<string, { label: string; desc: string; icon: string }>
     analysis: { label: 'ANALYSIS', desc: 'Agentic Data Science & Visualization', icon: '🧠' },
 };
 
-interface ForecastScenarioPanelProps {
-    forecast: string;
-    options: ForecastOption[];
-    onInspect: (option: ForecastOption) => void;
-}
-
-interface ForecastFocusPanelProps {
-    files: DataFile[];
-    onRunForecast: (prompt: string) => void;
-}
-
-const FORECAST_HORIZONS = [3, 6, 12];
 const ACTION_LANE_LABELS = ['Immediate Move', 'Structural Move', 'Risk Control'];
 const EXECUTION_MODE_OPTIONS: Array<{
     mode: ExecutionMode;
@@ -90,188 +77,10 @@ const EXECUTION_MODE_OPTIONS: Array<{
     {
         mode: 'sandbox',
         label: 'Python Sandbox',
-        helper: 'Run full code, chart generation, and computed forecasts.',
+        helper: 'Run full code, computed metrics, and supporting visuals.',
         icon: <Terminal size={12} weight="bold" />,
     },
 ];
-
-const ForecastFocusPanel: React.FC<ForecastFocusPanelProps> = ({ files, onRunForecast }) => {
-    const groups = useMemo(() => buildForecastTargetGroups(files), [files]);
-    const [selectedFileId, setSelectedFileId] = useState<string>(groups[0]?.fileId || '');
-    const [selectedMetric, setSelectedMetric] = useState<string>(groups[0]?.defaultMetric || '');
-    const [selectedHorizon, setSelectedHorizon] = useState<number>(groups[0]?.defaultHorizon || 6);
-
-    useEffect(() => {
-        if (groups.length === 0) {
-            setSelectedFileId('');
-            setSelectedMetric('');
-            setSelectedHorizon(6);
-            return;
-        }
-
-        setSelectedFileId((current) => groups.some((group) => group.fileId === current) ? current : groups[0].fileId);
-        setSelectedMetric((current) => {
-            const selectedGroup = groups.find((group) => group.fileId === selectedFileId) || groups[0];
-            return selectedGroup.metrics.includes(current) ? current : selectedGroup.defaultMetric;
-        });
-        setSelectedHorizon((current) => FORECAST_HORIZONS.includes(current) ? current : (groups[0]?.defaultHorizon || 6));
-    }, [groups, selectedFileId]);
-
-    const selectedGroup = groups.find((group) => group.fileId === selectedFileId) || groups[0];
-
-    useEffect(() => {
-        if (!selectedGroup) return;
-        setSelectedMetric((current) => selectedGroup.metrics.includes(current) ? current : selectedGroup.defaultMetric);
-    }, [selectedGroup]);
-
-    if (!selectedGroup) {
-        return null;
-    }
-
-    const selectedDateField = selectedGroup.dateFields[0];
-
-    return (
-        <section className="space-y-3 rounded-[28px] border border-stone-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,244,238,0.92))] p-4 shadow-[0_10px_28px_rgba(28,25,23,0.05)]">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-stone-500">Forecast Focus</p>
-                    <p className="mt-1 text-xs leading-relaxed text-stone-600">Choose the dataset and metric to forecast instead of relying on one default outlook.</p>
-                </div>
-                <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-sky-800">
-                    {selectedDateField ? `Timeline: ${selectedDateField}` : 'Sequential forecast'}
-                </span>
-            </div>
-
-            {groups.length > 1 && (
-                <div className="flex flex-wrap gap-2">
-                    {groups.map((group) => (
-                        <button
-                            key={group.fileId}
-                            onClick={() => setSelectedFileId(group.fileId)}
-                            className={`rounded-2xl border px-3 py-2 text-[11px] font-extrabold uppercase tracking-[0.14em] transition-all ${selectedGroup.fileId === group.fileId
-                                ? 'border-stone-300 bg-white text-stone-900 shadow-sm'
-                                : 'border-stone-200 bg-stone-50 text-stone-600 hover:border-stone-300 hover:bg-white hover:text-stone-900'
-                                }`}
-                        >
-                            {group.fileName}
-                        </button>
-                    ))}
-                </div>
-            )}
-
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-                <div className="rounded-2xl border border-stone-200 bg-white p-3">
-                    <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-stone-500">Metric</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                        {selectedGroup.metrics.map((metric) => (
-                            <button
-                                key={`${selectedGroup.fileId}-${metric}`}
-                                onClick={() => setSelectedMetric(metric)}
-                                className={`rounded-2xl border px-3 py-2 text-[11px] font-bold transition-all ${selectedMetric === metric
-                                    ? 'border-sky-200 bg-sky-50 text-sky-800'
-                                    : 'border-stone-200 bg-stone-50 text-stone-600 hover:border-stone-300 hover:bg-white hover:text-stone-900'
-                                    }`}
-                            >
-                                {metric}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="rounded-2xl border border-stone-200 bg-white p-3 lg:min-w-[11rem]">
-                    <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-stone-500">Horizon</p>
-                    <div className="mt-3 flex gap-2">
-                        {FORECAST_HORIZONS.map((horizon) => (
-                            <button
-                                key={horizon}
-                                onClick={() => setSelectedHorizon(horizon)}
-                                className={`flex-1 rounded-2xl border px-3 py-2 text-[11px] font-bold transition-all ${selectedHorizon === horizon
-                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                    : 'border-stone-200 bg-stone-50 text-stone-600 hover:border-stone-300 hover:bg-white hover:text-stone-900'
-                                    }`}
-                            >
-                                {horizon}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-3">
-                <p className="text-sm leading-relaxed text-stone-600">
-                    Forecasting <span className="font-semibold text-stone-900">{selectedMetric}</span> for <span className="font-semibold text-stone-900">{selectedGroup.fileName}</span>{selectedDateField ? ` using ${selectedDateField} as the likely timeline.` : ' using the dataset order as the timeline if no explicit date field is reliable.'}
-                </p>
-                <button
-                    onClick={() => onRunForecast(buildFocusedForecastPrompt(selectedGroup, selectedMetric, selectedHorizon))}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 text-[11px] font-extrabold uppercase tracking-[0.16em] text-stone-800 transition-all hover:bg-stone-100"
-                >
-                    <TrendUp size={12} weight="bold" />
-                    Run targeted forecast
-                </button>
-            </div>
-        </section>
-    );
-};
-
-const ForecastScenarioPanel: React.FC<ForecastScenarioPanelProps> = ({ forecast, options, onInspect }) => {
-    const resolvedOptions = options.length > 0
-        ? options
-        : [{ id: 'default-forecast', label: 'Base Case', summary: forecast, confidence: 'Low' as const }];
-    const [selectedId, setSelectedId] = useState<string>(resolvedOptions[0]?.id || 'default-forecast');
-
-    useEffect(() => {
-        setSelectedId(resolvedOptions[0]?.id || 'default-forecast');
-    }, [forecast, resolvedOptions]);
-
-    const selectedOption = resolvedOptions.find((option) => option.id === selectedId) || resolvedOptions[0];
-    const confidenceTone = selectedOption?.confidence === 'High'
-        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-        : selectedOption?.confidence === 'Medium'
-            ? 'border-sky-200 bg-sky-50 text-sky-700'
-            : 'border-amber-200 bg-amber-50 text-amber-700';
-
-    return (
-        <section className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50/75 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-stone-500">Forecast Options</p>
-                    <p className="mt-1 text-xs leading-relaxed text-stone-600">Switch scenarios instead of relying on one default outlook.</p>
-                </div>
-                <span className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${confidenceTone}`}>
-                    {selectedOption?.confidence || 'Low'} confidence
-                </span>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-                {resolvedOptions.map((option) => (
-                    <button
-                        key={option.id}
-                        onClick={() => setSelectedId(option.id)}
-                        className={`rounded-2xl border px-3 py-2 text-[11px] font-extrabold uppercase tracking-[0.16em] transition-all ${selectedId === option.id
-                            ? 'border-stone-300 bg-white text-stone-900 shadow-sm'
-                            : 'border-stone-200 bg-white/80 text-stone-600 hover:border-stone-300 hover:text-stone-900'
-                            }`}
-                    >
-                        {option.label}
-                    </button>
-                ))}
-            </div>
-
-            {selectedOption && (
-                <div className="rounded-2xl border border-stone-200 bg-white p-4">
-                    <p className="text-sm leading-relaxed text-stone-700 xl:text-[15px]">{selectedOption.summary}</p>
-                    <button
-                        onClick={() => onInspect(selectedOption)}
-                        className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 text-[11px] font-extrabold uppercase tracking-[0.16em] text-stone-800 transition-all hover:bg-stone-100"
-                    >
-                        <TrendUp size={12} weight="bold" />
-                        Pressure-test this case
-                    </button>
-                </div>
-            )}
-        </section>
-    );
-};
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
     currentSession,
@@ -315,9 +124,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
     const starterPrompts = [
         'Give me the sharpest management summary from these active datasets.',
-        'Show the top anomalies, forecast signals, and the actions I should take next.',
+        'Show the top anomalies, risks, and the actions I should take next.',
         'Compare the active files and tell me where performance or rejection differs most.',
-        'Run a comprehensive forecasting analysis on the active datasets with trend projections and confidence intervals.',
+        'Tell me which KPI and slice I should inspect first, and why.',
     ];
     const hasLoadedDatasets = files.some((file) => file.id !== 'sample-sales');
     const hasPendingDatasets = pendingFiles.length > 0;
@@ -344,7 +153,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         {isSearchEnabled ? 'Research + Analysis Running' : 'Analysis Running'}
                     </p>
                     <p className="mt-1 text-[11px] leading-relaxed text-stone-600">
-                        Profiling active data, generating Python, and preparing charts plus actions.
+                        Profiling active data and assembling the strongest decision-ready insight brief.
                     </p>
                 </div>
             </div>
@@ -389,20 +198,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             : 'Use the current active context only.';
 
         return `${datasetContext} Deep dive into this concern: ${concern}. Show the rows and columns driving it, focus on the latest relevant period, and surface the top 3 anomalies or contributors with exact values.`;
-    };
-
-    const buildForecastPrompt = (existingContent: string): string => {
-        const datasetContext = activeFiles.length > 0
-            ? `Active datasets: ${activeFiles.map((f) => f.name).join(', ')}.`
-            : 'Current analysis context.';
-        return `${datasetContext} Run a comprehensive forecasting analysis: (1) Detect all time-series or sequential columns automatically; (2) Apply linear trend + exponential smoothing for a short-term forecast (next 3–6 periods); (3) Plot observed values as a solid line, forecast as a dashed line, and a shaded 80% confidence interval band; (4) If finance data is present (revenue, profit, cost, margin), add YoY/MoM growth rates and project next quarter; (5) List the top 3 forecast-backed recommendations ranked by financial impact; (6) State assumptions, data quality, and confidence caveats explicitly. Use plotly subplots with multiple panels: main trend+forecast chart, growth rate bar chart, and a summary table.`;
-    };
-
-    const buildForecastScenarioPrompt = (option: ForecastOption): string => {
-        const datasetContext = activeFiles.length > 0
-            ? `Use only these active datasets: ${activeFiles.map((file) => file.name).join(', ')}.`
-            : 'Use the current analysis context only.';
-        return `${datasetContext} Pressure-test this forecast scenario: ${option.label}. ${option.summary} Show the assumptions, the key driver sensitivities, the KPIs that would confirm or break this case, and charts that compare this scenario against base, upside, and downside outcomes.`;
     };
 
     const extractTopConcerns = (content: string): string[] => {
@@ -533,7 +328,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         className="justify-center"
                                     />
                                     <p className="mx-auto max-w-2xl text-base font-medium leading-relaxed text-stone-600">
-                                        Ask a question or upload data. SPARTA returns evidence-backed analysis with interactive charts, forecast direction, and clear recommended actions.
+                                        Ask a question or upload data. SPARTA returns evidence-backed insights, a sharper operating call, and clear next actions without the noise.
                                     </p>
                                 </div>
 
@@ -653,8 +448,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         && executionOutput !== 'Execution successful'
                                         && !isEmptyDataNotice;
                                     const executiveInsights = m.result?.responseEnvelope?.insights?.filter(Boolean) || [];
-                                    const executiveForecast = m.result?.responseEnvelope?.forecast || '';
-                                    const executiveForecastOptions = m.result?.responseEnvelope?.forecastOptions?.filter(Boolean) || [];
                                     const dataQualityVerdict = m.result?.responseEnvelope?.dataQuality || '';
                                     const provenance = m.result?.provenance;
                                     const analysisBody = buildAnalysisBodyContent(m.content, m.result?.responseEnvelope);
@@ -675,7 +468,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     const visualRecoveryPrompt = activeFiles.length > 0
                                         ? `Use only these active datasets: ${activeFiles.map((file) => file.name).join(', ')}. Build an executive chart pack with an overview chart, a trend chart, and a driver breakdown.`
                                         : 'Build an executive chart pack from the current analysis context with an overview chart, a trend chart, and a driver breakdown.';
-                                    const showChartsSection = hasVisualOutput || hasAutoChartData || isEmptyDataNotice;
+                                    const showChartsSection = m.executionMode !== 'preview' && (hasVisualOutput || hasAutoChartData || isEmptyDataNotice);
 
                                     return (
                                         <>
@@ -785,21 +578,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                             </section>
                                         )}
 
-                                        {Boolean(m.result) && activeFiles.length > 0 && (
-                                            <ForecastFocusPanel
-                                                files={activeFiles}
-                                                onRunForecast={onSend}
-                                            />
-                                        )}
-
-                                        {executiveForecast && (
-                                            <ForecastScenarioPanel
-                                                forecast={executiveForecast}
-                                                options={executiveForecastOptions}
-                                                onInspect={(option) => onSend(buildForecastScenarioPrompt(option))}
-                                            />
-                                        )}
-
                                         {actionItems.length > 0 && (
                                             <section className="space-y-3">
                                                 <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-stone-500">Recommendations And Actions</p>
@@ -831,8 +609,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                             <section id={`export-chart-${m.id}`} className="space-y-4 rounded-[28px] border border-stone-200 bg-[linear-gradient(180deg,rgba(248,246,241,0.94),rgba(255,255,255,0.98))] p-4 shadow-[0_10px_28px_rgba(28,25,23,0.05)]">
                                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                                     <div>
-                                                        <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-stone-500">Charts And Trends</p>
-                                                        <p className="mt-1 text-xs leading-relaxed text-stone-600">Inspect the visuals after the narrative to validate the signal, scenario shape, and driver movement.</p>
+                                                        <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-stone-500">Supporting Visuals</p>
+                                                        <p className="mt-1 text-xs leading-relaxed text-stone-600">Use the visuals to validate the written call after the insights are already clear.</p>
                                                     </div>
                                                     {chartCount > 0 && (
                                                         <span className="rounded-full border border-stone-200 bg-white px-3 py-1 text-[10px] font-bold text-stone-700">
@@ -993,13 +771,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                 {copiedId === m.id ? <Check size={10} /> : <Copy size={10} />}
                                                 {copiedId === m.id ? 'Copied' : 'Copy'}
                                             </button>
-                                            {m.result && (
-                                                <button onClick={() => onSend(buildForecastPrompt(m.content))}
-                                                    className="flex items-center gap-2 text-[11px] font-bold text-sky-700 hover:text-stone-900 uppercase tracking-[0.14em] transition-colors">
-                                                    <TrendUp size={11} weight="bold" />
-                                                    Forecast All
-                                                </button>
-                                            )}
                                             {hasLogs && (
                                                 <button onClick={() => onToggleLogs(showLogsId === m.id ? null : m.id)}
                                                     className="flex items-center gap-2 text-[11px] font-bold text-stone-500 hover:text-stone-900 uppercase tracking-[0.14em] transition-colors">
@@ -1144,12 +915,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 px-3.5 py-3">
                             <div>
                                 <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-stone-500">Execution Mode</p>
-                                <p className="mt-1 text-[11px] leading-relaxed text-stone-500">
-                                    {executionMode === 'sandbox'
-                                        ? 'SPARTA will use the Python sandbox for computed analysis and heavier charts.'
-                                        : 'SPARTA will answer in preview mode without writing or running Python.'}
-                                </p>
-                            </div>
+                                    <p className="mt-1 text-[11px] leading-relaxed text-stone-500">
+                                        {executionMode === 'sandbox'
+                                            ? 'SPARTA will use the Python sandbox for computed analysis and supporting visuals when they materially help.'
+                                            : 'SPARTA will answer in preview mode without writing or running Python.'}
+                                    </p>
+                                </div>
                             <div className="flex flex-wrap gap-2">
                                 {EXECUTION_MODE_OPTIONS.map((option) => (
                                     <button
@@ -1187,7 +958,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 placeholder={isSearchEnabled
                                     ? "Search the web and your data..."
                                     : executionMode === 'sandbox'
-                                        ? "Ask SPARTA to analyze with Python, compute metrics, or build charts..."
+                                        ? "Ask SPARTA to analyze with Python, compute metrics, or build supporting visuals..."
                                         : "Ask SPARTA for quick insights, schema-backed analysis, or a no-code preview..."}
                                 className="custom-scrollbar max-h-28 flex-1 resize-none border-none bg-transparent py-2 text-sm font-medium text-stone-900 placeholder:text-stone-400 focus:ring-0"
                                 rows={1}
@@ -1209,7 +980,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <p className="mt-1.5 px-1 text-[8px] font-medium text-stone-500">
                         {executionMode === 'sandbox'
                             ? 'SPARTA can make mistakes. Verify important analyses, and open View Code on any answer to inspect the generated Python.'
-                            : 'Preview mode skips Python entirely. Switch to Python Sandbox when you want computed metrics, heavier charts, or deeper forecast math.'}
+                            : 'Preview mode skips Python entirely. Switch to Python Sandbox only when you want computed metrics or visuals that materially sharpen the call.'}
                     </p>
                 </div>
             </div>

@@ -14,6 +14,7 @@ import { buildContractFallbackSummary, containsTechnicalArtifacts, validateSumma
 import { buildAnalysisResponseEnvelope, buildFollowUpPrompts, renderEnvelopeAsSummary } from '../../../lib/chatResponseEnvelope';
 import { buildAutoChartRowsFromFiles, buildAutoChartRowsFromInlineTable, hasAutoChartableData } from '../../../lib/autoChart';
 import { buildCompactFileContext, buildMultiDatasetPromptBlock } from '../../../lib/multiDatasetIntelligence';
+import { buildInsightPreviewSummaryFromFiles, buildInsightPreviewSummaryFromInlineRows } from '../../../lib/insightPreview';
 import {
     buildAnalysisProvenance,
     buildDatasetMemoryPromptBlock,
@@ -361,87 +362,6 @@ function buildPreviewSampleFallback(sessionFiles: Array<{ filename: string; meta
     return buildAutoChartRowsFromFiles(sessionFiles) as Record<string, unknown>[];
 }
 
-function formatPreviewSampleRows(sampleRows: Record<string, unknown>[], limit = 6): string {
-    if (!Array.isArray(sampleRows) || sampleRows.length === 0) {
-        return 'No sample rows available.';
-    }
-
-    return sampleRows
-        .slice(0, limit)
-        .map((row, index) => `${index + 1}. ${JSON.stringify(row)}`)
-        .join('\n');
-}
-
-function joinPreviewList(values: unknown, emptyLabel = 'N/A', limit = 8): string {
-    if (!Array.isArray(values)) {
-        return emptyLabel;
-    }
-
-    const cleaned = values
-        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-        .slice(0, limit);
-
-    return cleaned.length > 0 ? cleaned.join(', ') : emptyLabel;
-}
-
-function buildPreviewEvidenceFromFiles(
-    sessionFiles: Array<{ filename: string; metadata?: unknown }>,
-    warnings: string[],
-): string {
-    const warningBlock = warnings.length > 0
-        ? `Profile warnings:\n- ${warnings.join('\n- ')}`
-        : 'Profile warnings:\n- None recorded during preview analysis.';
-
-    const datasetBlocks = sessionFiles.map((file) => {
-        const metadata = (file.metadata || {}) as Record<string, any>;
-        const intelligence = metadata.datasetIntelligence || {};
-        const selectedColumns = Array.isArray(metadata.selectedColumns) && metadata.selectedColumns.length > 0
-            ? metadata.selectedColumns
-            : Object.keys(metadata.columns || {});
-        const sampleRows = Array.isArray(metadata.sample) ? metadata.sample : [];
-
-        return [
-            `Dataset: ${file.filename}`,
-            `Rows: ${Number(metadata.row_count || sampleRows.length || 0)}`,
-            `Columns: ${Number(metadata.column_count || selectedColumns.length || 0)}`,
-            `Selected columns: ${joinPreviewList(selectedColumns, 'N/A', 14)}`,
-            `Measures: ${joinPreviewList(intelligence.measures)}`,
-            `Dimensions: ${joinPreviewList(intelligence.dimensions)}`,
-            `Date fields: ${joinPreviewList(intelligence.dateFields)}`,
-            `Candidate KPIs: ${joinPreviewList(intelligence.candidateKpis)}`,
-            `Business terms: ${joinPreviewList(intelligence.businessTerms)}`,
-            `Profile anomalies: ${joinPreviewList(intelligence.anomalies, 'None flagged', 6)}`,
-            'Sample rows:',
-            formatPreviewSampleRows(sampleRows as Record<string, unknown>[]),
-        ].join('\n');
-    });
-
-    return [
-        'Execution mode: preview_only',
-        'Python sandbox: disabled by user for this request.',
-        'Preview basis: schema profile, reliability scan, and representative sample rows only.',
-        'Forecast support: any forecast in this mode is directional until full sandbox execution is enabled.',
-        warningBlock,
-        ...datasetBlocks,
-    ].join('\n\n');
-}
-
-function buildPreviewEvidenceFromInlineRows(content: string, sampleRows: Record<string, unknown>[]): string {
-    const detectedColumns = sampleRows[0] ? Object.keys(sampleRows[0]) : [];
-
-    return [
-        'Execution mode: preview_only',
-        'Python sandbox: disabled by user for this request.',
-        'Preview basis: inline tabular content parsed into representative rows only.',
-        'Forecast support: any forecast in this mode is directional until full sandbox execution is enabled.',
-        `Inline prompt length: ${content.length} characters`,
-        `Detected columns: ${detectedColumns.length > 0 ? detectedColumns.join(', ') : 'None detected'}`,
-        `Sample row count: ${sampleRows.length}`,
-        'Sample rows:',
-        formatPreviewSampleRows(sampleRows),
-    ].join('\n\n');
-}
-
 function sanitizeExecutiveSummary(summary: string): string {
     if (!summary) return '';
 
@@ -635,7 +555,6 @@ export async function POST(req: NextRequest) {
             const previewFallback = hasFiles
                 ? buildPreviewSampleFallback(sessionFiles)
                 : pastedSampleRows;
-            const previewHasChart = hasAutoChartableData(previewFallback);
             const intelligenceFileContexts = hasFiles
                 ? profiledSessionFiles.map((f) => ({
                     name: f.filename,
@@ -667,40 +586,26 @@ export async function POST(req: NextRequest) {
             const dataIntelligenceContext = [formatForPrompt(intelligenceReports), datasetMemoryContext]
                 .filter(Boolean)
                 .join('\n\n');
-            const previewEvidence = hasFiles
-                ? buildPreviewEvidenceFromFiles(
+            let previewSummary = hasFiles
+                ? buildInsightPreviewSummaryFromFiles(
                     profiledSessionFiles.map((file) => ({
                         filename: file.filename,
-                        metadata: file.metadata,
+                        metadata: file.metadata as any,
                     })),
-                    dataQualityWarnings.map((warning) => warning.message),
+                    dataQualityWarnings.map((warning) => warning.message)
                 )
-                : buildPreviewEvidenceFromInlineRows(content, pastedSampleRows);
-
-            let previewSummary = await llm.summarizeExecution(
-                content,
-                '',
-                {
-                    success: true,
-                    result: previewEvidence,
-                    charts: [],
-                    plotly_charts: [],
-                },
-                analysisMode,
-                dataQualityContext,
-                dataIntelligenceContext
-            );
+                : buildInsightPreviewSummaryFromInlineRows(content, pastedSampleRows);
 
             const previewValidation = validateSummaryContract(
                 content,
                 previewSummary,
-                shouldRequireVisualizationFromPlan(queryPlan, effectiveHasFiles),
+                false,
                 false
             );
 
             previewSummary = sanitizeExecutiveSummary(previewSummary);
             if (!previewSummary || !previewValidation.valid || containsTechnicalArtifacts(previewSummary)) {
-                previewSummary = buildContractFallbackSummary(content, previewHasChart, false);
+                previewSummary = buildContractFallbackSummary(content, false, false);
             }
 
             const provenance = hasFiles
@@ -714,7 +619,7 @@ export async function POST(req: NextRequest) {
                 )
                 : undefined;
             const envelopeResult = buildAnalysisResponseEnvelope(previewSummary, {
-                hasChart: previewHasChart,
+                hasChart: false,
                 hasCode: false,
                 provenance,
             });
